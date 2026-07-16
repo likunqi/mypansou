@@ -1,0 +1,384 @@
+const http = require('http');
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
+const nodeCrypto = require('crypto');
+ const { hash, verify, enc, dec } = require('./lib/crypto');
+ const auth = require('./lib/auth');
+ const quark = require('./lib/quark');
+
+const PORT = process.env.PORT || 3090;
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const PANSOU_BASE = 'so.252035.xyz';
+const DATA_DIR = path.join(__dirname, 'data');
+const CFG = path.join(DATA_DIR, 'config.json');
+const ADMIN = path.join(DATA_DIR, 'admin.json');
+const COOKIES = path.join(DATA_DIR, 'cookies.enc');
+const CACHE = path.join(DATA_DIR, 'cache.json');
+
+
+function rd(p, d) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (e) { return d; } }
+function wr(p, d) { try { var dir = path.dirname(p); if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(p, JSON.stringify(d, null, 2), 'utf8'); } catch (e) {} }
+
+function initData() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+  if (!fs.existsSync(CFG)) wr(CFG, { pansouBase: 'so.252035.xyz', encKey: nodeCrypto.randomBytes(32).toString('hex') });
+  if (!fs.existsSync(ADMIN)) wr(ADMIN, { password: hash('admin123'), created: Date.now() });
+  if (!fs.existsSync(CACHE)) wr(CACHE, { links: {}, stats: { total: 0, quark: 0, baidu: 0 } });
+}
+
+ initData();
+
+var activeCfg = rd(CFG);
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js':   'application/javascript; charset=utf-8',
+  '.css':  'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png':  'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.gif':  'image/gif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+};
+
+function json(res, status, data) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+  res.end(JSON.stringify(data));
+}
+
+function fetchHttps(hostname, pathname, headers, postBody) {
+  return new Promise(function(resolve, reject) {
+    var opts = { hostname: hostname, path: pathname, method: postBody ? 'POST' : 'GET', headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } };
+    if (headers) Object.assign(opts.headers, headers);
+    var req = https.request(opts, function(r) {
+      var d = '';
+      r.on('data', function(c) { d += c; });
+      r.on('end', function() { resolve({ status: r.statusCode, headers: r.headers, body: d }); });
+    });
+    req.on('error', reject);
+    if (postBody) req.write(postBody);
+    req.end();
+  });
+}
+
+function readBody(req) {
+  return new Promise(function(resolve, reject) {
+    var body = '';
+    req.on('data', function(c) { body += c; });
+    req.on('end', function() { resolve(body); });
+    req.on('error', reject);
+  });
+}
+
+// --- Douban Hot List ---
+async function getDoubanHot() {
+  var res = await fetchHttps('movie.douban.com', '/chart');
+  if (res.status !== 200) return { error: 'douban_fetch_failed', status: res.status };
+  var items = [];
+  var itemRegex = /<tr class="item">([\s\S]*?)<\/tr>/g;
+  var match;
+  while ((match = itemRegex.exec(res.body)) !== null) {
+    var block = match[1];
+    var titleMatch = block.match(/<a class="nbg"[^>]*title="([^"]+)"/);
+    var linkMatch = block.match(/<a class="nbg"[^>]*href="([^"]+)"/);
+    var imgMatch = block.match(/<img[^>]*src="([^"]+)"[^>]*width="75"/);
+    var ratingMatch = block.match(/<span class="rating_num">([^<]+)<\/span>/);
+    var plMatch = block.match(/<span class="pl">\(([^)]*)\)<\/span>/);
+    var descMatch = block.match(/<p class="pl">([^<]*)<\/p>/);
+    if (titleMatch && linkMatch) {
+      var idMatch = linkMatch[1].match(/subject\/(\d+)/);
+      items.push({
+        id: idMatch ? idMatch[1] : '', title: titleMatch[1].trim(), url: linkMatch[1],
+        cover: imgMatch ? imgMatch[1] : '', rating: ratingMatch ? ratingMatch[1] : '',
+        actors: plMatch ? plMatch[1].trim() : '', desc: descMatch ? descMatch[1].trim() : '',
+      });
+    }
+  }
+  return { items: items, total: items.length };
+}
+
+// --- Link Checker (fallback) ---
+function checkLinkAvail(url, maxRedirects) {
+  if (maxRedirects === undefined) maxRedirects = 5;
+  function checkUrl(u, redirects) {
+    return new Promise(function(resolve) {
+      var proto = u.startsWith('https') ? https : http;
+      var req = proto.get(u, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        timeout: 8000,
+      }, function(r) {
+        if ((r.statusCode === 301 || r.statusCode === 302 || r.statusCode === 303 || r.statusCode === 307 || r.statusCode === 308) && r.headers.location && redirects > 0) {
+          try {
+            var loc = new URL(r.headers.location, u).href;
+            resolve(checkUrl(loc, redirects - 1));
+          } catch (e) { resolve({ valid: false, status: r.statusCode, error: 'invalid_redirect' }); }
+        } else {
+          resolve({ valid: r.statusCode < 400 || r.statusCode === 403 || r.statusCode === 401, status: r.statusCode });
+        }
+        r.resume();
+      });
+      req.on('error', function(e) { resolve({ valid: false, error: e.message }); });
+      req.on('timeout', function() { req.destroy(); resolve({ valid: false, error: 'timeout' }); });
+    });
+  }
+  return checkUrl(url, maxRedirects);
+}
+
+// --- Static file serving ---
+function serveStatic(res, urlPath) {
+  var safe = path.normalize(urlPath).replace(/^(\.\.(\/|\\|$))+/, '');
+  var fp = path.join(PUBLIC_DIR, safe === '/' ? 'index.html' : safe);
+  var ext = path.extname(fp).toLowerCase();
+  var ct = MIME[ext] || 'application/octet-stream';
+  fs.readFile(fp, function(err, data) {
+    if (err) {
+      fs.readFile(path.join(PUBLIC_DIR, 'index.html'), function(err2, data2) {
+        if (err2) return json(res, 404, { error: 'Not Found' });
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(data2);
+      });
+    } else {
+      res.writeHead(200, { 'Content-Type': ct });
+      res.end(data);
+    }
+  });
+}
+
+// --- Pansou API proxy ---
+async function proxyPansou(req, res) {
+  var u = new URL(req.url, 'http://' + req.headers.host);
+  var base = activeCfg.pansouBase || PANSOU_BASE;
+  var targetPath = u.pathname.replace(/^\/api\/pansou/, '/api') + u.search;
+  try {
+    var pr = await fetchHttps(base, targetPath);
+    try { JSON.parse(pr.body); } catch (pe) {
+      json(res, 502, { error: "pansou_api_error", message: "pansou returned non-JSON response" });
+      return;
+    }
+    res.writeHead(pr.status, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+    res.end(pr.body);
+  } catch (e) {
+    json(res, 502, { error: 'pansou_proxy_error', message: e.message });
+  }
+}
+
+// --- Router ---
+async function handleRequest(req, res) {
+  var method = req.method, url = req.url;
+  var urlPath = new URL(url, 'http://' + req.headers.host).pathname;
+
+  if (method === 'OPTIONS') {
+    res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Max-Age': '86400' });
+    return res.end();
+  }
+
+  // Douban hot list
+  if (urlPath === '/api/douban/hot' && method === 'GET') {
+    try { var data = await getDoubanHot(); json(res, data.error ? 502 : 200, data); }
+    catch (e) { json(res, 502, { error: 'douban_error', message: e.message }); }
+    return;
+  }
+
+  // Link availability check (proxy to pansou API then fallback)
+  if (urlPath === '/api/check/links' && method === 'POST') {
+    try {
+      var body = await readBody(req);
+      var parsed = JSON.parse(body);
+      var items = parsed.items || [];
+      var pansouItems = items.map(function(it) { return { disk_type: it.disk_type || it.type || '', url: it.url }; });
+  var pb = JSON.stringify({ items: pansouItems });
+  try {
+    var base = activeCfg.pansouBase || PANSOU_BASE;
+    var pr = await fetchHttps(base, '/api/check/links', { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(pb) }, pb);
+    var pj = JSON.parse(pr.body);
+        if (pj.results) { json(res, 200, { code: 0, message: 'success', results: pj.results }); return; }
+      } catch (pe) { console.error('pansou check failed:', pe.message); }
+      // Fallback
+      var fb = await Promise.all(items.map(function(it) {
+        return new Promise(function(r2) {
+          checkLinkAvail(it.url).then(function(cr) {
+            r2({ disk_type: it.disk_type || it.type || '', url: it.url, state: cr.valid ? 'valid' : 'invalid', checked_at: Date.now() });
+          }).catch(function() {
+            r2({ disk_type: it.disk_type || it.type || '', url: it.url, state: 'uncertain', checked_at: Date.now() });
+          });
+        });
+      }));
+      json(res, 200, { code: 0, message: 'success', results: fb });
+    } catch (e) {
+      json(res, 400, { code: 400, message: 'invalid_request', error: e.message });
+    }
+    return;
+  }
+
+  // Pansou proxy
+  if (urlPath.startsWith('/api/pansou/') && method === 'GET') {
+    return proxyPansou(req, res);
+  }
+
+  // --- Admin API routes ---
+  if (urlPath.startsWith('/api/admin/')) {
+    if (urlPath === '/api/admin/login' && method === 'POST') {
+      try {
+        var b = JSON.parse(await readBody(req));
+        var adminData = rd(ADMIN, { password: '' });
+        var t = auth.login(b.password, adminData.password);
+        json(res, t ? 200 : 401, t ? { token: t } : { error: 'wrong_password' });
+      } catch (e) { json(res, 400, { error: e.message }); }
+      return;
+    }
+    var token = (req.headers['authorization'] || '').replace('Bearer ', '');
+    if (!auth.check(token)) { json(res, 401, { error: 'not_logged_in' }); return; }
+    // Logout
+    if (urlPath === '/api/admin/logout' && method === 'POST') {
+      auth.logout(token); json(res, 200, { ok: true }); return;
+    }
+    // Dashboard status
+    if (urlPath === '/api/admin/status' && method === 'GET') {
+      var cfg = rd(CFG, {});
+      var cookieFile = '';
+      try { cookieFile = fs.readFileSync(COOKIES, 'utf8'); } catch (e) {}
+      var hasQuark = cookieFile.includes('quark:');
+      var hasBaidu = cookieFile.includes('baidu:');
+      var cacheData = rd(CACHE, { links: {}, stats: { total: 0 } });
+      var cacheTotal = cacheData.stats ? cacheData.stats.total : Object.keys(cacheData.links).length;
+      // Test pansou connectivity
+      try {
+        var pansouRes = await fetchHttps(cfg.pansouBase || PANSOU_BASE, '/api/search?kw=test&_t=1');
+        var pansouOk = pansouRes.status === 200;
+      } catch (e) { pansouOk = false; }
+      json(res, 200, {
+        pansou: pansouOk,
+        quark: hasQuark,
+        baidu: hasBaidu,
+        cache: cacheTotal,
+        adminSince: rd(ADMIN, {}).created || 0,
+      });
+      return;
+    }
+    // Save cookies
+    if (urlPath === '/api/admin/cookies' && method === 'POST') {
+      try {
+        var b = JSON.parse(await readBody(req));
+        var key = rd(CFG, {}).encKey || 'x';
+        var cookiePairs = {};
+        if (b.quark) cookiePairs.quark = enc(b.quark, key);
+        if (b.baidu) cookiePairs.baidu = enc(b.baidu, key);
+        var existing = '';
+        try { existing = fs.readFileSync(COOKIES, 'utf8'); } catch (e) {}
+        var existingObj = {};
+        try { existingObj = JSON.parse(existing); } catch (e) {}
+        Object.assign(existingObj, cookiePairs);
+        wr(COOKIES, existingObj);
+        json(res, 200, { ok: true });
+      } catch (e) { json(res, 500, { error: e.message }); }
+      return;
+    }
+    // Test cookie connection
+    if (urlPath === '/api/admin/cookies/test' && method === 'POST') {
+      try {
+        var b = JSON.parse(await readBody(req));
+        var result = { quark: false, baidu: false };
+        if (b.quark) {
+          try {
+            var qr = await fetchHttps('pan.quark.cn', '/', { 'Cookie': b.quark });
+            result.quark = qr.status < 400;
+          } catch (e) {}
+        }
+        if (b.baidu) {
+          try {
+            // Simple connectivity test for baidu pan
+            var br = await fetchHttps('pan.baidu.com', '/', { 'Cookie': b.baidu });
+            result.baidu = br.status < 400;
+          } catch (e) {}
+        }
+        json(res, 200, result);
+      } catch (e) { json(res, 500, { error: e.message }); }
+      return;
+    }
+    // Get config
+    if (urlPath === '/api/admin/config' && method === 'GET') {
+      var cfg = rd(CFG, {});
+      json(res, 200, { pansouBase: cfg.pansouBase || PANSOU_BASE, baiduDir: cfg.baiduDir || '/' });
+      return;
+    }
+    // Save config
+    if (urlPath === '/api/admin/config' && method === 'POST') {
+      try {
+        var b = JSON.parse(await readBody(req));
+        var cfg = rd(CFG, {});
+        if (b.pansouBase) cfg.pansouBase = b.pansouBase;
+        if (b.baiduDir !== undefined) cfg.baiduDir = b.baiduDir;
+        wr(CFG, cfg);
+
+        activeCfg = rd(CFG); // reload
+        json(res, 200, { ok: true });
+      } catch (e) { json(res, 500, { error: e.message }); }
+      return;
+    }
+    // Cache info
+    if (urlPath === '/api/admin/cache' && method === 'GET') {
+      var cacheData = rd(CACHE, { links: {}, stats: { total: 0, quark: 0, baidu: 0 } });
+      json(res, 200, cacheData.stats);
+      return;
+    }
+    // Clear cache
+    if (urlPath === '/api/admin/cache/clear' && method === 'POST') {
+      wr(CACHE, { links: {}, stats: { total: 0, quark: 0, baidu: 0 } });
+      json(res, 200, { ok: true });
+      return;
+    }
+    // Change password
+    if (urlPath === '/api/admin/password' && method === 'POST') {
+      try {
+        var b = JSON.parse(await readBody(req));
+        var adminData = rd(ADMIN, { password: '' });
+        if (!auth.login(b.oldPassword, adminData.password)) {
+          json(res, 403, { error: 'current_password_wrong' }); return;
+        }
+        wr(ADMIN, { password: hash(b.newPassword), created: Date.now() });
+        json(res, 200, { ok: true });
+      } catch (e) { json(res, 500, { error: e.message }); }
+      return;
+    }
+    // Unknown admin route
+    json(res, 404, { error: 'admin_route_not_found' });
+    return;
+  }
+
+  // --- Transfer API ---
+  if (urlPath === '/api/transfer/save' && method === 'POST') {
+    try {
+      var b = JSON.parse(await readBody(req));
+      var url = b.url;
+      if (!url) { json(res, 400, { error: 'url required' }); return; }
+      var cacheData = rd(CACHE, { links: {} });
+      var cached = cacheData.links[url];
+      if (cached) { json(res, 200, { cached: true, result: cached }); return; }
+      var cfg = rd(CFG, {});
+      var encCookies = '';
+      try { encCookies = fs.readFileSync(COOKIES, 'utf8'); } catch(e) {}
+      var cookieObj = {};
+      try { cookieObj = JSON.parse(encCookies); } catch(e) {}
+      var qCookie = '';
+      if (cookieObj.quark) { try { qCookie = dec(cookieObj.quark, cfg.encKey); } catch(e) {} }
+      if (!qCookie) { json(res, 400, { error: 'quark cookie not configured' }); return; }
+      var qr = await quark.transfer(url, qCookie);
+      var result = { newUrl: qr.url, saved: true, pwd: qr.pwd || '' };
+      cacheData.links[url] = result;
+      cacheData.stats = cacheData.stats || { total: 0, quark: 0, baidu: 0 };
+      cacheData.stats.total = Object.keys(cacheData.links).length;
+      wr(CACHE, cacheData);
+      json(res, 200, { cached: false, result: result });
+    } catch(e) { json(res, 500, { error: e.message }); }
+    return;
+  }
+
+  // Static files / SPA fallback
+  serveStatic(res, urlPath);
+}
+
+var server = http.createServer(handleRequest);
+server.listen(PORT, function() {
+//   console.log('[???] Server started at http://localhost:' + PORT);
+  console.log('  Douban: http://localhost:' + PORT + '/api/douban/hot');
+  console.log('  Admin:  http://localhost:' + PORT + '/admin.html');
+});

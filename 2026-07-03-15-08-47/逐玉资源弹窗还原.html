@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>小狐搜搜 - 逐玉 资源弹窗还原</title>
+  <style>
+    :root {
+      --theme-color: #1f2937;
+      --theme-theme: #6366f1;
+      --theme-background: color-mix(in srgb, #f5f8ff 88%, #eaf2ff 12%);
+      --theme-other_background: color-mix(in srgb, #ffffff 92%, #f3f7ff 8%);
+    }
+    html[data-theme='dark'] {
+      --theme-background: #0b1020;
+      --theme-other_background: #111827;
+      --theme-color: #f9fafb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--theme-color);
+      background: var(--theme-background);
+      min-height: 100vh;
+      padding: 24px;
+      transition: background .3s ease, color .3s ease;
+    }
+    .page {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 900;
+      font-size: 18px;
+    }
+    .brand img {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+    }
+    .btn-toggle {
+      padding: 8px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(2,6,23,.12);
+      background: rgba(255,255,255,.72);
+      color: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    html[data-theme='dark'] .btn-toggle {
+      background: rgba(255,255,255,.08);
+      border-color: rgba(180,190,255,.16);
+    }
+    .section-title {
+      font-size: 14px;
+      font-weight: 900;
+      margin-bottom: 12px;
+      opacity: .78;
+    }
+    .quantum-item {
+      position: relative;
+      background: var(--theme-other_background);
+      border: 1px solid rgba(2,6,23,.08);
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+    html[data-theme='dark'] .quantum-item {
+      border-color: rgba(180,190,255,.10);
+      background: rgba(255,255,255,.04);
+    }
+    .quantum-item .title {
+      color: inherit;
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 15px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .valid-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      background: rgba(16,185,129,.10);
+      color: #059669;
+    }
+    .valid-tag.is-picked {
+      background: linear-gradient(135deg, #F3E6C8 0%, #D4AF37 100%);
+      color: #3E3016;
+      padding: 1px 6px;
+      font-weight: 600;
+      height: 18px;
+      line-height: 1;
+      border: 0;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      opacity: .78;
+    }
+    .source-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .source-tag img { width: 14px; height: 14px; }
+    .go {
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 12px;
+      border-radius: 10px;
+      text-decoration: none;
+      color: var(--theme-theme, #133ab3);
+      background: rgba(255,255,255,.82);
+      border: 1px solid rgba(18,90,255,.22);
+      font-weight: 800;
+      font-size: 12px;
+      cursor: pointer;
+      transition: transform .16s ease, box-shadow .16s ease, background-color .16s ease, color .16s ease, border-color .16s ease;
+      box-shadow: 0 10px 18px rgba(0,0,0,.10);
+    }
+    .go::after { content: "→"; margin-left: 6px; font-weight: 900; opacity: .9; }
+    .go:hover {
+      transform: translateY(-1px);
+      background: var(--theme-theme, #133ab3);
+      color: rgba(255,255,255,.96);
+      border-color: rgba(18,90,255,.35);
+      box-shadow: 0 16px 28px rgba(0,0,0,.16);
+    }
+
+    /* Modal overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2,6,23,.45);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .dialogUrlBox {
+      --q-dialog-w: clamp(360px, 92vw, 620px);
+      width: var(--q-dialog-w);
+      max-width: calc(100vw - 24px);
+      border-radius: 18px;
+      position: relative;
+    }
+    .q-res-modal {
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(2,6,23,.10);
+      background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(245,250,255,.92));
+      box-shadow: 0 26px 72px rgba(2,6,23,.14);
+      color: rgba(2,6,23,.88);
+      display: flex;
+      flex-direction: column;
+      max-height: min(92vh, 860px);
+    }
+    html[data-theme='dark'] .q-res-modal {
+      border-color: rgba(180,190,255,.14);
+      background:
+        radial-gradient(620px 320px at 40% 0%, rgba(56,189,248,.18), rgba(0,0,0,0) 62%),
+        radial-gradient(420px 260px at 92% 10%, rgba(99,102,241,.16), rgba(0,0,0,0) 62%),
+        rgba(10,10,26,.92);
+      box-shadow: 0 32px 84px rgba(0,0,0,.46);
+      color: rgba(236,254,255,.88);
+    }
+    .q-res-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 16px 18px 14px;
+      background: rgba(255,255,255,.62);
+      border-bottom: 1px solid rgba(2,6,23,.08);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    html[data-theme='dark'] .q-res-top {
+      background: rgba(255,255,255,.06);
+      border-bottom-color: rgba(180,190,255,.12);
+    }
+    .q-res-top-title { font-size: 16px; font-weight: 900; letter-spacing: .2px; line-height: 1.35; margin-bottom: 6px; }
+    .q-res-top-sub { font-size: 12px; opacity: .72; }
+    .q-res-close {
+      width: 34px; height: 34px; border-radius: 12px;
+      border: 1px solid rgba(2,6,23,.10);
+      background: rgba(255,255,255,.72);
+      color: inherit;
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 18px; line-height: 1; padding: 0;
+      box-shadow: 0 12px 26px rgba(2,6,23,.10);
+    }
+    html[data-theme='dark'] .q-res-close {
+      border-color: rgba(180,190,255,.14);
+      background: rgba(255,255,255,.06);
+      box-shadow: 0 18px 38px rgba(0,0,0,.36);
+    }
+    .q-res-body { padding: 14px 18px 8px; min-height: 0; overflow: hidden; flex: 1 1 auto; }
+    .q-res-split { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; }
+    .q-res-media { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+    .q-res-cover {
+      width: 100%; border-radius: 16px; overflow: hidden;
+      border: 1px solid rgba(2,6,23,.10);
+      background: rgba(148,163,184,.12);
+      aspect-ratio: 3 / 4;
+      display: flex; align-items: center; justify-content: center;
+    }
+    html[data-theme='dark'] .q-res-cover { border-color: rgba(180,190,255,.14); background: rgba(255,255,255,.06); }
+    .q-res-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .q-res-qr { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .q-res-qr-box {
+      width: 140px; height: 140px; padding: 10px; border-radius: 18px;
+      background: rgba(255,255,255,.92); border: 1px solid rgba(2,6,23,.10);
+      box-shadow: 0 18px 40px rgba(2,6,23,.14);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .q-res-qr-box img { width: 100%; height: 100%; border-radius: 8px; }
+    .q-res-qr-tip { font-size: 12px; font-weight: 800; opacity: .72; letter-spacing: .2px; }
+    .q-res-content { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+    .q-res-section {
+      border-radius: 16px; padding: 12px 12px;
+      background: rgba(148,163,184,.10); border: 1px solid rgba(2,6,23,.08);
+    }
+    html[data-theme='dark'] .q-res-section { background: rgba(255,255,255,.06); border-color: rgba(180,190,255,.12); }
+    .q-res-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .q-res-section-title { font-size: 12px; font-weight: 900; opacity: .78; letter-spacing: .2px; white-space: nowrap; }
+    .q-res-pills { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; min-width: 0; }
+    .q-res-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 900;
+      background: rgba(255,255,255,.62); border: 1px solid rgba(2,6,23,.08); max-width: 100%;
+    }
+    html[data-theme='dark'] .q-res-pill { background: rgba(255,255,255,.08); border-color: rgba(180,190,255,.16); }
+    .q-res-pill-icon { width: 14px; height: 14px; display: block; flex: 0 0 auto; }
+    .q-res-pill-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .q-res-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .q-res-field { padding: 10px 10px; border-radius: 14px; background: rgba(255,255,255,.62); border: 1px solid rgba(2,6,23,.08); }
+    html[data-theme='dark'] .q-res-field { background: rgba(255,255,255,.08); border-color: rgba(180,190,255,.16); }
+    .q-res-field .k { font-size: 12px; opacity: .72; margin-bottom: 8px; font-weight: 900; letter-spacing: .2px; }
+    .q-res-field .v { font-size: 13px; font-weight: 900; line-height: 1.2; word-break: break-all; }
+    .q-res-link-row { display: flex; align-items: stretch; gap: 10px; }
+    .q-res-link-text {
+      flex: 1 1 auto; min-width: 0; font-size: 13px; line-height: 1.45; word-break: break-all;
+      padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.62); border: 1px solid rgba(2,6,23,.08);
+    }
+    html[data-theme='dark'] .q-res-link-text { background: rgba(255,255,255,.08); border-color: rgba(180,190,255,.16); }
+    .q-res-link-status-in { font-size: 12px; font-weight: 900; letter-spacing: .2px; opacity: .78; margin-bottom: 8px; }
+    .q-res-link-value { word-break: break-all; }
+    .q-res-code-row { display: flex; align-items: stretch; gap: 10px; margin-top: 10px; }
+    .q-res-code-label {
+      flex: 0 0 auto; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 14px;
+      font-size: 12px; font-weight: 900; opacity: .78; background: rgba(255,255,255,.50); border: 1px solid rgba(2,6,23,.08);
+    }
+    .q-res-code-text { flex: 1 1 auto; min-width: 0; font-size: 13px; line-height: 1.45; word-break: break-all; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.62); border: 1px solid rgba(2,6,23,.08); }
+    .q-res-copy {
+      flex: 0 0 auto; height: 40px; padding: 0 14px; border-radius: 14px;
+      border: 1px solid rgba(2,6,23,.10); background: rgba(255,255,255,.72);
+      font-size: 13px; font-weight: 900; cursor: pointer; color: inherit; box-shadow: 0 12px 24px rgba(2,6,23,.10);
+    }
+    html[data-theme='dark'] .q-res-copy { border-color: rgba(180,190,255,.14); background: rgba(255,255,255,.06); box-shadow: 0 18px 38px rgba(0,0,0,.34); }
+    .q-res-desc { font-size: 13px; line-height: 1.65; opacity: .84; max-height: 6.6em; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; word-break: break-word; }
+    .q-res-footnote { padding: 8px 18px 10px; flex: 0 0 auto; }
+    .q-res-qq-link {
+      display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px;
+      border: 1px solid rgba(168,85,247,.36);
+      background: radial-gradient(220px 120px at 18% 0%, rgba(168,85,247,.26), rgba(0,0,0,0) 60%),
+                  radial-gradient(220px 120px at 88% 0%, rgba(99,102,241,.22), rgba(0,0,0,0) 60%),
+                  rgba(255,255,255,.68);
+      color: rgba(88,28,135,.98); font-weight: 900; font-size: 12px; letter-spacing: .2px; text-decoration: none;
+      box-shadow: 0 0 0 1px rgba(99,102,241,.05) inset, 0 14px 34px rgba(168,85,247,.22), 0 0 26px rgba(99,102,241,.18);
+      transition: transform .15s ease, filter .15s ease, box-shadow .15s ease; user-select: none;
+    }
+    .q-res-qq-link:hover { transform: translateY(-1px); filter: brightness(1.02) saturate(1.05); }
+    html[data-theme='dark'] .q-res-qq-link { color: rgba(233,213,255,.98); border-color: rgba(196,181,253,.22); }
+    .q-res-statement .content { text-align: center; font-size: 12px; line-height: 1.6; opacity: .78; }
+    .q-res-qq-line { display: flex; justify-content: center; margin-top: 10px; }
+    .q-res-actions {
+      display: flex; justify-content: flex-end; gap: 10px;
+      padding: 10px 18px 14px; background: rgba(255,255,255,.62);
+      border-top: 1px solid rgba(2,6,23,.08); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    }
+    html[data-theme='dark'] .q-res-actions { background: rgba(255,255,255,.06); border-top-color: rgba(180,190,255,.12); }
+    .q-res-btn { height: 40px; line-height: 40px; padding: 0 16px; border-radius: 14px; font-size: 13px; font-weight: 900; letter-spacing: .2px; cursor: pointer; user-select: none; border: 1px solid transparent; text-decoration: none; }
+    .q-res-btn.q-res-btn-ghost { color: inherit; background: transparent; border-color: rgba(2,6,23,.14); }
+    html[data-theme='dark'] .q-res-btn.q-res-btn-ghost { border-color: rgba(180,190,255,.16); }
+    .q-res-btn.q-res-btn-primary { color: rgba(255,255,255,.96); background: linear-gradient(135deg, rgba(37,99,235,.96), rgba(59,130,246,.96)); box-shadow: 0 14px 30px rgba(37,99,235,.24); border-color: rgba(0,0,0,0); }
+
+    @media (max-width: 640px) {
+      .q-res-split { grid-template-columns: 1fr; }
+      .q-res-media { flex-direction: row; align-items: stretch; justify-content: space-between; gap: 12px; }
+      .q-res-cover { width: 120px; }
+      .q-res-qr { width: auto; }
+      .q-res-qr-box { width: 120px; height: 120px; }
+      .q-res-body { padding: 14px 14px 10px; }
+      .q-res-top, .q-res-actions { padding-left: 14px; padding-right: 14px; }
+      .q-res-fields { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div class="brand">
+        <img src="https://uuyue.top/uploads/image/20260304/58a75132b59abcf505c8fd785a79f730.png" alt="logo">
+        小狐搜搜 · 逐玉
+      </div>
+      <button class="btn-toggle" onclick="toggleTheme()">切换明暗</button>
+    </div>
+
+    <div class="section-title">搜索结果列表</div>
+    <div class="quantum-item">
+      <div>
+        <a href="javascript:;" class="title">
+          <span class="valid-tag is-picked">精选</span>
+          逐玉 2024 4K 国语中字 网盘资源
+        </a>
+        <div class="meta">
+          <span class="source-tag"><img src="https://uuyue.top/views/index/news/common/static/images/0.png" alt=""><span>夸克网盘</span></span>
+          <span class="valid-tag">有效</span>
+          <span>分享时间：2024-12-20</span>
+          <span>分享用户：资源分享者</span>
+        </div>
+      </div>
+      <button class="go" onclick="openModal()">获取资源</button>
+    </div>
+  </div>
+
+  <!-- Modal overlay -->
+  <div class="overlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="dialogUrlBox" onclick="event.stopPropagation()">
+      <div class="q-res-modal">
+        <div class="q-res-top">
+          <div>
+            <div class="q-res-top-title">逐玉 2024 4K 国语中字</div>
+            <div class="q-res-top-sub">更新时间：2024-12-20 14:32</div>
+          </div>
+          <button class="q-res-close" onclick="closeModal()" aria-label="关闭">×</button>
+        </div>
+        <div class="q-res-body">
+          <div class="q-res-split">
+            <div class="q-res-media">
+              <div class="q-res-cover">
+                <img src="https://placehold.co/300x400/e2e8f0/475569?text=逐玉" alt="cover">
+              </div>
+              <div class="q-res-qr">
+                <div class="q-res-qr-box">
+                  <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://uuyue.top" alt="qrcode">
+                </div>
+                <div class="q-res-qr-tip">扫码获取</div>
+              </div>
+            </div>
+            <div class="q-res-content">
+              <div class="q-res-section">
+                <div class="q-res-section-head">
+                  <div class="q-res-section-title">资源信息</div>
+                  <div class="q-res-pills">
+                    <span class="q-res-pill"><img class="q-res-pill-icon" src="https://uuyue.top/views/index/news/common/static/images/0.png" alt=""><span class="q-res-pill-text">夸克网盘</span></span>
+                    <span class="q-res-pill"><span class="q-res-pill-text">电影</span></span>
+                  </div>
+                </div>
+                <div class="q-res-fields">
+                  <div class="q-res-field"><div class="k">文件大小</div><div class="v">8.24 GB</div></div>
+                  <div class="q-res-field"><div class="k">更新时间</div><div class="v">2024-12-20</div></div>
+                </div>
+              </div>
+              <div class="q-res-section">
+                <div class="q-res-section-head"><div class="q-res-section-title">链接信息</div></div>
+                <div class="q-res-link-row">
+                  <div class="q-res-link-text">
+                    <div class="q-res-link-status-in">链接已检测</div>
+                    <div class="q-res-link-value">https://pan.quark.cn/s/abc123def456</div>
+                  </div>
+                  <button class="q-res-copy">复制</button>
+                </div>
+                <div class="q-res-code-row">
+                  <div class="q-res-code-label">访问密码</div>
+                  <div class="q-res-code-text">z7y9</div>
+                  <button class="q-res-copy">复制密码</button>
+                </div>
+              </div>
+              <div class="q-res-section">
+                <div class="q-res-section-head"><div class="q-res-section-title">资源描述</div></div>
+                <div class="q-res-desc">逐玉 2024 4K 国语中字，高清无水印版本，适合收藏与观看。资源来自网络公开分享，如有侵权请联系删除。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="q-res-footnote">
+          <div class="q-res-statement">
+            <div class="content">
+              <p>🔔 声明：本站链接均由程序自动收集自公开网盘，不存储、不传播任何文件，跳转链接指向网盘官网。</p>
+              <p>文件内容请自行辨别，如发现违规请向网盘平台举报。本站仅供学习交流，无任何收费行为。</p>
+              <p class="q-res-qq-line">
+                <a class="q-res-qq-link" href="https://qm.qq.com" target="_blank" rel="noopener noreferrer">加入QQ群：983131757（已开通群搜机器人）点击加入群聊</a>
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="q-res-actions">
+          <a class="q-res-btn q-res-btn-ghost" href="https://pan.quark.cn/s/abc123def456" target="_blank" rel="noopener noreferrer">打开链接</a>
+          <button class="q-res-btn q-res-btn-primary" onclick="closeModal()">关闭</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const html = document.documentElement;
+      html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    }
+    function openModal() { document.getElementById('modalOverlay').style.display = 'flex'; }
+    function closeModal(e) { document.getElementById('modalOverlay').style.display = 'none'; }
+  </script>
+</body>
+</html>

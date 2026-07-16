@@ -1,0 +1,19 @@
+{
+  "name": "cloud-disk-search",
+  "version": "1.0.0",
+  "description": "云盘资源搜索引擎 - 基于盘搜 API 的网盘资源搜索与链接可用性检测工具",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "keywords": [
+    "pansou",
+    "cloud-disk",
+    "search-engine",
+    "douban",
+    "baidu",
+    "quark"
+  ],
+  "author": "",
+  "license": "MIT"
+}
