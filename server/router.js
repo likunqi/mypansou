@@ -1,8 +1,9 @@
-﻿const { cors, json, serveStatic, logger } = require("./middleware");
+const { cors, json, serveStatic, logger } = require("./middleware");
 const { initData } = require("../lib/storage");
 const auth = require("../lib/auth");
-const douban = require("./handlers/douban");
+
 const pansou = require("./handlers/pansou");
+const hot = require("./handlers/hot");
 const check = require("./handlers/check");
 const transfer = require("./handlers/transfer");
 const admin = require("./handlers/admin");
@@ -15,8 +16,8 @@ async function handleRequest(req, res) {
   if (method === "OPTIONS") return cors(req, res);
 
   try {
-    // Douban hot list
-    if (urlPath === "/api/douban/hot" && method === "GET") return await douban.handler(req, res);
+    // Hot trending
+    if (urlPath === "/api/hot/trending" && method === "GET") return await hot.getTrending(req, res);
 
     // Link availability check
     if (urlPath === "/api/check/links" && method === "POST") return await check.handler(req, res);
@@ -44,6 +45,21 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/cache" && method === "GET") return await admin.cacheInfo(req, res);
       if (urlPath === "/api/admin/cache/clear" && method === "POST") return await admin.clearCache(req, res);
       if (urlPath === "/api/admin/password" && method === "POST") return await admin.changePassword(req, res);      json(res, 404, { error: "admin_route_not_found" });
+      return;
+    }
+
+    // Search page
+    if (urlPath === "/search" && method === "GET") {
+      var fs2 = require("fs");
+      var p2 = require("path");
+      var fp2 = p2.join(__dirname, "..", "public", "search.html");
+      try {
+        var html2 = fs2.readFileSync(fp2, "utf8");
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(html2);
+      } catch (e) {
+        json(res, 404, { error: "search_page_not_found" });
+      }
       return;
     }
 
