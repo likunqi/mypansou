@@ -1,0 +1,10 @@
+﻿**/node_modules/
+.git/
+.gitignore
+_quark_ref/
+docker-publish.yml
+node_modules/
+*.py
+*.bat
+_clean_plugins.py
+_priority.json

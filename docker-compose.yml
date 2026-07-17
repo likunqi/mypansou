@@ -1,0 +1,63 @@
+﻿version: "3.9"
+
+services:
+  app:
+    build: .
+    container_name: yunpansou
+    restart: unless-stopped
+    ports:
+      - "3090:3090"
+    environment:
+      - PORT=3090
+      - NODE_ENV=production
+      # ---- MySQL 接入后启用 ----
+      # DB_HOST: mysql
+      # DB_PORT: 3306
+      # DB_USER: yunpansou
+      # DB_PASSWORD: changeme
+      # DB_NAME: yunpansou
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3090/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # =============================================================
+  # MySQL — 接入步骤（开发/生产通用）：
+  #
+  # 1. 在项目根目录执行:
+  #      docker compose up -d mysql
+  #      docker compose exec mysql mysql -uroot -pchangeme
+  #        -> CREATE DATABASE yunpansou CHARACTER SET utf8mb4;
+  #        -> CREATE USER "yunpansou"@"%" IDENTIFIED BY "changeme";
+  #        -> GRANT ALL ON yunpansou.* TO "yunpansou"@"%";
+  #
+  # 2. 取消本文件 mysql 服务的注释，取消 app 服务中 DB_* 环境变量的注释
+  #
+  # 3. 在 lib/storage.js 中增加 MySQL 分支（见下方迁移说明）
+  #
+  # 4. 重启: docker compose up -d --build app
+  # =============================================================
+
+  # mysql:
+  #   image: mysql:8.0
+  #   container_name: yunpansou-mysql
+  #   restart: unless-stopped
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: changeme
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql
+  #     - ./sql/init:/docker-entrypoint-initdb.d   # 自动建表脚本
+  #   healthcheck:
+  #     test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pchangeme"]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 5
+
+volumes:
+  # mysql_data:
