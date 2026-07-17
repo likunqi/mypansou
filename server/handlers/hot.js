@@ -1,4 +1,4 @@
-const { fetchHttps, json } = require("../middleware");
+﻿const { fetchHttps, json } = require("../middleware");
 const { rd, wr, PATHS, PANSOU_BASE } = require("../../lib/storage");
 const { getDoubanHot } = require("./douban");
 
@@ -49,6 +49,35 @@ async function getTrending(req, res) {
       } catch(e) {}
     }));
   } catch(e) {}
+
+  // If pansou returned items but only from 1 term, also mix in Douban for diversity
+  if (items.length > 0) {
+    var uniqueTerms = {};
+    items.forEach(function(it) { uniqueTerms[it.term] = true; });
+    if (Object.keys(uniqueTerms).length < 2) {
+      // Only 1 term -> fall back to Douban for variety
+      items = [];
+      source = "douban";
+      try {
+        var doubanData = await getDoubanHot();
+        if (doubanData.items && doubanData.items.length > 0) {
+          doubanData.items.forEach(function(movie) {
+            items.push({
+              term: movie.title,
+              title: movie.title,
+              note: movie.desc || "",
+              type: "douban",
+              url: movie.url || "",
+              password: "",
+              cover: movie.cover || "",
+              datetime: "",
+              rating: movie.rating || ""
+            });
+          });
+        }
+      } catch(e) {}
+    }
+  }
 
   // If pansou returned nothing, fall back to Douban
   if (items.length === 0) {
