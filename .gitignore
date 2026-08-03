@@ -4,3 +4,14 @@ data/
 _quark_ref/
 2026-07-03-15-08-47/
 
+# 敏感文件（含明文密码，勿提交）
+setup_schema.py
+test_supabase_db.py
+server.js.bak
+
+# 本机诊断/临时文件
+_diag*.txt
+git_msg.txt
+.workbuddy/
+docs/_archive/
+scripts/_tmp_*.js

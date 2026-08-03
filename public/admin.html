@@ -1,98 +1,964 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin</title>
+<title>云盘搜 · 后台管理</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232fb344'/%3E%3Ctext x='16' y='23' font-size='18' text-anchor='middle' fill='white'%3E云%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/vendor/tabler/tabler.min.css">
 <script src="/vue.global.prod.js"></script>
 <style>
-[v-cloak]{display:none!important}:root{--bg:#0F172A;--bg2:#1E293B;--card:#1E293B;--primary:#22C55E;--text:#F8FAFC;--text2:#94A3B8;--text3:#64748B;--border:#334155;--danger:#EF4444;--radius:12px}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{font-size:15px}
-body{font-family:Inter,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
-.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.login-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:380px}
-.login-card h1{font-size:1.3rem;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:10px;color:var(--primary)}
-.login-card p{font-size:.85rem;color:var(--text3);margin-bottom:24px}
-.login-card input{width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:.9rem;outline:none;margin-bottom:12px;font-family:inherit}
-.login-card input:focus{border-color:var(--primary)}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 20px;border-radius:10px;border:none;font-size:.88rem;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
-.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{opacity:.9}.btn-danger{background:var(--danger);color:#fff}
-.btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--text2)}.btn-outline:hover{border-color:var(--primary);color:var(--text)}.btn-sm{padding:6px 14px;font-size:.8rem}
-.login-error{color:var(--danger);font-size:.83rem;margin-bottom:12px}
-.admin-layout{min-height:100vh;display:flex;flex-direction:column}
-.admin-header{height:56px;display:flex;align-items:center;padding:0 24px;background:rgba(15,23,42,.95);border-bottom:1px solid var(--border);gap:20px;flex-shrink:0;position:sticky;top:0;z-index:100}
-.admin-header .logo{font-size:1.05rem;font-weight:700;color:var(--primary)}
-.admin-header .nav{display:flex;gap:4px;flex:1}
-.admin-header .nav span{padding:6px 14px;border-radius:8px;font-size:.82rem;color:var(--text2);cursor:pointer}
-.admin-header .nav span:hover,.admin-header .nav span.active{color:var(--text);background:var(--bg2)}
-.admin-main{padding:24px;max-width:1000px;margin:0 auto;width:100%}
-.admin-main h2{font-size:1.1rem;font-weight:600;margin-bottom:16px}
-.card{border:1px solid var(--border);border-radius:var(--radius);background:var(--card);padding:20px;margin-bottom:16px}
-.form-group{margin-bottom:14px}
-.form-group label{display:block;font-size:.82rem;color:var(--text2);margin-bottom:5px;font-weight:500}
-.form-group input,.form-group textarea{width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:.88rem;outline:none;font-family:inherit}
-.form-group input:focus,.form-group textarea:focus{border-color:var(--primary)}
-.form-group textarea{min-height:80px;resize:vertical;font-size:.82rem}
-.flex{display:flex;gap:8px;align-items:center}
-.mt-8{margin-top:8px}.text-success{color:var(--primary)}.text-danger{color:var(--danger)}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-.status-card{background:var(--bg2);border-radius:10px;padding:16px;text-align:center;border:1px solid var(--border)}
-.status-card .label{font-size:.78rem;color:var(--text3);margin-bottom:6px}
-.status-card .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
-.dot-ok{background:var(--primary)}.dot-bad{background:var(--danger)}
-.status-card .value{font-size:1.5rem;font-weight:700}
-.stat-row{display:flex;gap:16px;margin-bottom:16px}
-.stat-item{background:var(--bg2);border-radius:10px;padding:14px 20px;flex:1;border:1px solid var(--border)}
-.stat-item .num{font-size:1.4rem;font-weight:700;color:var(--primary)}
-.stat-item .lbl{font-size:.78rem;color:var(--text3);margin-top:2px}
-.hint{font-size:.75rem;color:var(--text3);margin-top:4px}
-.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;color:#fff;font-size:.85rem;z-index:999;animation:fadeIn .3s}
-.toast-s{background:var(--primary)}.toast-e{background:var(--danger)}
-@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@media(max-width:600px){.grid-2,.status-grid{grid-template-columns:1fr}.admin-header{padding:0 12px}.admin-header .nav span{padding:6px 8px;font-size:.75rem}.admin-main{padding:16px}}
-</style></head><body>
+[v-cloak]{display:none!important}
+.login-bg{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;background:radial-gradient(1200px 600px at 50% -10%,#1c3f5e 0%,#0f1b2d 55%,#0a1220 100%)}
+.toast-wrap{position:fixed;bottom:1.5rem;right:1.5rem;z-index:1050}
+.page-body{min-height:calc(100vh - 4.5rem)}
+.page-body .container-xl{max-width:1200px}
+.side-logo{width:2rem;height:2rem;border-radius:.5rem;background:linear-gradient(135deg,#2fb344,#4299e1);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;margin-right:.5rem}
+@media(max-width:991px){.page-wrapper{padding-top:3.5rem}}
+</style>
+</head>
+<body>
 <div id="aapp" v-cloak>
-<div v-if="!tk" class="login-page"><div class="login-card">
-<h1><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Admin</h1>
-<p>password: admin123</p>
-<input type="password" v-model="lp" placeholder="password" @keydown.enter="login">
-<div v-if="le" class="login-error">{{le}}</div>
-<button class="btn btn-primary" style="width:100%;margin-top:4px" @click="login">{{ldg?'Login...':'Login'}}</button>
-</div></div>
-<div v-else class="admin-layout">
-<div class="admin-header"><span class="logo">Admin</span>
-<div class="nav"><span :class="{active:pg==='st'}" @click="gp('st')">Dashboard</span><span :class="{active:pg==='ck'}" @click="gp('ck')">Cookies</span><span :class="{active:pg==='api'}" @click="gp('api')">API</span><span :class="{active:pg==='ca'}" @click="gp('ca')">Cache</span><span :class="{active:pg==='se'}" @click="gp('se')">Security</span></div>
-<div><span style="color:var(--text3);font-size:.8rem;cursor:pointer" @click="lgout">Logout</span></div></div>
-<div class="admin-main">
-<div v-if="pg==='st'"><h2>Status</h2>
-<div class="status-grid">
-<div class="status-card"><div class="label">Pansou</div><div><span class="dot" :class="d.pansou?'dot-ok':'dot-bad'"></span><span v-if="d.pansou===undefined">...</span><span v-else>{{d.pansou?'ok':'fail'}}</span></div></div>
-<div class="status-card"><div class="label">Quark</div><div><span class="dot" :class="d.quark?'dot-ok':'dot-bad'"></span>{{d.quark?'set':'unset'}}</div></div>
-<div class="status-card"><div class="label">Baidu</div><div><span class="dot" :class="d.baidu?'dot-ok':'dot-bad'"></span>{{d.baidu?'set':'unset'}}</div></div>
-<div class="status-card"><div class="label">Cache</div><div class="value">{{d.cache||0}}</div></div></div></div>
-<div v-if="pg==='ck'"><h2>Cookies <span v-if="csInfo" style="font-size:.82rem;font-weight:400;color:var(--text3)"><span v-if="csInfo.quark" :class="csInfo.quark.valid?'text-success':'text-danger'">夸克:{{csInfo.quark.valid?'✔有效':'✘无效'}}</span><span v-if="csInfo.baidu" style="margin-left:12px" :class="csInfo.baidu.valid?'text-success':'text-danger'">百度:{{csInfo.baidu.valid?'✔有效':'✘无效'}}</span></span></h2>
-<div class="card"><div class="grid-2">
-<div><div>Quark <span style="font-size:.78rem;color:var(--text3)">({{d.quark?'set':'unset'}})</span></div>
-<textarea v-model="cf.q" placeholder="cookie" rows="4" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:.82rem;outline:none;font-family:inherit;min-height:80px"></textarea>
-<div class="flex mt-8"><button class="btn btn-outline btn-sm" @click="tst('q')">{{cst.q?'...':'Test'}}</button><button class="btn btn-primary btn-sm" @click="svck">Save</button></div>
-<div v-if="cs.q" class="mt-8"><span :class="cs.q==='ok'?'text-success':'text-danger'">{{cs.q==='ok'?'OK':'FAIL'}}</span><span v-if="cs.qd" style="margin-left:8px;font-size:.78rem;color:var(--text3)">{{cs.qd}}</span></div></div>
-<div><div>Baidu <span style="font-size:.78rem;color:var(--text3)">({{d.baidu?'set':'unset'}})</span></div>
-<textarea v-model="cf.b" placeholder="cookie" rows="4" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:.82rem;outline:none;font-family:inherit;min-height:80px"></textarea>
-<div class="flex mt-8"><button class="btn btn-outline btn-sm" @click="tst('b')">{{cst.b?'...':'Test'}}</button><button class="btn btn-primary btn-sm" @click="svck">Save</button></div>
-<div v-if="cs.b" class="mt-8"><span :class="cs.b==='ok'?'text-success':'text-danger'">{{cs.b==='ok'?'OK':'FAIL'}}</span><span v-if="cs.bd" style="margin-left:8px;font-size:.78rem;color:var(--text3)">{{cs.bd}}</span></div></div></div></div></div>
-<div v-if="pg==='api'"><h2>API</h2>
-<div class="card"><div class="form-group"><label>Pansou Host</label><input v-model="cfg.pansouBase" placeholder="so.252035.xyz"><div class="hint">Change when switching source.</div></div>
-<div class="form-group"><label>Baidu path</label><input v-model="cfg.baiduDir" placeholder="/yunpan"></div>
-<div class="form-group"><label>Share URL Prefix</label><input v-model="cfg.shareUrlPrefix" placeholder="https://mysite.com/go/"><div class="hint">转存后替换分享链接前缀</div></div>
-<button class="btn btn-primary" @click="svcfg">Save</button></div></div>
-<div v-if="pg==='ca'"><h2>Cache</h2>
-<div class="card"><div class="stat-row"><div class="stat-item"><div class="num">{{ctt.total}}</div><div class="lbl">Total</div></div><div class="stat-item"><div class="num">{{ctt.quark}}</div><div class="lbl">Quark</div></div><div class="stat-item"><div class="num">{{ctt.baidu}}</div><div class="lbl">Baidu</div></div></div>
-<button class="btn btn-danger" @click="clr">Clear</button></div></div>
-<div v-if="pg==='se'"><h2>Security</h2>
-<div class="card"><div class="form-group"><label>Current</label><input type="password" v-model="pw.old"></div>
-<div class="form-group"><label>New</label><input type="password" v-model="pw.n1"></div>
-<div class="form-group"><label>Confirm</label><input type="password" v-model="pw.n2"></div>
-<button class="btn btn-primary" @click="chpw">Save</button></div></div></div></div>
-<div v-if="toast.sh" class="toast" :class="'toast-'+toast.tp">{{toast.msg}}</div></div><script>var cr=function(o){return Vue.createApp(o)};var rf=function(v){return Vue.ref(v)};var rct=function(o){return Vue.reactive(o)};cr({setup:function(){var tk=rf(localStorage.getItem("at")||"");var pg=rf("st");var ldg=rf(false);var lp=rf(""),le=rf("");var d=rct({pansou:undefined,quark:false,baidu:false,cache:0});var cf=rct({q:"",b:""});var cs=rct({q:"",b:"",qd:"",bd:""});var cst=rct({q:false,b:false});var csInfo=rf(null);var cfg=rct({pansouBase:"so.252035.xyz",baiduDir:"/",shareUrlPrefix:""});var ctt=rct({total:0,quark:0,baidu:0});var pw=rct({old:"",n1:"",n2:""});var to=rct({sh:false,msg:"",tp:"s"});var tt;function msg(s,t){to.sh=true;to.msg=s;to.tp=t||"s";if(tt)clearTimeout(tt);tt=setTimeout(function(){to.sh=false},3000)}function ap(m,p,b){return fetch("/api/admin/"+p,{method:m,headers:{"Content-Type":"application/json","Authorization":"Bearer "+tk.value},body:b?JSON.stringify(b):undefined}).then(function(r){if(r.status===401){tk.value="";localStorage.removeItem("at");return{error:"not_logged_in"}}return r.json()})}function gp(p){pg.value=p;location.hash="#/"+p}function lg(){if(!lp.value)return;ldg.value=true;le.value="";fetch("/api/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:lp.value})}).then(function(r){return r.json()}).then(function(d2){if(d2.token){tk.value=d2.token;localStorage.setItem("at",d2.token);lp.value="";gp("st")}else{le.value=d2.error||"fail"}}).catch(function(){le.value="err"}).finally(function(){ldg.value=false})}function lgout(){ap("POST","logout").then(function(){tk.value="";localStorage.removeItem("at")})}function loadst(){ap("GET","status").then(function(r){Object.assign(d,r)})}function ldcs(){ap("GET","cookies/summary").then(function(r){csInfo.value=r})}function tst(tp){cst[tp]=true;var b={};if(tp==="q")b.quark=cf.q.trim();else b.baidu=cf.b.trim();ap("POST","cookies/test",b).then(function(r){var ok=r[tp==="q"?"quark":"baidu"];var dt=r[tp==="q"?"quarkDetail":"baiduDetail"];cs[tp]=ok?"ok":"bad";if(tp==="q")cs.qd=dt;else cs.bd=dt;cst[tp]=false;msg((tp==="q"?"Quark":"Baidu")+" "+(cs[tp]==="ok"?"OK":"FAIL"),cs[tp])})}function svck(){var b={};if(cf.q)b.quark=cf.q.trim();if(cf.b)b.baidu=cf.b.trim();ap("POST","cookies",b).then(function(r){if(r.results){var qs=r.results.quark;var bs=r.results.baidu;var ms=[];if(qs)ms.push(qs.saved?"夸克网盘Cookie已保存":"夸克网盘"+qs.error);if(bs)ms.push(bs.saved?"百度网盘Cookie已保存":"百度网盘"+bs.error);msg(ms.join(", ")||"无变化",r.ok?"s":"e");if(r.ok){cf.q="";cf.b="";ldcs();loadst()}}else{msg("保存失败","e")}})}function ldcfg(){ap("GET","config").then(function(r){Object.assign(cfg,r)})}function svcfg(){ap("POST","config",cfg).then(function(r){msg(r.ok?"Saved":"Fail",r.ok?"s":"e")})}function ldca(){ap("GET","cache").then(function(r){Object.assign(ctt,r)})}function clr(){ap("POST","cache/clear").then(function(r){if(r.ok){ctt.total=0;ctt.quark=0;ctt.baidu=0;msg("Cleared")}})}function chpw(){if(pw.n1!==pw.n2){msg("Mismatch","e");return}if(pw.n1.length<6){msg("Min 6","e");return}ap("POST","password",{oldPassword:pw.old,newPassword:pw.n1}).then(function(r){if(r.ok){msg("Changed");pw.old="";pw.n1="";pw.n2=""}else{msg(r.error||"Fail","e")}})}Vue.watch(pg,function(p){if(p==="st")loadst();if(p==="ck")ldcs();if(p==="api")ldcfg();if(p==="ca")ldca()});Vue.onMounted(function(){if(tk.value){var h=location.hash.replace("#/","");gp(h||"st");if(h==="ck")ldcs();else loadst()}});return{tk,pg,loading:ldg,lp,le,d,cf,cs,cst,csInfo,cfg,cache:ctt,pw,toast:to,msg,gp,login:lg,logout:lgout,ld:loadst,ldcs,tst,svck,ldcfg,svcfg,ldca,clr,chpw}}}).mount("#aapp")</script></body></html>
+
+<!-- ===================== 登录页 ===================== -->
+<div v-if="!tk" class="login-bg">
+  <div class="w-100" style="max-width:400px">
+    <div class="text-center mb-4">
+      <span class="side-logo" style="width:3rem;height:3rem;font-size:1.4rem">云</span>
+      <h1 class="h2 text-white mt-3 mb-0">云盘搜</h1>
+      <p class="text-white-50 mb-0">后台管理</p>
+    </div>
+    <div class="card card-md">
+      <div class="card-body">
+        <h2 class="h3 text-center mb-4">登录</h2>
+        <div class="mb-3">
+          <label class="form-label">密码</label>
+          <input type="password" class="form-control" v-model="lp" placeholder="admin123" autofocus @keydown.enter="login">
+        </div>
+        <div v-if="le" class="alert alert-danger py-2 mb-3">{{le}}</div>
+        <div class="form-footer">
+          <button class="btn btn-primary w-100" :disabled="ldg" @click="login">{{ldg?'登录中…':'登 录'}}</button>
+        </div>
+      </div>
+    </div>
+    <div class="text-center mt-3"><small class="text-white-50">默认密码 admin123</small></div>
+  </div>
+</div>
+
+<!-- ===================== 主界面 ===================== -->
+<div v-else class="page">
+
+  <!-- 侧边栏 -->
+  <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
+    <div class="container-fluid">
+      <button class="navbar-toggler d-lg-none" type="button" @click="sb=!sb"><span class="navbar-toggler-icon"></span></button>
+      <h1 class="navbar-brand navbar-brand-autodark">
+        <span class="side-logo">云</span>云盘搜 · 管理后台
+      </h1>
+      <div class="navbar-collapse" :class="{'collapse':!sb}">
+        <ul class="navbar-nav pt-lg-3">
+          <li class="nav-item" v-for="m in menus" :key="m.id">
+            <a class="nav-link" :class="{active:pg===m.id}" href="javascript:void(0)" @click="gp(m.id)">
+              <span class="nav-link-icon" v-html="m.icon"></span>
+              <span class="nav-link-title">{{m.title}}</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </aside>
+
+  <div class="page-wrapper">
+    <!-- 顶栏 -->
+    <header class="navbar navbar-expand-md navbar-light d-print-none sticky-top" style="z-index:1020">
+      <div class="container-fluid">
+        <button class="navbar-toggler d-lg-none me-2" type="button" @click="sb=!sb"><span class="navbar-toggler-icon"></span></button>
+        <div class="navbar-brand d-lg-none me-3"><span class="side-logo">云</span></div>
+        <div class="ms-auto d-flex align-items-center gap-3">
+          <span class="small" :class="dbInfo.ready?'text-success':'text-secondary'">
+            MySQL {{dbInfo.ready?'已连接':'未连接'}}
+          </span>
+          <a class="nav-link py-1 px-0" href="javascript:void(0)" @click="tg" title="切换明暗主题">
+            <span class="small text-secondary d-flex align-items-center gap-1">
+              <svg v-if="th==='light'" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              {{th==='dark'?'浅色':'深色'}}
+            </span>
+          </a>
+          <a class="nav-link py-1 px-0" href="/" target="_blank" title="打开前台">
+            <span class="small text-secondary d-flex align-items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              前台
+            </span>
+          </a>
+          <a class="nav-link py-1 px-0" href="javascript:void(0)" @click="lgout" title="退出登录">
+            <span class="small text-secondary d-flex align-items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              退出
+            </span>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <div class="container-xl py-4">
+
+        <!-- 页面标题 -->
+        <div class="page-header d-print-none mb-4">
+          <div class="row align-items-center">
+            <div class="col">
+              <h2 class="page-title mb-0">{{curMenu.title}}</h2>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== 仪表盘 ========== -->
+        <div v-if="pg==='st'" class="row row-cards">
+          <div class="col-sm-6 col-lg-3">
+            <div class="card">
+              <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <div class="subheader">盘搜 API</div>
+                </div>
+                <span class="badge" :class="d.pansou===undefined?'bg-secondary':(d.pansou?'bg-success-lt text-success':'bg-danger-lt text-danger')">
+                  {{d.pansou===undefined?'检测中…':(d.pansou?'正常':'异常')}}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-3">
+            <div class="card">
+              <div class="card-body">
+                <div class="subheader mb-2">夸克 Cookie</div>
+                <span class="badge" :class="d.quark?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{d.quark?'已设置':'未设置'}}</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-3">
+            <div class="card">
+              <div class="card-body">
+                <div class="subheader mb-2">百度 Cookie</div>
+                <span class="badge" :class="d.baidu?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{d.baidu?'已设置':'未设置'}}</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-3">
+            <div class="card">
+              <div class="card-body">
+                <div class="subheader mb-2">转存缓存</div>
+                <div class="h1 mb-0">{{d.cache||0}}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MySQL 接入状态 -->
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header d-flex align-items-center">
+                <h3 class="card-title mb-0">MySQL 接入状态</h3>
+                <div class="ms-auto">
+                  <button class="btn btn-outline-secondary btn-sm" @click="lddb">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    刷新
+                  </button>
+                </div>
+              </div>
+              <div class="card-body">
+                <div v-if="dbInfo.ready" class="row g-3">
+                  <div class="col-6 col-lg-3"><div class="subheader">状态</div><span class="badge bg-success-lt text-success mt-1">已连接</span></div>
+                  <div class="col-6 col-lg-3"><div class="subheader">地址</div><div class="mt-1">{{dbInfo.host}}:{{dbInfo.port}}</div></div>
+                  <div class="col-6 col-lg-3"><div class="subheader">数据库</div><div class="mt-1">{{dbInfo.database}}</div></div>
+                  <div class="col-6 col-lg-3"><div class="subheader">表数量</div><div class="h3 mt-1 mb-0">{{dbInfo.tables}}</div></div>
+                </div>
+                <div v-else class="text-secondary">
+                  {{dbInfo.error?('未连接：'+dbInfo.error):'未连接（JSON 存储兜底）'}}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== Cookie 管理 ========== -->
+        <div v-if="pg==='ck'" class="row row-cards">
+          <div class="col-12">
+            <div class="alert alert-info py-2 mb-3">
+              <span class="me-3">Cookie 有效性：</span>
+              <span v-if="csInfo">
+                <span v-if="csInfo.quark" class="me-3"><span class="badge me-1" :class="csInfo.quark.valid?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{csInfo.quark.valid?'有效':'无效'}}</span>夸克</span>
+                <span v-if="csInfo.baidu"><span class="badge me-1" :class="csInfo.baidu.valid?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{csInfo.baidu.valid?'有效':'无效'}}</span>百度</span>
+                <span v-if="!csInfo.quark&&!csInfo.baidu" class="text-secondary">尚未配置</span>
+              </span>
+              <span v-else class="text-secondary">检测中…</span>
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">夸克网盘 Cookie</h3><div class="ms-auto"><span class="badge" :class="d.quark?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{d.quark?'已设置':'未设置'}}</span></div></div>
+              <div class="card-body">
+                <textarea class="form-control" v-model="cf.q" rows="5" placeholder="粘贴夸克 Cookie"></textarea>
+                <div v-if="cs.q" class="mt-2">
+                  <span class="badge" :class="cs.q==='ok'?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{cs.q==='ok'?'测试通过':'测试失败'}}</span>
+                  <span v-if="cs.qd" class="text-secondary ms-2 small">{{cs.qd}}</span>
+                </div>
+                <div class="mt-3 d-flex gap-2">
+                  <button class="btn btn-outline-secondary" :disabled="cst.q" @click="tst('q')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    {{cst.q?'测试中…':'测试'}}
+                  </button>
+                  <button class="btn btn-primary" @click="svck">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    保存
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">百度网盘 Cookie</h3><div class="ms-auto"><span class="badge" :class="d.baidu?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{d.baidu?'已设置':'未设置'}}</span></div></div>
+              <div class="card-body">
+                <textarea class="form-control" v-model="cf.b" rows="5" placeholder="粘贴百度 Cookie（BDUSS）"></textarea>
+                <div v-if="cs.b" class="mt-2">
+                  <span class="badge" :class="cs.b==='ok'?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{cs.b==='ok'?'测试通过':'测试失败'}}</span>
+                  <span v-if="cs.bd" class="text-secondary ms-2 small">{{cs.bd}}</span>
+                </div>
+                <div class="mt-3 d-flex gap-2">
+                  <button class="btn btn-outline-secondary" :disabled="cst.b" @click="tst('b')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    {{cst.b?'测试中…':'测试'}}
+                  </button>
+                  <button class="btn btn-primary" @click="svck">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    保存
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== 转存历史 ========== -->
+        <div v-if="pg==='hi'" class="row">
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header d-flex align-items-center">
+                <h3 class="card-title mb-0">最近 50 条转存记录</h3>
+                <div class="ms-auto">
+                  <button class="btn btn-outline-secondary btn-sm" @click="ldhi">刷新</button>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-vcenter card-table">
+                  <thead>
+                    <tr>
+                      <th>时间</th><th>类型</th><th>标题</th><th>提取码</th><th>新链接</th><th>状态</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="r in hi" :key="r.originalUrl + r.createdAt">
+                      <td class="text-nowrap text-secondary">{{fmtTime(r.createdAt)}}</td>
+                      <td><span class="badge" :class="r.type==='baidu'?'bg-primary-lt text-primary':'bg-cyan-lt text-cyan'">{{r.type==='baidu'?'百度':'夸克'}}</span></td>
+                      <td>{{r.title || r.originalUrl}}</td>
+                      <td>{{r.pwd || '-'}}</td>
+                      <td class="text-truncate" style="max-width:260px"><a :href="r.newUrl" target="_blank" class="text-secondary">{{r.newUrl}}</a></td>
+                      <td><span class="badge" :class="r.success?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{r.success?'成功':'失败'}}</span></td>
+                    </tr>
+                    <tr v-if="!hi.length"><td colspan="6" class="text-center text-secondary py-4">暂无转存记录</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== 资源管理（三管道：提交审核 / 批量导入 / 自动采集） ========== -->
+        <div v-if="pg==='rs'">
+          <ul class="nav nav-tabs nav-fill mb-3">
+            <li class="nav-item"><a class="nav-link" :class="{active:rsTab==='list'}" href="javascript:void(0)" @click="rsTab='list'">资源列表</a></li>
+            <li class="nav-item"><a class="nav-link" :class="{active:rsTab==='sub'}" href="javascript:void(0)" @click="rsTab='sub';ldsub()">提交审核<span v-if="subPending" class="badge bg-danger ms-1">{{subPending}}</span></a></li>
+            <li class="nav-item"><a class="nav-link" :class="{active:rsTab==='imp'}" href="javascript:void(0)" @click="rsTab='imp'">批量导入</a></li>
+            <li class="nav-item"><a class="nav-link" :class="{active:rsTab==='crw'}" href="javascript:void(0)" @click="rsTab='crw';ldsrc()">采集管理</a></li>
+          </ul>
+
+          <!-- 资源列表 -->
+          <div v-if="rsTab==='list'">
+            <div class="row g-2 mb-3">
+              <div class="col-md-4">
+                <input class="form-control" v-model="rsQ.kw" placeholder="搜索标题/描述/分类" @keyup.enter="ldres()">
+              </div>
+              <div class="col-md-2">
+                <select class="form-select" v-model="rsQ.source">
+                  <option value="">全部来源</option>
+                  <option value="manual">手动</option>
+                  <option value="submitted">用户提交</option>
+                  <option value="imported">批量导入</option>
+                  <option value="collected">自动采集</option>
+                  <option value="transferred">转存</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <select class="form-select" v-model="rsQ.status">
+                  <option value="">全部状态</option>
+                  <option value="1">启用</option>
+                  <option value="0">停用</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <button class="btn btn-primary w-100" @click="ldres()">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  搜索
+                </button>
+              </div>
+              <div class="col-md-2 text-end">
+                <button class="btn btn-outline-primary" @click="rsAddShow=!rsAddShow">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  手动新增
+                </button>
+              </div>
+            </div>
+
+            <div v-if="rsAddShow" class="card mb-3">
+              <div class="card-header"><h3 class="card-title">手动新增资源</h3></div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-4"><label class="form-label">标题 *</label><input class="form-control" v-model="rsAdd.title"></div>
+                  <div class="col-md-6"><label class="form-label">链接 *</label><input class="form-control" v-model="rsAdd.url" placeholder="https://pan.quark.cn/s/..."></div>
+                  <div class="col-md-2"><label class="form-label">提取码</label><input class="form-control" v-model="rsAdd.password"></div>
+                  <div class="col-md-3"><label class="form-label">网盘类型</label>
+                    <select class="form-select" v-model="rsAdd.disk_type"><option value="quark">夸克</option><option value="baidu">百度</option><option value="aliyun">阿里云盘</option></select>
+                  </div>
+                  <div class="col-md-3"><label class="form-label">分类</label><input class="form-control" v-model="rsAdd.category"></div>
+                  <div class="col-md-6"><label class="form-label">描述</label><input class="form-control" v-model="rsAdd.description"></div>
+                </div>
+                <div class="mt-3">
+                  <button class="btn btn-primary" @click="rsadd()">保存</button>
+                  <button class="btn btn-link" @click="rsAddShow=false">取消</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="table-responsive">
+                <table class="table table-vcenter card-table">
+                  <thead><tr>
+                    <th>ID</th><th>标题</th><th>链接</th><th>提取码</th><th>网盘</th><th>分类</th><th>来源</th><th>状态</th><th>入库时间</th><th class="w-1"></th>
+                  </tr></thead>
+                  <tbody>
+                    <tr v-for="r in res.items" :key="r.id">
+                      <td class="text-secondary">{{r.id}}</td>
+                      <td class="text-truncate" style="max-width:200px" :title="r.title">{{r.title}}</td>
+                      <td><a class="text-truncate d-inline-block" style="max-width:180px" :href="r.url" target="_blank" :title="r.url">{{r.url}}</a></td>
+                      <td>{{r.password||'-'}}</td>
+                      <td><span class="badge bg-secondary-lt">{{r.disk_type}}</span></td>
+                      <td>{{r.category||'-'}}</td>
+                      <td><span class="badge" :class="srcBadge(r.source)">{{srcName(r.source)}}</span></td>
+                      <td><span class="badge" :class="r.status==1?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{r.status==1?'启用':'停用'}}</span></td>
+                      <td class="text-secondary">{{fmtT(r.created_at)}}</td>
+                      <td>
+                        <button class="btn btn-sm btn-outline-danger" @click="rsdel(r)">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                      </td>
+                    </tr>
+                    <tr v-if="!res.items||!res.items.length"><td colspan="10" class="text-center text-secondary py-4">暂无资源</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="card-footer d-flex align-items-center">
+                <span class="text-secondary">共 {{res.total||0}} 条</span>
+                <div class="ms-auto btn-group">
+                  <button class="btn btn-sm btn-outline-secondary" :disabled="res.page<=1" @click="res.page--;ldres()">上一页</button>
+                  <span class="btn btn-sm btn-light disabled">第 {{res.page||1}} 页</span>
+                  <button class="btn btn-sm btn-outline-secondary" :disabled="!res.items||res.items.length<20" @click="res.page++;ldres()">下一页</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 提交审核 -->
+          <div v-if="rsTab==='sub'">
+            <div class="row g-2 mb-3">
+              <div class="col-md-2">
+                <select class="form-select" v-model="subQ.status" @change="ldsub()">
+                  <option value="">全部</option>
+                  <option value="0">待审核</option>
+                  <option value="1">已通过</option>
+                  <option value="2">已驳回</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <button class="btn btn-outline-secondary" @click="ldsub()">刷新</button>
+              </div>
+            </div>
+            <div class="card">
+              <div class="table-responsive">
+                <table class="table table-vcenter card-table">
+                  <thead><tr><th>ID</th><th>标题</th><th>链接</th><th>提取码</th><th>提交人</th><th>分类</th><th>状态</th><th>时间</th><th class="w-25">操作</th></tr></thead>
+                  <tbody>
+                    <tr v-for="s in subs.items" :key="s.id">
+                      <td class="text-secondary">{{s.id}}</td>
+                      <td class="text-truncate" style="max-width:180px" :title="s.title">{{s.title}}</td>
+                      <td><a class="text-truncate d-inline-block" style="max-width:150px" :href="s.url" target="_blank">{{s.url}}</a></td>
+                      <td>{{s.password||'-'}}</td>
+                      <td>{{s.submitter_name||'-'}}</td>
+                      <td>{{s.category||'-'}}</td>
+                      <td>
+                        <span class="badge" :class="s.status==0?'bg-warning-lt text-warning':(s.status==1?'bg-success-lt text-success':'bg-danger-lt text-danger')">
+                          {{s.status==0?'待审核':(s.status==1?'已通过':'已驳回')}}
+                        </span>
+                        <div v-if="s.admin_remark" class="small text-danger">{{s.admin_remark}}</div>
+                      </td>
+                      <td class="text-secondary">{{fmtT(s.created_at)}}</td>
+                      <td>
+                        <template v-if="s.status==0">
+                          <button class="btn btn-sm btn-success me-1" @click="subapp(s)">通过</button>
+                          <button class="btn btn-sm btn-outline-danger" @click="subrej(s)">驳回</button>
+                        </template>
+                        <span v-else class="text-secondary small">已处理</span>
+                      </td>
+                    </tr>
+                    <tr v-if="!subs.items||!subs.items.length"><td colspan="9" class="text-center text-secondary py-4">暂无提交</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 批量导入 -->
+          <div v-if="rsTab==='imp'">
+            <div class="row">
+              <div class="col-lg-7">
+                <div class="card">
+                  <div class="card-header"><h3 class="card-title">粘贴 CSV / JSON</h3></div>
+                  <div class="card-body">
+                    <textarea class="form-control font-monospace" v-model="impText" rows="10" placeholder="CSV:  title,url,password,disk_type,category&#10;电影名,https://pan.quark.cn/s/xxx,1234,quark,电影&#10;&#10;JSON:  [{&quot;title&quot;:&quot;..&quot;,&quot;url&quot;:&quot;..&quot;,&quot;password&quot;:&quot;..&quot;,&quot;disk_type&quot;:&quot;quark&quot;,&quot;category&quot;:&quot;..&quot;}]"></textarea>
+                    <div class="mt-3">
+                      <button class="btn btn-primary" :disabled="!impText.trim()" @click="impup()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        解析预览
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-5">
+                <div v-if="impPrev" class="card">
+                  <div class="card-header">
+                    <h3 class="card-title">解析结果</h3>
+                    <div class="ms-auto">
+                      <span class="badge bg-success-lt text-success me-1">有效 {{impPrev.stats.valid}}</span>
+                      <span class="badge bg-warning-lt text-warning me-1">重复 {{impPrev.stats.duplicate}}</span>
+                      <span class="badge bg-secondary-lt text-secondary">无效 {{impPrev.stats.invalid}}</span>
+                    </div>
+                  </div>
+                  <div class="card-body">
+                    <table class="table table-sm">
+                      <thead><tr><th>标题</th><th>链接</th><th>提取码</th></tr></thead>
+                      <tbody>
+                        <tr v-for="p in impPrev.preview" :key="p.url">
+                          <td class="text-truncate" style="max-width:120px">{{p.title}}</td>
+                          <td class="text-truncate" style="max-width:120px">{{p.url}}</td>
+                          <td>{{p.password||'-'}}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <button class="btn btn-success w-100" @click="impcf()">确认导入 {{impPrev.stats.valid}} 条</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card mt-3">
+              <div class="card-header"><h3 class="card-title">导入日志</h3></div>
+              <div class="table-responsive">
+                <table class="table table-sm table-vcenter card-table">
+                  <thead><tr><th>时间</th><th>文件</th><th>格式</th><th>总数</th><th>导入</th><th>跳过</th><th>状态</th></tr></thead>
+                  <tbody>
+                    <tr v-for="l in impLogs" :key="l.id">
+                      <td class="text-secondary">{{fmtT(l.created_at)}}</td>
+                      <td>{{l.file_name}}</td>
+                      <td>{{l.file_format}}</td>
+                      <td>{{l.total_rows}}</td>
+                      <td class="text-success">{{l.imported_rows}}</td>
+                      <td class="text-secondary">{{l.skipped_rows}}</td>
+                      <td><span class="badge" :class="l.status==='completed'?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{l.status}}</span></td>
+                    </tr>
+                    <tr v-if="!impLogs.length"><td colspan="7" class="text-center text-secondary py-3">暂无导入记录</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 采集管理 -->
+          <div v-if="rsTab==='crw'">
+            <div class="row">
+              <div class="col-lg-7">
+                <div class="card">
+                  <div class="card-header"><h3 class="card-title">采集源</h3></div>
+                  <div class="table-responsive">
+                    <table class="table table-vcenter card-table">
+                      <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>URL 模板</th><th>分类</th><th>状态</th><th class="w-1">操作</th></tr></thead>
+                      <tbody>
+                        <tr v-for="s in crSrcs" :key="s.id">
+                          <td class="text-secondary">{{s.id}}</td>
+                          <td>{{s.name}}</td>
+                          <td><span class="badge bg-secondary-lt">{{s.source_type}}</span></td>
+                          <td class="text-truncate" style="max-width:150px" :title="s.url_template">{{s.url_template}}</td>
+                          <td>{{s.category||'-'}}</td>
+                          <td><span class="badge" :class="String(s.status)==='1'?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{String(s.status)==='1'?'启用':'停用'}}</span></td>
+                          <td class="text-nowrap">
+                            <button class="btn btn-sm btn-outline-primary me-1" @click="crrun(s)" title="采集一次">运行</button>
+                            <button class="btn btn-sm btn-outline-danger" @click="crdel(s)">删除</button>
+                          </td>
+                        </tr>
+                        <tr v-if="!crSrcs.length"><td colspan="7" class="text-center text-secondary py-3">暂无采集源</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-5">
+                <div class="card mb-3">
+                  <div class="card-header"><h3 class="card-title">新增采集源</h3></div>
+                  <div class="card-body">
+                    <div class="mb-2"><label class="form-label">名称 *</label><input class="form-control" v-model="crNew.name"></div>
+                    <div class="mb-2"><label class="form-label">类型 *</label>
+                      <select class="form-select" v-model="crNew.source_type"><option value="rss">RSS</option><option value="page">网页</option><option value="api">JSON API</option></select>
+                    </div>
+                    <div class="mb-2"><label class="form-label">URL 模板 *（支持 {page}）</label><input class="form-control" v-model="crNew.url_template" placeholder="https://example.com/feed"></div>
+                    <div class="row g-2 mb-2">
+                      <div class="col-6"><label class="form-label">起始页</label><input type="number" class="form-control" v-model="crNew.page_start"></div>
+                      <div class="col-6"><label class="form-label">结束页</label><input type="number" class="form-control" v-model="crNew.page_end"></div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                      <div class="col-6"><label class="form-label">编码</label>
+                        <select class="form-select" v-model="crNew.encoding"><option value="utf-8">utf-8</option><option value="gbk">gbk</option><option value="big5">big5</option></select>
+                      </div>
+                      <div class="col-6"><label class="form-label">分类</label><input class="form-control" v-model="crNew.category"></div>
+                    </div>
+                    <button class="btn btn-primary w-100" @click="crAdd()">新增采集源</button>
+                    <div class="form-hint mt-2">新增后需配置解析规则（字段提取方式），然后点「运行」测试。</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card mt-3">
+              <div class="card-header"><h3 class="card-title">解析规则（选择采集源查看）</h3></div>
+              <div class="card-body">
+                <div class="row g-2 mb-3">
+                  <div class="col-md-4">
+                    <select class="form-select" v-model="crSel" @change="ldrule()">
+                      <option value="">— 选择采集源 —</option>
+                      <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}</option>
+                    </select>
+                  </div>
+                  <div class="col-md-8 text-end">
+                    <span v-if="crRuleStats" class="text-secondary small">{{crRuleStats.msg}}</span>
+                  </div>
+                </div>
+                <table class="table table-sm table-vcenter" v-if="crRules.length">
+                  <thead><tr><th>字段</th><th>规则类型</th><th>规则值</th><th>必填</th><th></th></tr></thead>
+                  <tbody>
+                    <tr v-for="(rl,i) in crRules" :key="rl.id">
+                      <td><span class="badge bg-primary-lt text-primary">{{rl.field_name}}</span></td>
+                      <td>{{rl.rule_type}}</td>
+                      <td class="font-monospace small text-truncate" style="max-width:300px" :title="rl.rule_value">{{rl.rule_value}}</td>
+                      <td>{{rl.required==1?'是':'否'}}</td>
+                      <td><button class="btn btn-sm btn-outline-danger" @click="cruledel(rl)">删</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div v-else class="text-secondary py-2">暂无规则（RSS 常用：title=&lt;title&gt;([^&lt;]+)&lt;/title&gt;、url=&lt;link&gt;([^&lt;]+)&lt;/link&gt;，regex 类型）</div>
+                <hr>
+                <div class="row g-2 align-items-end">
+                  <div class="col-2"><label class="form-label">字段</label>
+                    <select class="form-select" v-model="crRuleNew.field_name"><option value="title">title</option><option value="url">url</option><option value="password">password</option><option value="disk_type">disk_type</option><option value="category">category</option><option value="description">description</option></select>
+                  </div>
+                  <div class="col-2"><label class="form-label">类型</label>
+                    <select class="form-select" v-model="crRuleNew.rule_type"><option value="regex">regex</option><option value="jsonpath">jsonpath</option><option value="fixed">fixed</option></select>
+                  </div>
+                  <div class="col-5"><label class="form-label">规则值</label><input class="form-control font-monospace" v-model="crRuleNew.rule_value" placeholder="<title>([^<]+)</title>"></div>
+                  <div class="col-1"><label class="form-label">必填</label><input type="checkbox" class="form-check-input m-2" v-model="crRuleNew.required"></div>
+                  <div class="col-2"><button class="btn btn-outline-primary w-100" :disabled="!crSel" @click="crruleadd()">添加规则</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== API 配置 ========== -->
+        <div v-if="pg==='api'" class="row">
+          <div class="col-lg-6">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">API 配置</h3></div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <label class="form-label">盘搜 Host</label>
+                  <input class="form-control" v-model="cfg.pansouBase" placeholder="so.252035.xyz">
+                  <div class="form-hint">切换数据源时修改</div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">百度转存目录路径</label>
+                  <input class="form-control" v-model="cfg.baiduDir" placeholder="/yunpan">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">分享 URL 前缀</label>
+                  <input class="form-control" v-model="cfg.shareUrlPrefix" placeholder="https://mysite.com/go/">
+                  <div class="form-hint">转存后替换分享链接前缀</div>
+                </div>
+                <button class="btn btn-primary" @click="svcfg">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  保存
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== 缓存管理 ========== -->
+        <div v-if="pg==='ca'" class="row">
+          <div class="col-lg-6">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">转存缓存</h3></div>
+              <div class="card-body">
+                <div class="row g-3 mb-4">
+                  <div class="col-4">
+                    <div class="border rounded p-3 text-center">
+                      <div class="h2 mb-0">{{ctt.total||0}}</div>
+                      <div class="subheader">总量</div>
+                    </div>
+                  </div>
+                  <div class="col-4">
+                    <div class="border rounded p-3 text-center">
+                      <div class="h2 mb-0">{{ctt.quark||0}}</div>
+                      <div class="subheader">夸克</div>
+                    </div>
+                  </div>
+                  <div class="col-4">
+                    <div class="border rounded p-3 text-center">
+                      <div class="h2 mb-0">{{ctt.baidu||0}}</div>
+                      <div class="subheader">百度</div>
+                    </div>
+                  </div>
+                </div>
+                <button class="btn btn-danger" @click="clr">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  清空缓存
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== 安全设置 ========== -->
+        <div v-if="pg==='se'" class="row">
+          <div class="col-lg-6">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">修改密码</h3></div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <label class="form-label">当前密码</label>
+                  <input type="password" class="form-control" v-model="pw.old">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">新密码</label>
+                  <input type="password" class="form-control" v-model="pw.n1" placeholder="至少 6 位">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">确认新密码</label>
+                  <input type="password" class="form-control" v-model="pw.n2">
+                </div>
+                <button class="btn btn-primary" @click="chpw">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                  保存
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <footer class="footer footer-transparent d-print-none">
+      <div class="container-xl d-flex align-items-center justify-content-between">
+        <span class="text-secondary">云盘搜 · 后台管理</span>
+        <span class="text-secondary">Tabler + Vue3</span>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<!-- Toast -->
+<div v-if="toast.sh" class="toast-wrap">
+  <div class="toast show" :class="toast.tp==='e'?'toast-error':''">
+    <div class="toast-body" :class="toast.tp==='e'?'text-danger':'text-success'">
+      <span :class="toast.tp==='e'?'text-danger':'text-success'">{{toast.msg}}</span>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+var cr=function(o){return Vue.createApp(o)};
+var rf=function(v){return Vue.ref(v)};
+var rct=function(o){return Vue.reactive(o)};
+var SV="http://www.w3.org/2000/svg";
+var IC={
+  home:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l-2 0l9 -9l9 9l-2 0"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7"/><path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6"/></svg>',
+  cookie:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13v.01"/><path d="M12 17v.01"/><path d="M12 12v.01"/><path d="M16 14v.01"/><path d="M11 8v.01"/><path d="M12 3l3 1c1 2 1.5 3 3 5c0 5 -4 9 -8 9c-4 0 -8 -3 -8 -9c0 -2 1 -4 3 -5l3 -1"/></svg>',
+  settings:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  database:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
+  shield:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+  history:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  book:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>'
+};
+var menus=[
+  {id:"st",title:"仪表盘",icon:IC.home},
+  {id:"ck",title:"Cookie 管理",icon:IC.cookie},
+  {id:"rs",title:"资源管理",icon:IC.book},
+  {id:"hi",title:"转存历史",icon:IC.history},
+  {id:"api",title:"API 配置",icon:IC.settings},
+  {id:"ca",title:"缓存管理",icon:IC.database},
+  {id:"se",title:"安全设置",icon:IC.shield}
+];
+cr({
+  setup:function(){
+    var tk=rf(localStorage.getItem("at")||"");
+    var pg=rf("st");
+    var sb=rf(false);
+    var th=rf(localStorage.getItem("theme")||"light");
+    var ldg=rf(false),lp=rf(""),le=rf("");
+    var d=rct({pansou:undefined,quark:false,baidu:false,cache:0});
+    var cf=rct({q:"",b:""});
+    var cs=rct({q:"",b:"",qd:"",bd:""});
+    var cst=rct({q:false,b:false});
+    var csInfo=rf(null);
+    var cfg=rct({pansouBase:"so.252035.xyz",baiduDir:"/",shareUrlPrefix:""});
+    var ctt=rct({total:0,quark:0,baidu:0});
+    var hi=rf([]);
+    var dbInfo=rct({ready:false});
+    var pw=rct({old:"",n1:"",n2:""});
+    var to=rct({sh:false,msg:"",tp:"s"});
+    var tt;
+    var curMenu=Vue.computed(function(){return menus.find(function(m){return m.id===pg.value})||menus[0]});
+
+    // ---- 资源管理（三管道）----
+    var rsTab=rf("list");
+    var rsQ=rct({kw:"",source:"",status:""});
+    var res=rct({items:[],total:0,page:1});
+    var rsAddShow=rf(false);
+    var rsAdd=rct({title:"",url:"",password:"",disk_type:"quark",category:"",description:""});
+    var subQ=rct({status:"0"});
+    var subs=rct({items:[],total:0});
+    var subPending=rf(0);
+    var impText=rf("");
+    var impPrev=rf(null);
+    var impLogs=rf([]);
+    var crSrcs=rf([]);
+    var crSel=rf("");
+    var crRules=rf([]);
+    var crRuleStats=rf(null);
+    var crNew=rct({name:"",source_type:"rss",url_template:"",page_start:1,page_end:1,encoding:"utf-8",category:""});
+    var crRuleNew=rct({field_name:"title",rule_type:"regex",rule_value:"",required:true});
+
+    var SRC_MAP={manual:"手动",submitted:"用户提交",imported:"批量导入",collected:"自动采集",transferred:"转存"};
+    function srcName(s){return SRC_MAP[s]||s||"-"}
+    function srcBadge(s){return s==="manual"?"bg-secondary-lt":(s==="submitted"?"bg-primary-lt text-primary":(s==="imported"?"bg-info-lt text-info":(s==="collected"?"bg-warning-lt text-warning":"bg-purple-lt text-purple")))}
+    function fmtT(t){
+      if(!t)return "-";
+      var s=String(t);
+      if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,16).replace("T"," ");
+      var ms=Number(t);
+      if(!isNaN(ms)&&ms>1e12){var d=new Date(ms);function p(n){return(n<10?"0":"")+n}return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes())}
+      return s;
+    }
+    function qs(o){var p=[];for(var k in o){if(o[k]===""||o[k]===undefined||o[k]===null)continue;p.push(encodeURIComponent(k)+"="+encodeURIComponent(o[k]))}return p.length?"?"+p.join("&"):""}
+    function ldres(){
+      ap("GET","resources"+qs({kw:rsQ.kw,source:rsQ.source,status:rsQ.status,page:res.page,size:20})).then(function(r){res.items=r.items||[];res.total=r.total||0;res.page=r.page||1});
+    }
+    function rsadd(){
+      if(!rsAdd.title||!rsAdd.url){msg("标题和链接必填","e");return}
+      ap("POST","resources",rsAdd).then(function(r){if(r.ok){msg("已新增");rsAddShow.value=false;rsAdd={title:"",url:"",password:"",disk_type:"quark",category:"",description:""};ldres()}else msg(r.error||"新增失败","e")});
+    }
+    function rsdel(r){
+      if(!confirm("确认删除资源 #"+r.id+"？"))return;
+      ap("DELETE","resources/"+r.id,null).then(function(){ldres();msg("已删除")});
+    }
+    function ldsub(){
+      ap("GET","submissions"+qs({status:subQ.status,page:1,size:50})).then(function(r){
+        subs.items=r.items||[];subs.total=r.total||0;
+        ap("GET","submissions?status=0&size=1").then(function(r2){subPending.value=r2.total||0});
+      });
+    }
+    function subapp(s){
+      ap("POST","submissions/"+s.id+"/approve",{}).then(function(r){
+        if(r.ok){msg("已通过，转入资源库 #"+r.resource_id);ldsub();ldres()}
+        else msg(r.error==="already_reviewed"?"该提交已处理":(r.error||"操作失败"),"e");
+      });
+    }
+    function subrej(s){
+      var remark=prompt("驳回原因（可选）：","");
+      if(remark===null)return;
+      ap("POST","submissions/"+s.id+"/reject",{remark:remark}).then(function(r){if(r.ok){msg("已驳回");ldsub()}else msg(r.error||"操作失败","e")});
+    }
+    function impup(){
+      impPrev.value=null;
+      var txt=impText.value,format=txt.trim().charAt(0)==="["||txt.trim().charAt(0)==="{"?"json":"csv";
+      ap("POST","import/upload",{fileName:"粘贴内容."+format,format:format,content:txt}).then(function(r){
+        if(r.token){impPrev.value=r;msg("解析完成：有效 "+r.stats.valid+" 条")}
+        else msg(r.message||r.error||"解析失败","e");
+      });
+    }
+    function impcf(){
+      if(!impPrev.value)return;
+      ap("POST","import/confirm",{token:impPrev.value.token}).then(function(r){
+        if(r.ok){msg("已导入 "+r.imported+" 条");impPrev.value=null;impText.value="";ldimp();ldres()}
+        else msg(r.error||"导入失败","e");
+      });
+    }
+    function ldimp(){ap("GET","import/logs?limit=20").then(function(r){impLogs.value=r.items||[]})}
+    function ldsrc(){
+      ap("GET","crawler/sources").then(function(r){crSrcs.value=r.items||[]});
+      if(crSel.value)ldrule();
+    }
+    function crAdd(){
+      if(!crNew.name||!crNew.url_template){msg("名称和 URL 模板必填","e");return}
+      var b=Object.assign({},crNew,{page_start:parseInt(crNew.page_start)||1,page_end:parseInt(crNew.page_end)||1});
+      ap("POST","crawler/sources",b).then(function(r){
+        if(r.ok){msg("采集源已创建 #"+r.id);crNew={name:"",source_type:"rss",url_template:"",page_start:1,page_end:1,encoding:"utf-8",category:""};ldsrc()}
+        else msg(r.message||r.error||"创建失败","e");
+      });
+    }
+    function crdel(s){
+      if(!confirm("删除采集源 #"+s.id+"（含其规则）？"))return;
+      ap("POST","crawler/sources/"+s.id+"/delete",{}).then(function(r){if(r.ok){msg("已删除");if(crSel.value===String(s.id))crSel.value="";ldsrc()}else msg(r.error||"删除失败","e")});
+    }
+    function crrun(s){
+      crRuleStats.value={msg:"采集中…"};
+      ap("POST","crawler/sources/"+s.id+"/run",{}).then(function(r){
+        if(r.status==="ok"){crRuleStats.value={msg:"采集完成：抓取 "+r.crawled+"，新增 "+r.inserted+"，跳过 "+r.skipped};msg("采集完成，新增 "+r.inserted+" 条");ldres()}
+        else{crRuleStats.value={msg:"采集失败："+(r.error||"")};msg("采集失败："+(r.error||""),"e")}
+      });
+    }
+    function ldrule(){
+      crRules.value=[];crRuleStats.value=null;
+      if(!crSel.value)return;
+      ap("GET","crawler/rules?source_id="+crSel.value).then(function(r){crRules.value=r.items||[]});
+    }
+    function crruleadd(){
+      if(!crRuleNew.rule_value){msg("规则值必填","e");return}
+      ap("POST","crawler/rules",{source_id:parseInt(crSel.value,10),field_name:crRuleNew.field_name,rule_type:crRuleNew.rule_type,rule_value:crRuleNew.rule_value,required:crRuleNew.required?1:0}).then(function(r){
+        if(r.ok){msg("规则已添加");crRuleNew.rule_value="";ldrule()}else msg(r.error||"添加失败","e");
+      });
+    }
+    function cruledel(rl){
+      if(!confirm("删除规则 "+rl.field_name+"？"))return;
+      ap("POST","crawler/rules/"+rl.id+"/delete",{}).then(function(r){if(r.ok){msg("已删除");ldrule()}else msg(r.error||"删除失败","e")});
+    }
+
+    function msg(s,t){to.sh=true;to.msg=s;to.tp=t||"s";if(tt)clearTimeout(tt);tt=setTimeout(function(){to.sh=false},3000)}
+    function ap(m,p,b){
+      return fetch("/api/admin/"+p,{method:m,headers:{"Content-Type":"application/json","Authorization":"Bearer "+tk.value},body:b?JSON.stringify(b):undefined}).then(function(r){
+        if(r.status===401){tk.value="";localStorage.removeItem("at");return{error:"not_logged_in"}}
+        return r.json();
+      });
+    }
+    function gp(p){pg.value=p;location.hash="#/"+p;sb.value=false}
+    function login(){
+      if(!lp.value)return;
+      ldg.value=true;le.value="";
+      fetch("/api/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:lp.value})})
+        .then(function(r){return r.json()})
+        .then(function(d2){
+          if(d2.token){tk.value=d2.token;localStorage.setItem("at",d2.token);lp.value="";gp("st")}
+          else{le.value=d2.error||"fail"}
+        })
+        .catch(function(){le.value="网络错误"})
+        .finally(function(){ldg.value=false});
+    }
+    function lgout(){ap("POST","logout").then(function(){tk.value="";localStorage.removeItem("at")})}
+    function loadst(){ap("GET","status").then(function(r){Object.assign(d,r)})}
+    function ldcs(){ap("GET","cookies/summary").then(function(r){csInfo.value=r})}
+    function lddb(){ap("GET","db").then(function(r){Object.assign(dbInfo,r)})}
+    function ldhi(){
+      fetch("/api/transfer/history").then(function(r){return r.json()}).then(function(r){hi.value=(r.records||[])}).catch(function(){hi.value=[]});
+    }
+    function fmtTime(ms){
+      if(!ms)return "-";
+      var d=new Date(ms);function p(n){return (n<10?"0":"")+n}
+      return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes());
+    }
+    function applyTheme(t){document.documentElement.setAttribute("data-bs-theme",t)}
+    function tg(){th.value=th.value==="dark"?"light":"dark";localStorage.setItem("theme",th.value);applyTheme(th.value)}
+    function tst(tp){
+      cst[tp]=true;
+      var b={};
+      if(tp==="q")b.quark=cf.q.trim();else b.baidu=cf.b.trim();
+      ap("POST","cookies/test",b).then(function(r){
+        var ok=r[tp==="q"?"quark":"baidu"];
+        var dt=r[tp==="q"?"quarkDetail":"baiduDetail"];
+        cs[tp]=ok?"ok":"bad";
+        if(tp==="q")cs.qd=dt;else cs.bd=dt;
+        cst[tp]=false;
+        msg((tp==="q"?"夸克":"百度")+" Cookie "+(cs[tp]==="ok"?"测试通过":"测试失败"),cs[tp]);
+      });
+    }
+    function svck(){
+      var b={};
+      if(cf.q)b.quark=cf.q.trim();
+      if(cf.b)b.baidu=cf.b.trim();
+      ap("POST","cookies",b).then(function(r){
+        if(r.results){
+          var qs=r.results.quark,bs=r.results.baidu,ms=[];
+          if(qs)ms.push(qs.saved?"夸克 Cookie 已保存":"夸克"+qs.error);
+          if(bs)ms.push(bs.saved?"百度 Cookie 已保存":"百度"+bs.error);
+          msg(ms.join("；")||"无变化",r.ok?"s":"e");
+          if(r.ok){cf.q="";cf.b="";ldcs();loadst()}
+        }else{msg("保存失败","e")}
+      });
+    }
+    function ldcfg(){ap("GET","config").then(function(r){Object.assign(cfg,r)})}
+    function svcfg(){ap("POST","config",cfg).then(function(r){msg(r.ok?"配置已保存":"保存失败",r.ok?"s":"e")})}
+    function ldca(){ap("GET","cache").then(function(r){Object.assign(ctt,r)})}
+    function clr(){
+      ap("POST","cache/clear").then(function(r){
+        if(r.ok){ctt.total=0;ctt.quark=0;ctt.baidu=0;msg("缓存已清空")}
+      });
+    }
+    function chpw(){
+      if(pw.n1!==pw.n2){msg("两次输入的新密码不一致","e");return}
+      if(pw.n1.length<6){msg("新密码至少 6 位","e");return}
+      ap("POST","password",{oldPassword:pw.old,newPassword:pw.n1}).then(function(r){
+        if(r.ok){msg("密码已修改");pw.old="";pw.n1="";pw.n2=""}
+        else{msg(r.error==="current_password_wrong"?"当前密码不正确":(r.error||"修改失败"),"e")}
+      });
+    }
+
+    Vue.watch(pg,function(p){
+      if(p==="st"){loadst();lddb()}
+      if(p==="ck")ldcs();
+      if(p==="rs"){rsTab.value="list";ldres();ldsub();ldimp()}
+      if(p==="hi")ldhi();
+      if(p==="api")ldcfg();
+      if(p==="ca")ldca();
+    });
+    Vue.onMounted(function(){
+      applyTheme(th.value);
+      if(tk.value){
+        var h=location.hash.replace("#/","");
+        gp(h||"st");
+        if(h==="ck")ldcs();else if(h==="hi")ldhi();else if(h==="rs"){ldres();ldsub();ldimp()}else{loadst();lddb()}
+      }
+    });
+
+    return {tk,pg,sb,th,ldg,lp,le,d,cf,cs,cst,csInfo,cfg,cache:ctt,hi,dbInfo,pw,toast:to,curMenu,menus,msg,gp,login:login,logout:lgout,lgout,ld:loadst,ldcs,lddb,ldhi,fmtTime,tg,tst,svck,ldcfg,svcfg,ldca,clr,chpw,
+      rsTab,rsQ,res,rsAddShow,rsAdd,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crRules,crRuleStats,crNew,crRuleNew,
+      srcName,srcBadge,fmtT,ldres,rsadd,rsdel,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel};
+  }
+}).mount("#aapp");
+</script>
+</body>
+</html>

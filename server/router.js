@@ -7,6 +7,9 @@ const hot = require("./handlers/hot");
 const check = require("./handlers/check");
 const transfer = require("./handlers/transfer");
 const admin = require("./handlers/admin");
+const resource = require("./handlers/resource");
+const importH = require("./handlers/import");
+const crawler = require("./handlers/crawler");
 
 async function handleRequest(req, res) {
   logger(req, res);
@@ -21,6 +24,7 @@ async function handleRequest(req, res) {
 
     // Link availability check
     if (urlPath === "/api/check/links" && method === "POST") return await check.handler(req, res);
+    if (urlPath === "/api/check/local" && method === "POST") return await check.localCheck(req, res);
 
     // Pansou proxy
     if (urlPath.startsWith("/api/pansou/") && method === "GET") return await pansou.proxyPansou(req, res);
@@ -28,6 +32,11 @@ async function handleRequest(req, res) {
     // Transfer (Quark save)
     if (urlPath === "/api/transfer/save" && method === "POST") return await transfer.handler(req, res);
       if (urlPath === "/api/transfer/history" && method === "GET") return await transfer.getHistory(req, res);
+
+    // Resource pipeline: submit / local search / report
+    if (urlPath === "/api/submit/resource" && method === "POST") return await resource.submitResource(req, res);
+    if (urlPath === "/api/search/local" && method === "GET") return await resource.localSearch(req, res);
+    if (/^\/api\/resources\/\d+\/report$/.test(urlPath) && method === "POST") return await resource.reportBroken(req, res);
 
     
     // --- Admin API routes ---
@@ -44,7 +53,35 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/config" && method === "POST") return await admin.saveConfig(req, res);
       if (urlPath === "/api/admin/cache" && method === "GET") return await admin.cacheInfo(req, res);
       if (urlPath === "/api/admin/cache/clear" && method === "POST") return await admin.clearCache(req, res);
-      if (urlPath === "/api/admin/password" && method === "POST") return await admin.changePassword(req, res);      json(res, 404, { error: "admin_route_not_found" });
+      if (urlPath === "/api/admin/db" && method === "GET") return await admin.dbStatus(req, res);
+      if (urlPath === "/api/admin/password" && method === "POST") return await admin.changePassword(req, res);
+
+      // Resource management
+      if (urlPath === "/api/admin/resources" && method === "GET") return await resource.adminList(req, res);
+      if (urlPath === "/api/admin/resources" && method === "POST") return await resource.adminAdd(req, res);
+      if (/^\/api\/admin\/resources\/\d+$/.test(urlPath) && method === "POST") return await resource.adminUpdate(req, res);
+      if (/^\/api\/admin\/resources\/\d+$/.test(urlPath) && method === "DELETE") return await resource.adminDelete(req, res);
+      if (urlPath === "/api/admin/submissions" && method === "GET") return await resource.adminSubmissions(req, res);
+      if (/^\/api\/admin\/submissions\/\d+\/approve$/.test(urlPath) && method === "POST") return await resource.adminApprove(req, res);
+      if (/^\/api\/admin\/submissions\/\d+\/reject$/.test(urlPath) && method === "POST") return await resource.adminReject(req, res);
+
+      // Import
+      if (urlPath === "/api/admin/import/upload" && method === "POST") return await importH.upload(req, res);
+      if (urlPath === "/api/admin/import/confirm" && method === "POST") return await importH.confirm(req, res);
+      if (urlPath === "/api/admin/import/logs" && method === "GET") return await importH.logs(req, res);
+
+      // Crawler
+      if (urlPath === "/api/admin/crawler/sources" && method === "GET") return await crawler.sourceList(req, res);
+      if (urlPath === "/api/admin/crawler/sources" && method === "POST") return await crawler.sourceAdd(req, res);
+      if (/^\/api\/admin\/crawler\/sources\/\d+$/.test(urlPath) && method === "POST") return await crawler.sourceUpdate(req, res);
+      if (/^\/api\/admin\/crawler\/sources\/\d+\/delete$/.test(urlPath) && method === "POST") return await crawler.sourceDelete(req, res);
+      if (/^\/api\/admin\/crawler\/sources\/\d+\/run$/.test(urlPath) && method === "POST") return await crawler.sourceRun(req, res);
+      if (urlPath === "/api/admin/crawler/rules" && method === "GET") return await crawler.ruleList(req, res);
+      if (urlPath === "/api/admin/crawler/rules" && method === "POST") return await crawler.ruleAdd(req, res);
+      if (/^\/api\/admin\/crawler\/rules\/\d+$/.test(urlPath) && method === "POST") return await crawler.ruleUpdate(req, res);
+      if (/^\/api\/admin\/crawler\/rules\/\d+\/delete$/.test(urlPath) && method === "POST") return await crawler.ruleDelete(req, res);
+
+      json(res, 404, { error: "admin_route_not_found" });
       return;
     }
 

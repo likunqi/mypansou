@@ -1,12 +1,14 @@
 ﻿const { json, readBody, fetchHttps } = require("../middleware");
-const { rd, wr, PATHS, PANSOU_BASE } = require("../../lib/storage");
+const { PANSOU_BASE } = require("../../lib/storage");
 const { hash, enc, dec } = require("../../lib/crypto");
 const auth = require("../../lib/auth");
+const store = require("../../lib/store");
+const mysql = require("../../lib/mysql");
 
 async function login(req, res) {
   try {
     var b = JSON.parse(await readBody(req));
-    var adminData = rd(PATHS.ADMIN, { password: "" });
+    var adminData = await store.getAdmin();
     var t = auth.login(b.password, adminData.password);
     json(res, t ? 200 : 401, t ? { token: t } : { error: "wrong_password" });
   } catch (e) { json(res, 400, { error: e.message }); }
@@ -19,33 +21,36 @@ async function logout(req, res) {
 }
 
 async function status(req, res) {
-  var cfg = rd(PATHS.CFG, {});
-  var cookieFile = "";
-  try { cookieFile = require("fs").readFileSync(PATHS.COOKIES, "utf8"); } catch (e) {}
-  var hasQuark = cookieFile.includes("quark:");
-  var hasBaidu = cookieFile.includes("baidu:");
-  var cacheData = rd(PATHS.CACHE, { links: {}, stats: { total: 0 } });
-  var cacheTotal = cacheData.stats ? cacheData.stats.total : Object.keys(cacheData.links).length;
+  var cfg = await store.getConfig();
+  var cookieObj = await store.getCookiesObj();
+  var hasQuark = !!cookieObj.quark;
+  var hasBaidu = !!cookieObj.baidu;
+  var cst = await store.cacheStats();
+  var cacheTotal = cst.total || 0;
   var cookieSize = 0;
-  try { cookieSize = require("fs").statSync(PATHS.COOKIES).size; } catch (e) {}
+  try {
+    Object.keys(cookieObj).forEach(function (k) { cookieSize += String(cookieObj[k]).length; });
+  } catch (e) {}
+  var pansouOk = false;
   try {
     var pansouRes = await fetchHttps(cfg.pansouBase || PANSOU_BASE, "/api/search?kw=test&_t=1");
-    var pansouOk = pansouRes.status === 200;
+    pansouOk = pansouRes.status === 200;
   } catch (e) { pansouOk = false; }
+  var adminData = await store.getAdmin();
   json(res, 200, {
     pansou: pansouOk,
     quark: hasQuark,
     baidu: hasBaidu,
     cache: cacheTotal,
     cookieSize: cookieSize,
-    adminSince: rd(PATHS.ADMIN, {}).created || 0,
+    adminSince: adminData.created || 0,
   });
 }
 
 async function saveCookies(req, res) {
   try {
     var b = JSON.parse(await readBody(req));
-    var cfg = rd(PATHS.CFG, {});
+    var cfg = await store.getConfig();
     var key = cfg.encKey || "x";
     var results = { quark: null, baidu: null };
 
@@ -61,14 +66,7 @@ async function saveCookies(req, res) {
         if (qr.status !== 200) {
           results.quark = { saved: false, error: "验证失败，服务器返回" + qr.status };
         } else {
-          var cookiePairs = {};
-          cookiePairs.quark = enc(b.quark, key);
-          var existing = "";
-          try { existing = require("fs").readFileSync(PATHS.COOKIES, "utf8"); } catch (e) {}
-          var existingObj = {};
-          try { existingObj = JSON.parse(existing); } catch (e) {}
-          Object.assign(existingObj, cookiePairs);
-          wr(PATHS.COOKIES, existingObj);
+          await store.saveCookie("quark", enc(b.quark, key));
           results.quark = { saved: true };
         }
       } catch (e) { results.quark = { saved: false, error: "验证失败" }; }
@@ -82,14 +80,7 @@ async function saveCookies(req, res) {
         if (br.status !== 200 || bj.errno !== 0) {
           results.baidu = { saved: false, error: "验证失败" };
         } else {
-          var cookiePairs = {};
-          cookiePairs.baidu = enc(b.baidu, key);
-          var existing = "";
-          try { existing = require("fs").readFileSync(PATHS.COOKIES, "utf8"); } catch (e) {}
-          var existingObj = {};
-          try { existingObj = JSON.parse(existing); } catch (e) {}
-          Object.assign(existingObj, cookiePairs);
-          wr(PATHS.COOKIES, existingObj);
+          await store.saveCookie("baidu", enc(b.baidu, key));
           results.baidu = { saved: true };
         }
       } catch (e) { results.baidu = { saved: false, error: "验证失败（百度）" }; }
@@ -132,11 +123,8 @@ async function testCookies(req, res) {
 
 async function getCookieSummary(req, res) {
   try {
-    var cfg = rd(PATHS.CFG, {});
-    var cookieFile = "";
-    try { cookieFile = require("fs").readFileSync(PATHS.COOKIES, "utf8"); } catch (e) {}
-    var cookieObj = {};
-    try { cookieObj = JSON.parse(cookieFile); } catch (e) {}
+    var cfg = await store.getConfig();
+    var cookieObj = await store.getCookiesObj();
     var result = { quark: null, baidu: null };
     if (cookieObj.quark) {
       try {
@@ -163,42 +151,48 @@ async function getCookieSummary(req, res) {
 }
 
 async function getConfig(req, res) {
-  var cfg = rd(PATHS.CFG, {});
+  var cfg = await store.getConfig();
   json(res, 200, { pansouBase: cfg.pansouBase || PANSOU_BASE, baiduDir: cfg.baiduDir || "/", shareUrlPrefix: cfg.shareUrlPrefix || "" });
 }
 
 async function saveConfig(req, res) {
   try {
     var b = JSON.parse(await readBody(req));
-    var cfg = rd(PATHS.CFG, {});
+    var cfg = await store.getConfig();
     if (b.pansouBase) cfg.pansouBase = b.pansouBase;
     if (b.baiduDir !== undefined) cfg.baiduDir = b.baiduDir;
     if (b.shareUrlPrefix !== undefined) cfg.shareUrlPrefix = b.shareUrlPrefix;
-    wr(PATHS.CFG, cfg);
+    await store.saveConfig(cfg);
     json(res, 200, { ok: true });
   } catch (e) { json(res, 500, { error: e.message }); }
 }
 
 async function cacheInfo(req, res) {
-  var cacheData = rd(PATHS.CACHE, { links: {}, stats: { total: 0, quark: 0, baidu: 0 } });
-  json(res, 200, cacheData.stats);
+  var cst = await store.cacheStats();
+  json(res, 200, cst);
 }
 
 async function clearCache(req, res) {
-  wr(PATHS.CACHE, { links: {}, stats: { total: 0, quark: 0, baidu: 0 } });
+  await store.cacheClear();
   json(res, 200, { ok: true });
 }
 
 async function changePassword(req, res) {
   try {
     var b = JSON.parse(await readBody(req));
-    var adminData = rd(PATHS.ADMIN, { password: "" });
+    var adminData = await store.getAdmin();
     if (!auth.login(b.oldPassword, adminData.password)) {
       json(res, 403, { error: "current_password_wrong" }); return;
     }
-    wr(PATHS.ADMIN, { password: hash(b.newPassword), created: Date.now() });
+    await store.setAdminPassword(hash(b.newPassword));
     json(res, 200, { ok: true });
   } catch (e) { json(res, 500, { error: e.message }); }
 }
 
-module.exports = { login, logout, status, saveCookies, testCookies, getCookieSummary, getConfig, saveConfig, cacheInfo, clearCache, changePassword };
+// MySQL 接入状态（健康检查）
+async function dbStatus(req, res) {
+  var st = await mysql.status();
+  json(res, 200, st);
+}
+
+module.exports = { login, logout, status, saveCookies, testCookies, getCookieSummary, getConfig, saveConfig, cacheInfo, clearCache, changePassword, dbStatus };

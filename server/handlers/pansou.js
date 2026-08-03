@@ -1,9 +1,10 @@
 ﻿const { fetchHttps, json } = require("../middleware");
-const { rd, PATHS, PANSOU_BASE } = require("../../lib/storage");
+const { PANSOU_BASE } = require("../../lib/storage");
+const store = require("../../lib/store");
 
 async function proxyPansou(req, res) {
   var u = new URL(req.url, "http://" + req.headers.host);
-  var cfg = rd(PATHS.CFG, {});
+  var cfg = await store.getConfig();
   var base = cfg.pansouBase || PANSOU_BASE;
   var targetPath = u.pathname.replace(/^\/api\/pansou/, "/api") + u.search;
   var lastError = null;

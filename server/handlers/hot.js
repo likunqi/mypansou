@@ -1,11 +1,12 @@
 ﻿const { fetchHttps, json } = require("../middleware");
-const { rd, wr, PATHS, PANSOU_BASE } = require("../../lib/storage");
+const { PANSOU_BASE } = require("../../lib/storage");
+const store = require("../../lib/store");
 const { getDoubanHot } = require("./douban");
 
 const HOT_TERMS = ["狂飙", "繁花", "三体", "庆余年", "周杰伦", "肖申克的救赎", "年会不能停"];
 
 async function getTrending(req, res) {
-  var cache = rd(PATHS.CACHE, {});
+  var cache = store.getTrendingCache();
   var trending = cache.trending;
   var now = Date.now();
 
@@ -17,7 +18,7 @@ async function getTrending(req, res) {
   var items = [];
   var source = "pansou";
   try {
-    var cfg = rd(PATHS.CFG, {});
+    var cfg = await store.getConfig();
     var base = cfg.pansouBase || PANSOU_BASE;
     var batchTerms = HOT_TERMS.slice(0, 4);
     await Promise.all(batchTerms.map(async function(term) {
@@ -108,14 +109,17 @@ async function getTrending(req, res) {
     var tmp = items[i]; items[i] = items[j]; items[j] = tmp;
   }
 
-  var qCount=0,bCount=0;items.forEach(function(i){if(i.type==="quark")qCount++;if(i.type==="baidu")bCount++});if(items.length>0){cache.stats={total:items.length,quark:qCount,baidu:bCount};wr(PATHS.CACHE,cache)}var out = {
+  var qCount = 0, bCount = 0;
+  items.forEach(function (i) { if (i.type === "quark") qCount++; if (i.type === "baidu") bCount++; });
+  var stats = { total: items.length, quark: qCount, baidu: bCount };
+  var out = {
     items: items.slice(0, 12),
-    terms: source === "pansou" ? HOT_TERMS : items.slice(0, 8).map(function(i) { return i.term; }),
-    stats: cache.stats || {},
+    terms: source === "pansou" ? HOT_TERMS : items.slice(0, 8).map(function (i) { return i.term; }),
+    stats: stats,
     source: source
   };
   cache.trending = { ts: now, data: out };
-  wr(PATHS.CACHE, cache);
+  store.saveTrendingCache(cache);
 
   json(res, 200, out);
 }
