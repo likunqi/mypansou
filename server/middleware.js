@@ -28,9 +28,18 @@ function readBody(req) {
 
 function fetchHttps(hostname, pathname, headers, postBody) {
   return new Promise(function(resolve, reject) {
-    var opts = { hostname: hostname, path: pathname, method: postBody ? "POST" : "GET", headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } };
+    var raw = String(hostname || "").trim();
+    var protocol = "https:";
+    if (/^https:\/\//i.test(raw)) { raw = raw.replace(/^https?:\/\//i, ""); }
+    else if (/^http:\/\//i.test(raw)) { protocol = "http:"; raw = raw.replace(/^https?:\/\//i, ""); }
+    var port = protocol === "https:" ? 443 : 80;
+    var hostOnly = raw;
+    var m = raw.match(/^(.*):(\d+)$/);
+    if (m) { hostOnly = m[1]; port = parseInt(m[2], 10); if (protocol === "https:" && port !== 443) protocol = "http:"; }
+    var mod = protocol === "http:" ? http : https;
+    var opts = { hostname: hostOnly, port: port, path: pathname, method: postBody ? "POST" : "GET", headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } };
     if (headers) Object.assign(opts.headers, headers);
-    var req = https.request(opts, function(r) {
+    var req = mod.request(opts, function(r) {
       var d = "";
       r.on("data", function(c) { d += c; });
       r.on("end", function() { resolve({ status: r.statusCode, headers: r.headers, body: d }); });

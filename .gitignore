@@ -15,3 +15,6 @@ git_msg.txt
 .workbuddy/
 docs/_archive/
 scripts/_tmp_*.js
+
+# 本地备份
+*.bak_*

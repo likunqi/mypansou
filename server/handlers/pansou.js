@@ -13,12 +13,24 @@ async function proxyPansou(req, res) {
     try {
       var pr = await fetchHttps(base, targetPath);
       if (pr.status >= 500) { lastError = { status: pr.status, body: pr.body }; continue; }
-      try { JSON.parse(pr.body); } catch (pe) {
+      var parsed;
+      try { parsed = JSON.parse(pr.body); } catch (pe) {
         lastError = { error: "pansou_api_error", message: "pansou returned non-JSON" };
         continue;
       }
+      // 只保留夸克/百度网盘（NAS 版 pansou 不支持 channels 过滤，由本代理层过滤）
+      var ALLOWED = ["quark", "baidu"];
+      if (parsed && parsed.data && parsed.data.merged_by_type) {
+        var mg = parsed.data.merged_by_type;
+        var ntotal = 0;
+        Object.keys(mg).forEach(function(k) {
+          if (ALLOWED.indexOf(k) < 0) delete mg[k];
+          else ntotal += (Array.isArray(mg[k]) ? mg[k].length : 0);
+        });
+        if (typeof parsed.data.total === "number") parsed.data.total = ntotal;
+      }
       res.writeHead(pr.status, { "Content-Type": "application/json; charset=utf-8", "Access-Control-Allow-Origin": "*" });
-      res.end(pr.body);
+      res.end(JSON.stringify(parsed));
       return;
     } catch (e) {
       lastError = { error: "pansou_proxy_error", message: e.message };
