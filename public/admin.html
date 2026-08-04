@@ -250,7 +250,7 @@
                       <td><span class="badge" :class="a.is_valid?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{a.is_valid?'有效':'未知/失效'}}</span></td>
                       <td><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" :checked="a.enabled" @change="ckToggle(a)"></div></td>
                       <td class="text-nowrap">
-                        <button class="btn btn-outline-secondary btn-sm" @click="ckTestRow(a)">测试</button>
+                        <button class="btn btn-outline-secondary btn-sm" :disabled="a.testing" @click="ckTestRow(a)">{{a.testing?'测试中…':'测试'}}</button>
                         <button class="btn btn-outline-primary btn-sm" @click="ckEdit(a)">编辑</button>
                         <button class="btn btn-outline-danger btn-sm" @click="ckDel(a)">删除</button>
                       </td>
@@ -284,13 +284,14 @@
                   <textarea class="form-control" v-model="ckFm.cookie" rows="4" placeholder="粘贴 Cookie（百度填 BDUSS）"></textarea>
                   <div v-if="ckT.running" class="form-hint mt-1">测试中…</div>
                   <div v-else-if="ckT.ok!==null" class="form-hint mt-1" :class="ckT.ok?'text-success':'text-danger'">{{ckT.ok?'验证通过 ✓':'验证失败：'+(ckT.detail||'')}}</div>
+                  <div v-if="ckFm.id" class="form-hint mt-1 text-secondary">编辑模式：Cookie 留空表示不修改；要测试现有账号点列表行的「测试」按钮</div>
                 </div>
                 <div class="d-flex gap-2">
                   <button class="btn btn-outline-secondary" :disabled="ckT.running||!ckFm.cookie.trim()" @click="ckTest">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                     测试
                   </button>
-                  <button class="btn btn-primary" :disabled="ckT.running||!ckFm.cookie.trim()" @click="ckSave">
+                  <button class="btn btn-primary" :disabled="ckT.running||(!ckFm.cookie.trim()&&!ckFm.id)" @click="ckSave">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                     {{ckFm.id?'保存修改':'添加账号'}}
                   </button>
@@ -1665,13 +1666,23 @@ cr({
       });
     }
     function ckTestRow(a){
-      // 行内测试需要解密已有密文，统一引导到编辑表单操作
-      msg("点「编辑」填入 Cookie 后在右侧测试","e");
+      a.testing=true;
+      ap("POST","cookies/"+a.id+"/test",{}).then(function(r){
+        a.testing=false;
+        a.is_valid=!!r.valid;
+        msg(r.ok?("测试通过 ✓ "+(r.name||r.provider||"")):("测试失败："+(r.detail||r.error||"")), r.ok?"s":"e");
+      }).catch(function(){a.testing=false;msg("测试失败：网络错误","e")});
     }
     function ckSave(){
-      if(!ckFm.cookie.trim()){msg("请先粘贴 Cookie","e");return}
-      var body={provider:ckFm.provider,name:ckFm.name,cookie:ckFm.cookie.trim()};
-      var req=ckFm.id?ap("POST","cookies/"+ckFm.id,{name:ckFm.name,cookie:ckFm.cookie.trim()}):ap("POST","cookies",body);
+      if(!ckFm.id && !ckFm.cookie.trim()){msg("请先粘贴 Cookie","e");return}
+      var req;
+      if(ckFm.id){
+        var body={name:ckFm.name};
+        if(ckFm.cookie.trim())body.cookie=ckFm.cookie.trim();
+        req=ap("POST","cookies/"+ckFm.id,body);
+      }else{
+        req=ap("POST","cookies",{provider:ckFm.provider,name:ckFm.name,cookie:ckFm.cookie.trim()});
+      }
       req.then(function(r){
         if(r.ok){msg(ckFm.id?"已保存修改":"已添加账号");ckNew();ldck();loadst()}else msg(r.error||"操作失败","e");
       });

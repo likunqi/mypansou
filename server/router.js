@@ -66,6 +66,7 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/cookies/test" && method === "POST") return await admin.cookieTest(req, res);
       if (urlPath === "/api/admin/cookies/summary" && method === "GET") return await admin.getCookieSummary(req, res);
       if (/^\/api\/admin\/cookies\/\d+\/delete$/.test(urlPath) && method === "POST") return await admin.cookieDelete(req, res);
+      if (/^\/api\/admin\/cookies\/\d+\/test$/.test(urlPath) && method === "POST") return await admin.cookieTestById(req, res);
       if (/^\/api\/admin\/cookies\/\d+$/.test(urlPath) && method === "POST") return await admin.cookieUpdate(req, res);
       if (urlPath === "/api/admin/config" && method === "GET") return await admin.getConfig(req, res);
       if (urlPath === "/api/admin/config" && method === "POST") return await admin.saveConfig(req, res);

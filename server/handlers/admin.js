@@ -208,6 +208,24 @@ async function cookieDelete(req, res) {
   } catch (e) { json(res, 500, { error: e.message }); }
 }
 
+// POST /api/admin/cookies/:id/test —— 测试已保存账号（解密验证，更新 is_valid）
+async function cookieTestById(req, res) {
+  try {
+    var m = req.url.match(/\/api\/admin\/cookies\/(\d+)\/test/);
+    if (!m) { json(res, 400, { error: "bad_id" }); return; }
+    var accounts = await store.getCookieAccounts();
+    var acc = accounts.filter(function (a) { return String(a.id) === m[1]; })[0];
+    if (!acc) { json(res, 404, { error: "account not found" }); return; }
+    var cfg = await store.getConfig();
+    var plain = "";
+    try { plain = dec(acc.encrypted, cfg.encKey); } catch (e) {}
+    if (!plain) { json(res, 400, { error: "解密失败，请重新编辑粘贴 Cookie" }); return; }
+    var t = await testCookieValue(acc.provider, plain);
+    await store.cookieUpdate(m[1], { is_valid: t.valid ? 1 : 0, last_tested_at: new Date() });
+    json(res, 200, { ok: t.valid, valid: t.valid, detail: t.detail, provider: acc.provider, name: acc.name });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+
 async function getCookieSummary(req, res) {
   try {
     var accounts = await store.getCookieAccounts();
@@ -308,4 +326,4 @@ async function dbStatus(req, res) {
   json(res, 200, st);
 }
 
-module.exports = { login, logout, status, saveCookies, testCookies, cookieTest, cookieList, cookieAdd, cookieUpdate, cookieDelete, getCookieSummary, getConfig, saveConfig, cacheInfo, clearCache, changePassword, dbStatus, dashboard, getSiteConfig, saveSiteConfig };
+module.exports = { login, logout, status, saveCookies, testCookies, cookieTest, cookieList, cookieAdd, cookieUpdate, cookieDelete, cookieTestById, getCookieSummary, getConfig, saveConfig, cacheInfo, clearCache, changePassword, dbStatus, dashboard, getSiteConfig, saveSiteConfig };
