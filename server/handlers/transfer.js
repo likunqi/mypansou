@@ -5,9 +5,13 @@ const store = require("../../lib/store");
 const quark = require("../../lib/quark");
 const baidu = require("../../lib/baidu");
 
-function _decCookie(cookieObj, provider, encKey) {
-  if (!cookieObj || !cookieObj[provider]) return "";
-  try { return dec(cookieObj[provider], encKey); } catch (e) { return ""; }
+// 多账号随机轮询：从账号列表选一个启用账号解密（分散风控）
+function _decCookie(accounts, provider, encKey) {
+  if (!accounts || !accounts.length) return "";
+  var list = accounts.filter(function (a) { return a.provider === provider && a.enabled !== false; });
+  if (!list.length) return "";
+  var pick = list[Math.floor(Math.random() * list.length)];
+  try { return dec(pick.encrypted, encKey); } catch (e) { return ""; }
 }
 
 async function handler(req, res) {
@@ -19,17 +23,13 @@ async function handler(req, res) {
     if (!url) { json(res, 400, { error: "url required" }); return; }
 
     var cfg = await store.getConfig();
-    var cookieObj = await store.getCookiesObj();
+    var accounts = await store.getCookieAccounts();
 
     if (type === "baidu") {
-      var bduss = _decCookie(cookieObj, "baidu", cfg.encKey);
+      var bduss = _decCookie(accounts, "baidu", cfg.encKey);
       if (!bduss) { json(res, 400, { error: "baidu cookie not configured" }); return; }
       var qr = await baidu.transfer(url, bduss);
       var result = { newUrl: qr.url, saved: true, pwd: qr.pwd || "" };
-      if (cfg.shareUrlPrefix) {
-        var sid = (qr.url || "").match(/\x2fs\x2f([a-zA-Z0-9]+)/);
-        if (sid) result.newUrl = cfg.shareUrlPrefix + sid[1];
-      }
       await store.historyAdd({ originalUrl: url, newUrl: result.newUrl, pwd: result.pwd, type: "baidu", title: srcTitle || qr.fileName || "", success: true, createdAt: Date.now() });
       json(res, 200, { cached: false, result: result });
       return;
@@ -38,15 +38,11 @@ async function handler(req, res) {
     var cached = await store.cacheGet(url);
     if (cached) { json(res, 200, { cached: true, result: cached }); return; }
 
-    var qCookie = _decCookie(cookieObj, "quark", cfg.encKey);
+    var qCookie = _decCookie(accounts, "quark", cfg.encKey);
     if (!qCookie) { json(res, 400, { error: "quark cookie not configured" }); return; }
     var qr = await quark.transfer(url, qCookie);
     var result = { newUrl: qr.url, saved: true, pwd: qr.pwd || "" };
     if (qr.note) result.note = qr.note;
-    if (cfg.shareUrlPrefix) {
-      var sid = (qr.url || "").match(/\x2fs\x2f([a-zA-Z0-9]+)/);
-      if (sid) result.newUrl = cfg.shareUrlPrefix + sid[1];
-    }
     await store.cacheSet(url, result);
     await store.historyAdd({ originalUrl: url, newUrl: result.newUrl, pwd: result.pwd, type: "quark", title: srcTitle || qr.fileName || "", success: true, createdAt: Date.now() });
     json(res, 200, { cached: false, result: result });
@@ -58,4 +54,21 @@ async function getHistory(req, res) {
   json(res, 200, { records: records });
 }
 
-module.exports = { handler, getHistory };
+async function historyDelete(req, res) {
+  try {
+    var b = JSON.parse(await readBody(req));
+    var ids = (b.ids || []).map(Number).filter(function (n) { return n > 0; });
+    if (!ids.length) { json(res, 400, { error: "ids required" }); return; }
+    await store.historyDelete(ids);
+    json(res, 200, { ok: true, deleted: ids.length });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+
+async function historyClear(req, res) {
+  try {
+    await store.historyClear();
+    json(res, 200, { ok: true });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+
+module.exports = { handler, getHistory, historyDelete, historyClear };

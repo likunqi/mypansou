@@ -44,7 +44,9 @@ async function handleRequest(req, res) {
 
     // Transfer (Quark save)
     if (urlPath === "/api/transfer/save" && method === "POST") return await transfer.handler(req, res);
-      if (urlPath === "/api/transfer/history" && method === "GET") return await transfer.getHistory(req, res);
+    if (urlPath === "/api/transfer/history" && method === "GET") return await transfer.getHistory(req, res);
+    if (urlPath === "/api/transfer/history/delete" && method === "POST") return await transfer.historyDelete(req, res);
+    if (urlPath === "/api/transfer/history/clear" && method === "POST") return await transfer.historyClear(req, res);
 
     // Resource pipeline: submit / local search / report
     if (urlPath === "/api/submit/resource" && method === "POST") return await resource.submitResource(req, res);
@@ -59,9 +61,12 @@ async function handleRequest(req, res) {
       if (!auth.check(token)) { json(res, 401, { error: "not_logged_in" }); return; }
       if (urlPath === "/api/admin/logout" && method === "POST") return await admin.logout(req, res);
       if (urlPath === "/api/admin/status" && method === "GET") return await admin.status(req, res);
-      if (urlPath === "/api/admin/cookies" && method === "POST") return await admin.saveCookies(req, res);
-      if (urlPath === "/api/admin/cookies/test" && method === "POST") return await admin.testCookies(req, res);
+      if (urlPath === "/api/admin/cookies" && method === "GET") return await admin.cookieList(req, res);
+      if (urlPath === "/api/admin/cookies" && method === "POST") return await admin.cookieAdd(req, res);
+      if (urlPath === "/api/admin/cookies/test" && method === "POST") return await admin.cookieTest(req, res);
       if (urlPath === "/api/admin/cookies/summary" && method === "GET") return await admin.getCookieSummary(req, res);
+      if (/^\/api\/admin\/cookies\/\d+\/delete$/.test(urlPath) && method === "POST") return await admin.cookieDelete(req, res);
+      if (/^\/api\/admin\/cookies\/\d+$/.test(urlPath) && method === "POST") return await admin.cookieUpdate(req, res);
       if (urlPath === "/api/admin/config" && method === "GET") return await admin.getConfig(req, res);
       if (urlPath === "/api/admin/config" && method === "POST") return await admin.saveConfig(req, res);
       if (urlPath === "/api/admin/cache" && method === "GET") return await admin.cacheInfo(req, res);
@@ -94,6 +99,7 @@ async function handleRequest(req, res) {
       if (/^\/api\/admin\/keywords\/\d+\/delete$/.test(urlPath) && method === "POST") return await hot.adminKeywordDelete(req, res);
 
       // Resource management
+      if (urlPath === "/api/admin/dashboard" && method === "GET") return await admin.dashboard(req, res);
       if (urlPath === "/api/admin/resources" && method === "GET") return await resource.adminList(req, res);
       if (urlPath === "/api/admin/resources" && method === "POST") return await resource.adminAdd(req, res);
       if (/^\/api\/admin\/resources\/\d+$/.test(urlPath) && method === "POST") return await resource.adminUpdate(req, res);

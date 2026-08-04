@@ -1,5 +1,4 @@
 ﻿const { fetchHttps, json, readBody } = require("../middleware");
-const { PANSOU_BASE } = require("../../lib/storage");
 const store = require("../../lib/store");
 const { getDoubanHot } = require("./douban");
 
@@ -85,12 +84,16 @@ async function adminKeywordUpdate(req, res) {
     if (!m) { json(res, 400, { error: "bad_id" }); return; }
     var b = JSON.parse(await readBody(req));
     var fields = {};
+    if (b.keyword !== undefined && String(b.keyword).trim()) fields.keyword = String(b.keyword).trim();
     if (b.is_hot !== undefined) fields.is_hot = b.is_hot ? 1 : 0;
     if (b.sort_order !== undefined) fields.sort_order = parseInt(b.sort_order || "0", 10) || 0;
     if (b.status !== undefined) fields.status = b.status ? 1 : 0;
     await store.keywordUpdate(m[1], fields);
     json(res, 200, { ok: true });
-  } catch (e) { json(res, 500, { error: e.message }); }
+  } catch (e) {
+    if (e && e.errno === 1062) { json(res, 400, { error: "该关键词已存在" }); return; }
+    json(res, 500, { error: e.message });
+  }
 }
 async function adminKeywordDelete(req, res) {
   try {
@@ -138,8 +141,9 @@ async function refreshTrending() {
   var items = [];
   var source = "pansou";
   try {
-    var cfg = await store.getConfig();
-    var base = cfg.pansouBase || PANSOU_BASE;
+    var pb = store.pickPansouBase(await store.getPansouBases());
+    if (!pb) throw new Error("no pansou host");
+    var base = pb.host;
     var batchTerms = terms.slice(0, 4);
     var collect = (async function() {
       await Promise.all(batchTerms.map(async function(term) {

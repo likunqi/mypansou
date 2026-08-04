@@ -1,5 +1,4 @@
 ﻿const { fetchHttps, json, readBody } = require("../middleware");
-const { PANSOU_BASE } = require("../../lib/storage");
 const store = require("../../lib/store");
 
 var http = require("http");
@@ -46,11 +45,12 @@ async function handler(req, res) {
     var pansouItems = items.map(function(it) { return { disk_type: it.disk_type || it.type || "", url: it.url }; });
     var pb = JSON.stringify({ items: pansouItems });
     try {
-      var cfg = await store.getConfig();
-      var base = cfg.pansouBase || PANSOU_BASE;
-      var pr = await fetchHttps(base, "/api/check/links", { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(pb) }, pb);
-      var pj = JSON.parse(pr.body);
-      if (pj.results) { json(res, 200, { code: 0, message: "success", results: pj.results }); return; }
+      var hb = store.pickPansouBase(await store.getPansouBases());
+      if (hb) {
+        var pr = await fetchHttps(hb.host, "/api/check/links", { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(pb) }, pb);
+        var pj = JSON.parse(pr.body);
+        if (pj.results) { json(res, 200, { code: 0, message: "success", results: pj.results }); return; }
+      }
     } catch (pe) { console.error("pansou check failed:", pe.message); }
     var fb = await Promise.all(items.map(function(it) {
       return new Promise(function(r2) {

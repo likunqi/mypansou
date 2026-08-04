@@ -177,60 +177,122 @@
               </div>
             </div>
           </div>
+
+          <!-- 数据概览：统计卡 + 盘类型条形图 + 最近转存 -->
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header d-flex align-items-center">
+                <h3 class="card-title mb-0">数据概览</h3>
+                <div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="lddash">刷新</button></div>
+              </div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-6 col-lg-2"><div class="subheader">资源总数</div><div class="h2 mb-0">{{dash.stats.total}}</div></div>
+                  <div class="col-6 col-lg-2"><div class="subheader">有效链接</div><div class="h2 mb-0 text-success">{{dash.stats.valid}}</div></div>
+                  <div class="col-6 col-lg-2"><div class="subheader">累计转存</div><div class="h2 mb-0 text-primary">{{dash.transfers.total}}</div></div>
+                  <div class="col-6 col-lg-2"><div class="subheader">今日转存</div><div class="h2 mb-0 text-cyan">{{dash.transfers.today}}</div></div>
+                  <div class="col-6 col-lg-2"><div class="subheader">热搜词</div><div class="h2 mb-0 text-warning">{{dash.keywords}}</div></div>
+                  <div class="col-6 col-lg-2"><div class="subheader">转存缓存</div><div class="h2 mb-0">{{d.cache||0}}</div></div>
+                </div>
+                <hr class="my-3">
+                <div class="row g-3">
+                  <div class="col-lg-6">
+                    <div class="subheader mb-2">资源网盘分布</div>
+                    <div v-for="b in dashBars" :key="b.type" class="d-flex align-items-center mb-2">
+                      <span class="me-2" style="width:52px">{{b.name}}</span>
+                      <div class="progress flex-grow-1" style="height:14px">
+                        <div class="progress-bar" :class="b.cls" :style="{width:b.pct+'%'}"></div>
+                      </div>
+                      <span class="ms-2 text-secondary" style="width:36px;text-align:right">{{b.count}}</span>
+                    </div>
+                    <div v-if="!dashBars.length" class="text-secondary">暂无资源</div>
+                  </div>
+                  <div class="col-lg-6">
+                    <div class="subheader mb-2">最近转存</div>
+                    <div v-for="r in dash.recent" :key="r.id" class="d-flex align-items-center mb-2">
+                      <span class="badge me-2" :class="r.type==='baidu'?'bg-primary-lt text-primary':'bg-cyan-lt text-cyan'">{{r.type==='baidu'?'百度':'夸克'}}</span>
+                      <span class="text-truncate flex-grow-1">{{r.title||r.originalUrl}}</span>
+                      <span class="text-secondary ms-2 small">{{fmtTime(r.createdAt)}}</span>
+                    </div>
+                    <div v-if="!dash.recent.length" class="text-secondary">暂无转存记录</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- ========== Cookie 管理 ========== -->
         <div v-if="pg==='ck'" class="row row-cards">
           <div class="col-12">
-            <div class="alert alert-info py-2 mb-3">
-              <span class="me-3">Cookie 有效性：</span>
-              <span v-if="csInfo">
-                <span v-if="csInfo.quark" class="me-3"><span class="badge me-1" :class="csInfo.quark.valid?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{csInfo.quark.valid?'有效':'无效'}}</span>夸克</span>
-                <span v-if="csInfo.baidu"><span class="badge me-1" :class="csInfo.baidu.valid?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{csInfo.baidu.valid?'有效':'无效'}}</span>百度</span>
-                <span v-if="!csInfo.quark&&!csInfo.baidu" class="text-secondary">尚未配置</span>
+            <div class="alert alert-info py-2 mb-3 d-flex align-items-center">
+              <span class="me-3">账号概览：</span>
+              <span v-if="ckLoaded">
+                <span class="me-3">夸克 <b>{{ckStat('quark').total}}</b> 个 / 有效 <b class="text-success">{{ckStat('quark').valid}}</b></span>
+                <span class="me-3">百度 <b>{{ckStat('baidu').total}}</b> 个 / 有效 <b class="text-success">{{ckStat('baidu').valid}}</b></span>
+                <span v-if="!ckStat('quark').total&&!ckStat('baidu').total" class="text-secondary">尚未配置任何账号</span>
               </span>
               <span v-else class="text-secondary">检测中…</span>
+              <div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldck">刷新</button></div>
             </div>
           </div>
-          <div class="col-lg-6">
+          <div class="col-lg-8">
             <div class="card">
-              <div class="card-header"><h3 class="card-title">夸克网盘 Cookie</h3><div class="ms-auto"><span class="badge" :class="d.quark?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{d.quark?'已设置':'未设置'}}</span></div></div>
-              <div class="card-body">
-                <textarea class="form-control" v-model="cf.q" rows="5" placeholder="粘贴夸克 Cookie"></textarea>
-                <div v-if="cs.q" class="mt-2">
-                  <span class="badge" :class="cs.q==='ok'?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{cs.q==='ok'?'测试通过':'测试失败'}}</span>
-                  <span v-if="cs.qd" class="text-secondary ms-2 small">{{cs.qd}}</span>
-                </div>
-                <div class="mt-3 d-flex gap-2">
-                  <button class="btn btn-outline-secondary" :disabled="cst.q" @click="tst('q')">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                    {{cst.q?'测试中…':'测试'}}
-                  </button>
-                  <button class="btn btn-primary" @click="svck">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                    保存
-                  </button>
-                </div>
+              <div class="card-header"><h3 class="card-title">账号列表（多号轮询降风控）</h3></div>
+              <div class="table-responsive">
+                <table class="table table-vcenter card-table">
+                  <thead><tr><th>ID</th><th>类型</th><th>名称</th><th>有效</th><th>启用</th><th>操作</th></tr></thead>
+                  <tbody>
+                    <tr v-for="a in ckItems" :key="a.id">
+                      <td class="text-secondary">{{a.id}}</td>
+                      <td><span class="badge" :class="a.provider==='baidu'?'bg-primary-lt text-primary':'bg-cyan-lt text-cyan'">{{a.provider==='baidu'?'百度':'夸克'}}</span></td>
+                      <td>{{a.name || '未命名账号'}}</td>
+                      <td><span class="badge" :class="a.is_valid?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{a.is_valid?'有效':'未知/失效'}}</span></td>
+                      <td><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" :checked="a.enabled" @change="ckToggle(a)"></div></td>
+                      <td class="text-nowrap">
+                        <button class="btn btn-outline-secondary btn-sm" @click="ckTestRow(a)">测试</button>
+                        <button class="btn btn-outline-primary btn-sm" @click="ckEdit(a)">编辑</button>
+                        <button class="btn btn-outline-danger btn-sm" @click="ckDel(a)">删除</button>
+                      </td>
+                    </tr>
+                    <tr v-if="!ckItems.length"><td colspan="6" class="text-center text-secondary py-4">暂无账号，右侧添加一个</td></tr>
+                  </tbody>
+                </table>
               </div>
+              <div class="card-footer text-secondary small">转存请求时按启用账号随机轮询，分散风控；失效账号建议停用。</div>
             </div>
           </div>
-          <div class="col-lg-6">
+          <div class="col-lg-4">
             <div class="card">
-              <div class="card-header"><h3 class="card-title">百度网盘 Cookie</h3><div class="ms-auto"><span class="badge" :class="d.baidu?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{d.baidu?'已设置':'未设置'}}</span></div></div>
+              <div class="card-header"><h3 class="card-title">{{ckFm.id?'编辑账号 #'+ckFm.id:'新增账号'}}</h3>
+                <div class="ms-auto" v-if="ckFm.id"><button class="btn btn-outline-secondary btn-sm" @click="ckNew">取消</button></div>
+              </div>
               <div class="card-body">
-                <textarea class="form-control" v-model="cf.b" rows="5" placeholder="粘贴百度 Cookie（BDUSS）"></textarea>
-                <div v-if="cs.b" class="mt-2">
-                  <span class="badge" :class="cs.b==='ok'?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{cs.b==='ok'?'测试通过':'测试失败'}}</span>
-                  <span v-if="cs.bd" class="text-secondary ms-2 small">{{cs.bd}}</span>
+                <div class="mb-3">
+                  <label class="form-label">网盘类型</label>
+                  <select class="form-select" v-model="ckFm.provider" :disabled="!!ckFm.id">
+                    <option value="quark">夸克</option>
+                    <option value="baidu">百度</option>
+                  </select>
                 </div>
-                <div class="mt-3 d-flex gap-2">
-                  <button class="btn btn-outline-secondary" :disabled="cst.b" @click="tst('b')">
+                <div class="mb-3">
+                  <label class="form-label">账号名称（可选）</label>
+                  <input class="form-control" v-model="ckFm.name" placeholder="如：主号 / 小号1">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Cookie</label>
+                  <textarea class="form-control" v-model="ckFm.cookie" rows="4" placeholder="粘贴 Cookie（百度填 BDUSS）"></textarea>
+                  <div v-if="ckT.running" class="form-hint mt-1">测试中…</div>
+                  <div v-else-if="ckT.ok!==null" class="form-hint mt-1" :class="ckT.ok?'text-success':'text-danger'">{{ckT.ok?'验证通过 ✓':'验证失败：'+(ckT.detail||'')}}</div>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-outline-secondary" :disabled="ckT.running||!ckFm.cookie.trim()" @click="ckTest">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                    {{cst.b?'测试中…':'测试'}}
+                    测试
                   </button>
-                  <button class="btn btn-primary" @click="svck">
+                  <button class="btn btn-primary" :disabled="ckT.running||!ckFm.cookie.trim()" @click="ckSave">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                    保存
+                    {{ckFm.id?'保存修改':'添加账号'}}
                   </button>
                 </div>
               </div>
@@ -244,7 +306,9 @@
             <div class="card">
               <div class="card-header d-flex align-items-center">
                 <h3 class="card-title mb-0">最近 50 条转存记录</h3>
-                <div class="ms-auto">
+                <div class="ms-auto d-flex align-items-center gap-2">
+                  <button class="btn btn-outline-danger btn-sm" :disabled="!hiSel.length" @click="hiDel">删除选中{{hiSel.length?(' ('+hiSel.length+')'):''}}</button>
+                  <button class="btn btn-outline-danger btn-sm" @click="hiClr">清空</button>
                   <button class="btn btn-outline-secondary btn-sm" @click="ldhi">刷新</button>
                 </div>
               </div>
@@ -252,11 +316,13 @@
                 <table class="table table-vcenter card-table">
                   <thead>
                     <tr>
+                      <th style="width:36px"><input type="checkbox" class="form-check-input" @change="hiAll($event)" :checked="hiSel.length&&hiSel.length===hi.length"></th>
                       <th>时间</th><th>类型</th><th>标题</th><th>提取码</th><th>新链接</th><th>状态</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="r in hi" :key="r.originalUrl + r.createdAt">
+                    <tr v-for="r in hi" :key="r.id||(r.originalUrl+r.createdAt)">
+                      <td><input type="checkbox" class="form-check-input" :checked="hiSel.indexOf(r.id)>=0" @change="hiTgl(r.id)"></td>
                       <td class="text-nowrap text-secondary">{{fmtTime(r.createdAt)}}</td>
                       <td><span class="badge" :class="r.type==='baidu'?'bg-primary-lt text-primary':'bg-cyan-lt text-cyan'">{{r.type==='baidu'?'百度':'夸克'}}</span></td>
                       <td>{{r.title || r.originalUrl}}</td>
@@ -264,7 +330,7 @@
                       <td class="text-truncate" style="max-width:260px"><a :href="r.newUrl" target="_blank" class="text-secondary">{{r.newUrl}}</a></td>
                       <td><span class="badge" :class="r.success?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{r.success?'成功':'失败'}}</span></td>
                     </tr>
-                    <tr v-if="!hi.length"><td colspan="6" class="text-center text-secondary py-4">暂无转存记录</td></tr>
+                    <tr v-if="!hi.length"><td colspan="7" class="text-center text-secondary py-4">暂无转存记录</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -319,7 +385,9 @@
             </div>
 
             <div v-if="rsAddShow" class="card mb-3">
-              <div class="card-header"><h3 class="card-title">手动新增资源</h3></div>
+              <div class="card-header"><h3 class="card-title">{{rsEditId?'编辑资源 #'+rsEditId:'手动新增资源'}}</h3>
+                <div class="ms-auto" v-if="rsEditId"><button class="btn btn-outline-secondary btn-sm" @click="rsCancel">取消编辑</button></div>
+              </div>
               <div class="card-body">
                 <div class="row g-3">
                   <div class="col-md-4"><label class="form-label">标题 *</label><input class="form-control" v-model="rsAdd.title"></div>
@@ -350,12 +418,15 @@
                       <td class="text-truncate" style="max-width:200px" :title="r.title">{{r.title}}</td>
                       <td><a class="text-truncate d-inline-block" style="max-width:180px" :href="r.url" target="_blank" :title="r.url">{{r.url}}</a></td>
                       <td>{{r.password||'-'}}</td>
-                      <td><span class="badge bg-secondary-lt">{{r.disk_type}}</span></td>
+                      <td><span class="badge" :class="rsDiskCls(r.disk_type)">{{rsDiskName(r.disk_type)}}</span></td>
                       <td>{{r.category||'-'}}</td>
                       <td><span class="badge" :class="srcBadge(r.source)">{{srcName(r.source)}}</span></td>
-                      <td><span class="badge" :class="r.status==1?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{r.status==1?'启用':'停用'}}</span></td>
+                      <td><span class="badge" :class="r.status==1?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{r.status==1?'启用':'停用'}}</span></td>
                       <td class="text-secondary">{{fmtT(r.created_at)}}</td>
-                      <td>
+                      <td class="text-nowrap">
+                        <button class="btn btn-sm btn-outline-primary" @click="rsedit(r)">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                        </button>
                         <button class="btn btn-sm btn-outline-danger" @click="rsdel(r)">
                           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
@@ -594,18 +665,19 @@
               <div class="card-header"><h3 class="card-title">API 配置</h3></div>
               <div class="card-body">
                 <div class="mb-3">
-                  <label class="form-label">盘搜 Host</label>
-                  <input class="form-control" v-model="cfg.pansouBase" placeholder="so.252035.xyz">
-                  <div class="form-hint">切换数据源时修改</div>
-                </div>
-                <div class="mb-3">
-                  <label class="form-label">百度转存目录路径</label>
-                  <input class="form-control" v-model="cfg.baiduDir" placeholder="/yunpan">
-                </div>
-                <div class="mb-3">
-                  <label class="form-label">分享 URL 前缀</label>
-                  <input class="form-control" v-model="cfg.shareUrlPrefix" placeholder="https://mysite.com/go/">
-                  <div class="form-hint">转存后替换分享链接前缀</div>
+                  <label class="form-label">盘搜 API 列表（多 Host 随机轮询，故障自动切换）</label>
+                  <div v-for="(pb,i) in cfg.pansouBases" :key="i" class="row g-2 mb-2 align-items-center">
+                    <div class="col-2"><input class="form-control form-control-sm" v-model="pb.name" placeholder="名称"></div>
+                    <div class="col-6"><input class="form-control form-control-sm" v-model="pb.host" placeholder="pansou.makepic.online:8001"></div>
+                    <div class="col-auto"><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" v-model="pb.enabled" :id="'pben'+i"><label class="form-check-label" :for="'pben'+i">启用</label></div></div>
+                    <div class="col-auto"><input class="form-control form-control-sm" type="number" min="1" v-model="pb.weight" style="width:80px" title="权重（越大越优先）"></div>
+                    <div class="col-auto"><button class="btn btn-outline-danger btn-sm" @click="pbDel(i)">删除</button></div>
+                  </div>
+                  <button class="btn btn-outline-secondary btn-sm" @click="pbAdd">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    添加 Host
+                  </button>
+                  <div class="form-hint mt-2">格式：host 或 host:port 或 http(s)://host[:port]；请求时按权重随机选启用 Host，失败自动切换下一个</div>
                 </div>
                 <button class="btn btn-primary" @click="svcfg">
                   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -624,7 +696,7 @@
               <div class="card-body">
                 <div class="row g-2 mb-3 align-items-end">
                   <div class="col-auto" style="min-width:220px">
-                    <label class="form-label">新增 / 置顶关键词</label>
+                    <label class="form-label">{{kwEditId?'编辑关键词':'新增 / 置顶关键词'}}</label>
                     <input class="form-control" v-model="kwNew.keyword" placeholder="如：狂飙" @keydown.enter="kwadd">
                   </div>
                   <div class="col-auto">
@@ -637,7 +709,8 @@
                       <label class="form-check-label" for="kwHotNew">置顶（🔥 热词）</label>
                     </div>
                   </div>
-                  <div class="col-auto"><button class="btn btn-primary" @click="kwadd">添加</button></div>
+                  <div class="col-auto"><button class="btn btn-primary" @click="kwadd">{{kwEditId?'保存':'添加'}}</button></div>
+                  <div class="col-auto" v-if="kwEditId"><button class="btn btn-outline-secondary" @click="kwCancel">取消编辑</button></div>
                 </div>
                 <div class="table-responsive">
                   <table class="table table-vcenter card-table">
@@ -652,6 +725,7 @@
                         <td class="text-secondary">{{k.sort_order||0}}</td>
                         <td><span class="badge" :class="String(k.status)==='1'||k.status===1?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{String(k.status)==='1'||k.status===1?'启用':'停用'}}</span></td>
                         <td class="text-nowrap">
+                          <button class="btn btn-outline-primary btn-sm" @click="kwEdit(k)">编辑</button>
                           <button class="btn btn-outline-warning btn-sm" v-if="!k.is_hot" @click="kwhot(k,1)">置顶</button>
                           <button class="btn btn-outline-secondary btn-sm" v-else @click="kwhot(k,0)">取消置顶</button>
                           <button class="btn btn-outline-secondary btn-sm" @click="kwst(k)">{{String(k.status)==='1'||k.status===1?'停用':'启用'}}</button>
@@ -709,10 +783,14 @@
         <!-- ========== 任务中心 ========== -->
         <div v-if="pg==='ts'" class="row">
           <div class="col-12">
+            <div class="alert alert-info py-2 mb-3 d-flex align-items-center">
+              <span>内置任务已自动注册：<b>资源清理</b>（每日 03:00）· <b>豆瓣热词采集</b>（每日 08:00）· <b>热门推荐预热</b>（每 30 分钟）。点「▶」立即执行，开关启停。</span>
+              <div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="tsAdvShow=!tsAdvShow">{{tsAdvShow?'收起高级功能':'高级功能'}}</button></div>
+            </div>
             <div class="card">
               <div class="card-header"><h3 class="card-title">任务中心</h3><div class="ms-auto d-flex gap-2">
                 <button class="btn btn-outline-secondary btn-sm" @click="ldts">刷新</button>
-                <button class="btn btn-primary btn-sm" @click="tsNewShow">新建任务</button>
+                <button class="btn btn-primary btn-sm" v-if="tsAdvShow" @click="tsNewShow">新建任务</button>
               </div></div>
               <div class="card-body">
                 <div class="table-responsive">
@@ -729,8 +807,10 @@
                         <td class="text-secondary">{{fmtT(t.next_run_at)}}</td>
                         <td style="white-space:nowrap">
                           <button class="btn btn-sm btn-outline-primary me-1" @click="tsrun(t)" title="立即执行一次">▶</button>
-                          <button class="btn btn-sm btn-outline-secondary me-1" @click="tsedit(t)" title="编辑">✎</button>
-                          <button class="btn btn-sm btn-outline-danger" @click="tsdel(t)" title="删除">🗑</button>
+                          <template v-if="tsAdvShow">
+                            <button class="btn btn-sm btn-outline-secondary me-1" @click="tsedit(t)" title="编辑">✎</button>
+                            <button class="btn btn-sm btn-outline-danger me-1" @click="tsdel(t)" title="删除">🗑</button>
+                          </template>
                           <div class="form-check form-switch d-inline-block ms-2">
                             <input class="form-check-input" type="checkbox" :checked="t.status" @change="tstoggle(t)">
                           </div>
@@ -740,15 +820,16 @@
                     </tbody>
                   </table>
                 </div>
-                <div class="form-hint mt-2">「▶」立即执行一次（不改变排期）；开关启停；内置任务（清理/热词/预热）已自动注册，自定义任务在「新建任务」里选「自定义脚本」直接写 JS。</div>
+                <div class="form-hint mt-2" v-if="!tsAdvShow">「▶」立即执行（不改变排期）；「高级功能」里可新建/编辑/删除任务，自定义任务选「自定义脚本」直接写 JS（async function run(ctx)，vm 沙箱执行）。</div>
               </div>
             </div>
 
             <div class="card mt-3">
               <div class="card-header"><h3 class="card-title">执行日志 <span class="text-secondary fs-6 fw-normal" v-if="tsLogTask">· {{tsLogTask}}</span></h3>
-                <div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldtslogs">刷新日志</button></div>
+                <div class="ms-auto d-flex gap-2"><button class="btn btn-outline-secondary btn-sm" @click="ldtslogs">刷新日志</button>
+                <button class="btn btn-outline-secondary btn-sm" @click="tsLogShow=!tsLogShow">{{tsLogShow?'收起':'展开'}}</button></div>
               </div>
-              <div class="card-body">
+              <div v-if="tsLogShow" class="card-body">
                 <div class="table-responsive">
                   <table class="table table-vcenter card-table">
                     <thead><tr><th>#</th><th>任务</th><th>状态</th><th>耗时</th><th>结果 / 错误</th><th>时间</th></tr></thead>
@@ -895,19 +976,19 @@
                 <div class="row g-3 mb-4">
                   <div class="col-4">
                     <div class="border rounded p-3 text-center">
-                      <div class="h2 mb-0">{{ctt.total||0}}</div>
+                      <div class="h2 mb-0">{{cache.total||0}}</div>
                       <div class="subheader">总量</div>
                     </div>
                   </div>
                   <div class="col-4">
                     <div class="border rounded p-3 text-center">
-                      <div class="h2 mb-0">{{ctt.quark||0}}</div>
+                      <div class="h2 mb-0">{{cache.quark||0}}</div>
                       <div class="subheader">夸克</div>
                     </div>
                   </div>
                   <div class="col-4">
                     <div class="border rounded p-3 text-center">
-                      <div class="h2 mb-0">{{ctt.baidu||0}}</div>
+                      <div class="h2 mb-0">{{cache.baidu||0}}</div>
                       <div class="subheader">百度</div>
                     </div>
                   </div>
@@ -1013,10 +1094,25 @@ cr({
     var cs=rct({q:"",b:"",qd:"",bd:""});
     var cst=rct({q:false,b:false});
     var csInfo=rf(null);
-    var cfg=rct({pansouBase:"so.252035.xyz",baiduDir:"/",shareUrlPrefix:""});
+    var ckItems=rf([]);
+    var ckLoaded=rf(false);
+    var ckFm=rct({id:0,provider:"quark",name:"",cookie:""});
+    var ckT=rct({running:false,ok:null,detail:""});
+    var cfg=rct({pansouBases:[]});
     var ctt=rct({total:0,quark:0,baidu:0});
     var hi=rf([]);
+    var hiSel=rf([]);
     var dbInfo=rct({ready:false});
+    var dash=rct({stats:{total:0,byType:{},valid:0},transfers:{total:0,today:0},keywords:0,recent:[]});
+    var dashBars=Vue.computed(function(){
+      var map=dash.stats.byType||{};var total=dash.stats.total||0;
+      var order=["quark","baidu","aliyun","tianyi","uc","xunlei"];
+      var NAME={quark:"夸克",baidu:"百度",aliyun:"阿里",tianyi:"天翼",uc:"UC",xunlei:"迅雷"};
+      var CLS={quark:"bg-cyan",baidu:"bg-primary",aliyun:"bg-orange",tianyi:"bg-teal",uc:"bg-purple",xunlei:"bg-indigo"};
+      return order.filter(function(t){return map[t]}).map(function(t){
+        return {type:t,name:NAME[t]||t,count:map[t],pct:total?Math.round(map[t]/total*100):0,cls:CLS[t]||"bg-secondary"};
+      });
+    });
     var pw=rct({old:"",n1:"",n2:""});
     var to=rct({sh:false,msg:"",tp:"s"});
     var tt;
@@ -1027,6 +1123,7 @@ cr({
     var rsQ=rct({kw:"",source:"",status:""});
     var res=rct({items:[],total:0,page:1});
     var rsAddShow=rf(false);
+    var rsEditId=rf(0);
     var rsAdd=rct({title:"",url:"",password:"",disk_type:"quark",category:"",description:""});
     var subQ=rct({status:"0"});
     var subs=rct({items:[],total:0});
@@ -1058,8 +1155,24 @@ cr({
     }
     function rsadd(){
       if(!rsAdd.title||!rsAdd.url){msg("标题和链接必填","e");return}
+      if(rsEditId.value){
+        ap("POST","resources/"+rsEditId.value,{title:rsAdd.title,url:rsAdd.url,password:rsAdd.password,disk_type:rsAdd.disk_type,category:rsAdd.category,description:rsAdd.description}).then(function(r){
+          if(r.ok){msg("已保存修改");rsCancel();ldres()}else msg(r.error||"保存失败","e");
+        });
+        return;
+      }
       ap("POST","resources",rsAdd).then(function(r){if(r.ok){msg("已新增");rsAddShow.value=false;rsAdd={title:"",url:"",password:"",disk_type:"quark",category:"",description:""};ldres()}else msg(r.error||"新增失败","e")});
     }
+    function rsedit(r){
+      rsEditId.value=r.id;
+      rsAdd.title=r.title;rsAdd.url=r.url;rsAdd.password=r.password||"";rsAdd.disk_type=r.disk_type||"quark";rsAdd.category=r.category||"";rsAdd.description=r.description||"";
+      rsAddShow.value=true;
+    }
+    function rsCancel(){rsEditId.value=0;rsAddShow.value=false;rsAdd={title:"",url:"",password:"",disk_type:"quark",category:"",description:""}}
+    var RS_DISK_CLS={quark:"bg-cyan-lt text-cyan",baidu:"bg-primary-lt text-primary",aliyun:"bg-orange-lt text-orange",tianyi:"bg-teal-lt text-teal",uc:"bg-purple-lt text-purple",xunlei:"bg-indigo-lt text-indigo"};
+    var RS_DISK_NAME={quark:"夸克",baidu:"百度",aliyun:"阿里云盘",tianyi:"天翼",uc:"UC",xunlei:"迅雷"};
+    function rsDiskCls(t){return RS_DISK_CLS[t]||"bg-secondary-lt text-secondary"}
+    function rsDiskName(t){return RS_DISK_NAME[t]||t||"未知"}
     function rsdel(r){
       if(!confirm("确认删除资源 #"+r.id+"？"))return;
       ap("DELETE","resources/"+r.id,null).then(function(){ldres();msg("已删除")});
@@ -1139,13 +1252,22 @@ cr({
     // ---- 热搜管理 ----
     var kwItems=rf([]);
     var kwNew=rct({keyword:"",is_hot:false,sort_order:0});
+    var kwEditId=rf(0);
     function ldKw(){ap("GET","keywords").then(function(r){kwItems.value=r.items||[]})}
     function kwadd(){
       if(!kwNew.keyword.trim()){msg("关键词必填","e");return}
+      if(kwEditId.value){
+        ap("POST","keywords/"+kwEditId.value,{keyword:kwNew.keyword.trim(),is_hot:kwNew.is_hot?1:0,sort_order:parseInt(kwNew.sort_order)||0}).then(function(r){
+          if(r.ok){msg("已保存");kwCancel();ldKw()}else msg(r.error||"保存失败","e");
+        });
+        return;
+      }
       ap("POST","keywords",{keyword:kwNew.keyword.trim(),is_hot:kwNew.is_hot?1:0,sort_order:parseInt(kwNew.sort_order)||0}).then(function(r){
         if(r.ok){msg("已添加");kwNew.keyword="";kwNew.is_hot=false;kwNew.sort_order=0;ldKw()}else msg(r.error||"添加失败","e");
       });
     }
+    function kwEdit(k){kwEditId.value=k.id;kwNew.keyword=k.keyword;kwNew.is_hot=!!k.is_hot;kwNew.sort_order=k.sort_order||0}
+    function kwCancel(){kwEditId.value=0;kwNew.keyword="";kwNew.is_hot=false;kwNew.sort_order=0}
     function kwhot(k,v){ap("POST","keywords/"+k.id,{is_hot:v}).then(function(r){if(r.ok){msg(v?"已置顶":"已取消置顶");ldKw()}else msg(r.error||"操作失败","e")})}
     function kwst(k){var n=String(k.status)==="1"||k.status===1?0:1;ap("POST","keywords/"+k.id,{status:n}).then(function(r){if(r.ok){msg(n?"已启用":"已停用");ldKw()}else msg(r.error||"操作失败","e")})}
     function kwdel(k){
@@ -1177,6 +1299,8 @@ cr({
     var tsLogs=rf([]);
     var tsLogTask=rf("");
     var tsShow=rf(false);
+    var tsAdvShow=rf(false);
+    var tsLogShow=rf(true);
     var tsEditId=rf(0);
     var tsSaving=rf(false);
     var tsTypes=rf([]);
@@ -1312,7 +1436,7 @@ cr({
       fetch("/api/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:lp.value})})
         .then(function(r){return r.json()})
         .then(function(d2){
-          if(d2.token){tk.value=d2.token;localStorage.setItem("at",d2.token);lp.value="";gp("st")}
+          if(d2.token){tk.value=d2.token;localStorage.setItem("at",d2.token);lp.value="";gp("st");loadst();lddb();lddash()}
           else{le.value=d2.error||"fail"}
         })
         .catch(function(){le.value="网络错误"})
@@ -1322,13 +1446,74 @@ cr({
     function loadst(){ap("GET","status").then(function(r){Object.assign(d,r)})}
     function ldcs(){ap("GET","cookies/summary").then(function(r){csInfo.value=r})}
     function lddb(){ap("GET","db").then(function(r){Object.assign(dbInfo,r)})}
+    function lddash(){ap("GET","dashboard").then(function(r){if(r.stats)Object.assign(dash,r)})}
     function ldhi(){
-      fetch("/api/transfer/history").then(function(r){return r.json()}).then(function(r){hi.value=(r.records||[])}).catch(function(){hi.value=[]});
+      fetch("/api/transfer/history").then(function(r){return r.json()}).then(function(r){hi.value=(r.records||[]);hiSel.value=[]}).catch(function(){hi.value=[]});
+    }
+    var hiSel=rf([]);
+    function hiAll(ev){hiSel.value=ev.target.checked?hi.value.map(function(r){return r.id}).filter(function(x){return x!=null}):[]}
+    function hiTgl(id){var i=hiSel.value.indexOf(id);if(i>=0)hiSel.value.splice(i,1);else hiSel.value.push(id)}
+    function hiDel(){
+      if(!hiSel.value.length){msg("请先勾选要删除的记录","e");return}
+      if(!confirm("确定删除选中的 "+hiSel.value.length+" 条转存记录？"))return;
+      fetch("/api/transfer/history/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ids:hiSel.value})})
+        .then(function(r){return r.json()}).then(function(r){if(r.ok){msg("已删除 "+r.deleted+" 条");ldhi()}else msg(r.error||"删除失败","e")});
+    }
+    function hiClr(){
+      if(!confirm("确定清空全部转存记录？此操作不可恢复！"))return;
+      fetch("/api/transfer/history/clear",{method:"POST"})
+        .then(function(r){return r.json()}).then(function(r){if(r.ok){msg("已清空");ldhi()}else msg(r.error||"清空失败","e")});
     }
     function fmtTime(ms){
       if(!ms)return "-";
       var d=new Date(ms);function p(n){return (n<10?"0":"")+n}
       return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes());
+    }
+    // ---- Cookie 多账号 ----
+    function ldck(){
+      ap("GET","cookies").then(function(r){
+        ckItems.value=(r.accounts||[]).map(function(a){return {id:a.id,provider:a.provider,name:a.name||"",enabled:!!a.enabled,is_valid:!!a.is_valid}});
+        ckLoaded.value=true;
+      });
+    }
+    function ckStat(provider){
+      var t=0,v=0;
+      ckItems.value.forEach(function(a){if(a.provider===provider){t++;if(a.is_valid)v++}});
+      return {total:t,valid:v};
+    }
+    function ckNew(){ckFm.id=0;ckFm.provider="quark";ckFm.name="";ckFm.cookie="";ckT.ok=null;ckT.detail=""}
+    function ckEdit(a){
+      ckFm.id=a.id;ckFm.provider=a.provider;ckFm.name=a.name;ckFm.cookie="";
+      ckT.ok=null;ckT.detail="";
+    }
+    function ckTest(){
+      if(!ckFm.cookie.trim()){msg("请先粘贴 Cookie","e");return}
+      ckT.running=true;ckT.ok=null;
+      ap("POST","cookies/test",{provider:ckFm.provider,cookie:ckFm.cookie}).then(function(r){
+        ckT.running=false;ckT.ok=!!r.ok;ckT.detail=r.detail||(r.error||"");
+      });
+    }
+    function ckTestRow(a){
+      // 行内测试需要解密已有密文，统一引导到编辑表单操作
+      msg("点「编辑」填入 Cookie 后在右侧测试","e");
+    }
+    function ckSave(){
+      if(!ckFm.cookie.trim()){msg("请先粘贴 Cookie","e");return}
+      var body={provider:ckFm.provider,name:ckFm.name,cookie:ckFm.cookie.trim()};
+      var req=ckFm.id?ap("POST","cookies/"+ckFm.id,{name:ckFm.name,cookie:ckFm.cookie.trim()}):ap("POST","cookies",body);
+      req.then(function(r){
+        if(r.ok){msg(ckFm.id?"已保存修改":"已添加账号");ckNew();ldck();loadst()}else msg(r.error||"操作失败","e");
+      });
+    }
+    function ckDel(a){
+      if(!confirm("删除账号「"+(a.name||a.provider+" #"+a.id)+"」？"))return;
+      ap("POST","cookies/"+a.id+"/delete",{}).then(function(r){if(r.ok){msg("已删除");ldck()}else msg(r.error||"删除失败","e")});
+    }
+    function ckToggle(a){
+      var on=!a.enabled;
+      ap("POST","cookies/"+a.id,{enabled:on}).then(function(r){
+        if(r.ok){a.enabled=on;msg(on?"已启用":"已停用")}else msg(r.error||"操作失败","e");
+      });
     }
     function applyTheme(t){document.documentElement.setAttribute("data-bs-theme",t)}
     function tg(){th.value=th.value==="dark"?"light":"dark";localStorage.setItem("theme",th.value);applyTheme(th.value)}
@@ -1359,8 +1544,10 @@ cr({
         }else{msg("保存失败","e")}
       });
     }
-    function ldcfg(){ap("GET","config").then(function(r){Object.assign(cfg,r)})}
-    function svcfg(){ap("POST","config",cfg).then(function(r){msg(r.ok?"配置已保存":"保存失败",r.ok?"s":"e")})}
+    function ldcfg(){ap("GET","config").then(function(r){if(r.pansouBases)cfg.pansouBases=r.pansouBases})}
+    function svcfg(){ap("POST","config",{pansouBases:cfg.pansouBases}).then(function(r){msg(r.ok?"配置已保存":"保存失败",r.ok?"s":"e");if(r.ok)ldcfg()})}
+    function pbAdd(){cfg.pansouBases.push({name:"",host:"",enabled:true,weight:1})}
+    function pbDel(i){cfg.pansouBases.splice(i,1)}
     function ldca(){ap("GET","cache").then(function(r){Object.assign(ctt,r)})}
     function clr(){
       ap("POST","cache/clear").then(function(r){
@@ -1377,8 +1564,8 @@ cr({
     }
 
     Vue.watch(pg,function(p){
-      if(p==="st"){loadst();lddb()}
-      if(p==="ck")ldcs();
+      if(p==="st"){loadst();lddb();lddash()}
+      if(p==="ck"){ldck();ldcs()};
       if(p==="rs"){rsTab.value="list";ldres();ldsub();ldimp()}
       if(p==="hi")ldhi();
       if(p==="kw")ldKw();
@@ -1393,16 +1580,16 @@ cr({
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="ck")ldcs();else if(h==="hi")ldhi();else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="ts")ldts();else if(h==="rs"){ldres();ldsub();ldimp()}else{loadst();lddb()}
+        if(h==="ck"){ldck();ldcs()}else if(h==="hi")ldhi();else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="ts")ldts();else if(h==="rs"){ldres();ldsub();ldimp()}else{loadst();lddb();lddash()}
       }
     });
 
-    return {tk,pg,sb,th,ldg,lp,le,d,cf,cs,cst,csInfo,cfg,cache:ctt,hi,dbInfo,pw,toast:to,curMenu,menus,msg,gp,login:login,logout:lgout,lgout,ld:loadst,ldcs,lddb,ldhi,fmtTime,tg,tst,svck,ldcfg,svcfg,ldca,clr,chpw,
-      rsTab,rsQ,res,rsAddShow,rsAdd,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crRules,crRuleStats,crNew,crRuleNew,
-      srcName,srcBadge,fmtT,ldres,rsadd,rsdel,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,
-      kwItems,kwNew,ldKw,kwadd,kwhot,kwst,kwdel,
+    return {tk,pg,sb,th,ldg,lp,le,d,cf,cs,cst,csInfo,ckItems,ckLoaded,ckFm,ckT,ldck,ckStat,ckNew,ckEdit,ckTest,ckTestRow,ckSave,ckDel,ckToggle,cfg,pbAdd,pbDel,cache:ctt,hi,hiSel,hiAll,hiTgl,hiDel,hiClr,dbInfo,dash,dashBars,lddash,pw,toast:to,curMenu,menus,msg,gp,login:login,logout:lgout,lgout,ld:loadst,ldcs,lddb,ldhi,fmtTime,tg,tst,svck,ldcfg,svcfg,ldca,clr,chpw,
+      rsTab,rsQ,res,rsAddShow,rsEditId,rsAdd,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crRules,crRuleStats,crNew,crRuleNew,
+      srcName,srcBadge,fmtT,ldres,rsadd,rsdel,rsedit,rsCancel,rsDiskCls,rsDiskName,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,
+      kwItems,kwNew,kwEditId,ldKw,kwadd,kwEdit,kwCancel,kwhot,kwst,kwdel,
       scItems,ldsc,scToggle,scDiskOpts,scDisk,
-      tsItems,tsLogs,tsShow,tsEditId,tsSaving,tsTypes,tsNew,fmtInt,ldts,ldtslogs,tstoggle,tsrun,tsNewShow,tsedit,tssave,tsdel,
+      tsItems,tsLogs,tsShow,tsAdvShow,tsLogShow,tsEditId,tsSaving,tsTypes,tsNew,fmtInt,ldts,ldtslogs,tstoggle,tsrun,tsNewShow,tsedit,tssave,tsdel,
       aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,ldai,svai,tstai,runai,aiOpen,aiCopy};
   }
 }).mount("#aapp");

@@ -1,17 +1,20 @@
 ﻿const { fetchHttps, json } = require("../middleware");
-const { PANSOU_BASE } = require("../../lib/storage");
 const store = require("../../lib/store");
 
 async function proxyPansou(req, res) {
   var u = new URL(req.url, "http://" + req.headers.host);
-  var cfg = await store.getConfig();
-  var base = cfg.pansouBase || PANSOU_BASE;
   var targetPath = u.pathname.replace(/^\/api\/pansou/, "/api") + u.search;
+  var bases = await store.getPansouBases();
+  var tried = {};
   var lastError = null;
-  for (var attempt = 0; attempt <= 2; attempt++) {
+  var attempts = Math.max(bases.length, 3); // 单 host 保留 3 次退避重试，多 host 轮流切换
+  for (var attempt = 0; attempt < attempts; attempt++) {
     if (attempt > 0) await new Promise(function(r) { setTimeout(r, 1000 * attempt); });
+    var picked = store.pickPansouBase(bases.filter(function(h) { return !tried[h.host]; }));
+    if (!picked) break;
+    tried[picked.host] = 1;
     try {
-      var pr = await fetchHttps(base, targetPath);
+      var pr = await fetchHttps(picked.host, targetPath);
       if (pr.status >= 500) { lastError = { status: pr.status, body: pr.body }; continue; }
       var parsed;
       try { parsed = JSON.parse(pr.body); } catch (pe) {
