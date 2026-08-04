@@ -250,6 +250,19 @@ async function dashboard(req, res) {
   } catch (e) { json(res, 500, { error: e.message }); }
 }
 
+// 站点配置（TDK/favicon/自定义代码）
+async function getSiteConfig(req, res) {
+  try { json(res, 200, await store.getSiteConfig()); }
+  catch (e) { json(res, 500, { error: e.message }); }
+}
+async function saveSiteConfig(req, res) {
+  try {
+    var b = JSON.parse(await readBody(req));
+    await store.saveSiteConfig(b);
+    json(res, 200, { ok: true });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+
 async function saveConfig(req, res) {
   try {
     var b = JSON.parse(await readBody(req));
@@ -295,4 +308,4 @@ async function dbStatus(req, res) {
   json(res, 200, st);
 }
 
-module.exports = { login, logout, status, saveCookies, testCookies, cookieTest, cookieList, cookieAdd, cookieUpdate, cookieDelete, getCookieSummary, getConfig, saveConfig, cacheInfo, clearCache, changePassword, dbStatus, dashboard };
+module.exports = { login, logout, status, saveCookies, testCookies, cookieTest, cookieList, cookieAdd, cookieUpdate, cookieDelete, getCookieSummary, getConfig, saveConfig, cacheInfo, clearCache, changePassword, dbStatus, dashboard, getSiteConfig, saveSiteConfig };

@@ -100,6 +100,8 @@ async function handleRequest(req, res) {
 
       // Resource management
       if (urlPath === "/api/admin/dashboard" && method === "GET") return await admin.dashboard(req, res);
+      if (urlPath === "/api/admin/siteconfig" && method === "GET") return await admin.getSiteConfig(req, res);
+      if (urlPath === "/api/admin/siteconfig" && method === "POST") return await admin.saveSiteConfig(req, res);
       if (urlPath === "/api/admin/resources" && method === "GET") return await resource.adminList(req, res);
       if (urlPath === "/api/admin/resources" && method === "POST") return await resource.adminAdd(req, res);
       if (/^\/api\/admin\/resources\/\d+$/.test(urlPath) && method === "POST") return await resource.adminUpdate(req, res);

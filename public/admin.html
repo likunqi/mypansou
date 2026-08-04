@@ -1029,6 +1029,62 @@
           </div>
         </div>
 
+        <!-- ========== 站点配置 ========== -->
+        <div v-if="pg==='site'" class="row">
+          <div class="col-lg-8">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">站点配置（TDK / Favicon / 自定义代码）</h3>
+                <div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldsite">刷新</button></div>
+              </div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <label class="form-label">网站标题（Title）</label>
+                  <input class="form-control" v-model="site.site_name" placeholder="云盘搜">
+                  <div class="form-hint">渲染为 &lt;title&gt;站点名 - 网盘资源搜索引擎&lt;/title&gt;</div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">SEO 关键词（Keywords）</label>
+                  <input class="form-control" v-model="site.site_keywords" placeholder="云盘搜索,夸克网盘,百度网盘">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">站点描述（Description）</label>
+                  <textarea class="form-control" v-model="site.site_description" rows="2" placeholder="网盘资源搜索引擎"></textarea>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Favicon 图标 URL</label>
+                  <div class="d-flex gap-2">
+                    <input class="form-control" v-model="site.site_favicon" placeholder="https://example.com/favicon.ico">
+                    <img v-if="site.site_favicon" :src="site.site_favicon" alt="favicon" style="width:28px;height:28px;object-fit:contain" @error="$event.target.style.display='none'">
+                  </div>
+                  <div class="form-hint">留空使用默认（无图标）；填 URL 则首页注入 &lt;link rel="icon"&gt;</div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">首页自定义代码（Custom Head）</label>
+                  <textarea class="form-control font-monospace" v-model="site.site_custom_head" rows="5" placeholder="&lt;script&gt;var _hmt=_hmt||[];...&lt;/script&gt;&#10;&lt;meta name=&quot;baidu-site-verification&quot; content=&quot;...&quot;&gt;&#10;（统计/备案/验证代码注入 &lt;head&gt;）"></textarea>
+                  <div class="form-hint">原样注入首页 &lt;head&gt;：统计代码（百度统计/51LA）、ICP 备案号、站点验证等</div>
+                </div>
+                <button class="btn btn-primary" @click="svsite">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  保存配置
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">生效说明</h3></div>
+              <div class="card-body text-secondary">
+                <ul class="list-unstyled mb-0">
+                  <li class="mb-2">· 保存后<b>首页立即生效</b>（服务端注入，无需重启）</li>
+                  <li class="mb-2">· TDK 对搜索引擎爬虫友好，提交收录前建议先配置</li>
+                  <li class="mb-2">· 自定义代码支持统计（百度统计/51LA/CNZZ）、ICP 备案、站点验证 meta</li>
+                  <li class="mb-2">· 搜索页 / 后台不受影响</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -1079,6 +1135,7 @@ var menus=[
   {id:"sc",title:"搜索源",icon:IC.settings},
   {id:"ts",title:"任务中心",icon:IC.clock},
   {id:"api",title:"API 配置",icon:IC.settings},
+  {id:"site",title:"站点配置",icon:IC.settings},
   {id:"ca",title:"缓存管理",icon:IC.database},
   {id:"se",title:"安全设置",icon:IC.shield}
 ];
@@ -1099,6 +1156,7 @@ cr({
     var ckFm=rct({id:0,provider:"quark",name:"",cookie:""});
     var ckT=rct({running:false,ok:null,detail:""});
     var cfg=rct({pansouBases:[]});
+    var site=rct({site_name:"云盘搜",site_keywords:"",site_description:"",site_favicon:"",site_custom_head:""});
     var ctt=rct({total:0,quark:0,baidu:0});
     var hi=rf([]);
     var hiSel=rf([]);
@@ -1548,6 +1606,8 @@ cr({
     function svcfg(){ap("POST","config",{pansouBases:cfg.pansouBases}).then(function(r){msg(r.ok?"配置已保存":"保存失败",r.ok?"s":"e");if(r.ok)ldcfg()})}
     function pbAdd(){cfg.pansouBases.push({name:"",host:"",enabled:true,weight:1})}
     function pbDel(i){cfg.pansouBases.splice(i,1)}
+    function ldsite(){ap("GET","siteconfig").then(function(r){if(r.site_name)Object.assign(site,r)})}
+    function svsite(){ap("POST","siteconfig",site).then(function(r){msg(r.ok?"站点配置已保存（首页立即生效）":"保存失败",r.ok?"s":"e")})}
     function ldca(){ap("GET","cache").then(function(r){Object.assign(ctt,r)})}
     function clr(){
       ap("POST","cache/clear").then(function(r){
@@ -1573,6 +1633,7 @@ cr({
       if(p==="sc")ldsc();
       if(p==="ts")ldts();
       if(p==="api")ldcfg();
+      if(p==="site")ldsite();
       if(p==="ca")ldca();
     });
     Vue.onMounted(function(){
@@ -1580,11 +1641,11 @@ cr({
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="ck"){ldck();ldcs()}else if(h==="hi")ldhi();else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="ts")ldts();else if(h==="rs"){ldres();ldsub();ldimp()}else{loadst();lddb();lddash()}
+        if(h==="ck"){ldck();ldcs()}else if(h==="hi")ldhi();else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="ts")ldts();else if(h==="rs"){ldres();ldsub();ldimp()}else if(h==="site")ldsite();else{loadst();lddb();lddash()}
       }
     });
 
-    return {tk,pg,sb,th,ldg,lp,le,d,cf,cs,cst,csInfo,ckItems,ckLoaded,ckFm,ckT,ldck,ckStat,ckNew,ckEdit,ckTest,ckTestRow,ckSave,ckDel,ckToggle,cfg,pbAdd,pbDel,cache:ctt,hi,hiSel,hiAll,hiTgl,hiDel,hiClr,dbInfo,dash,dashBars,lddash,pw,toast:to,curMenu,menus,msg,gp,login:login,logout:lgout,lgout,ld:loadst,ldcs,lddb,ldhi,fmtTime,tg,tst,svck,ldcfg,svcfg,ldca,clr,chpw,
+    return {tk,pg,sb,th,ldg,lp,le,d,cf,cs,cst,csInfo,ckItems,ckLoaded,ckFm,ckT,ldck,ckStat,ckNew,ckEdit,ckTest,ckTestRow,ckSave,ckDel,ckToggle,cfg,pbAdd,pbDel,site,ldsite,svsite,cache:ctt,hi,hiSel,hiAll,hiTgl,hiDel,hiClr,dbInfo,dash,dashBars,lddash,pw,toast:to,curMenu,menus,msg,gp,login:login,logout:lgout,lgout,ld:loadst,ldcs,lddb,ldhi,fmtTime,tg,tst,svck,ldcfg,svcfg,ldca,clr,chpw,
       rsTab,rsQ,res,rsAddShow,rsEditId,rsAdd,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crRules,crRuleStats,crNew,crRuleNew,
       srcName,srcBadge,fmtT,ldres,rsadd,rsdel,rsedit,rsCancel,rsDiskCls,rsDiskName,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,
       kwItems,kwNew,kwEditId,ldKw,kwadd,kwEdit,kwCancel,kwhot,kwst,kwdel,

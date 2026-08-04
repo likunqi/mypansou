@@ -53,9 +53,30 @@ function fetchHttps(hostname, pathname, headers, postBody) {
   });
 }
 
+function esc(s) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// 站点配置注入：首页 HTML 动态渲染 title / description / keywords / favicon / 自定义代码
+function injectSiteMeta(html, site) {
+  var s = site || {};
+  var title = s.site_name ? (s.site_name + " - 网盘资源搜索引擎") : "云盘搜- 网盘资源搜索引擎";
+  var desc = s.site_description || "网盘资源搜索引擎，聚合夸克/百度/阿里云盘资源搜索与转存";
+  var kws = s.site_keywords || "云盘搜索,夸克网盘,百度网盘";
+  var inject = '<meta name="description" content="' + esc(desc) + '">' +
+    '<meta name="keywords" content="' + esc(kws) + '">';
+  if (s.site_favicon) inject += '<link rel="icon" href="' + esc(s.site_favicon) + '">';
+  if (s.site_custom_head) inject += s.site_custom_head;
+  html = html.replace(/<title>[^<]*<\/title>/, "<title>" + esc(title) + "</title>");
+  html = html.replace('<meta charset="UTF-8">', '<meta charset="UTF-8">' + inject);
+  return html;
+}
+
 function serveStatic(res, urlPath) {
   var safe = path.normalize(urlPath).replace(/^(\.\.(\/|\\|$))+/, "");
-  var fp = path.join(__dirname, "..", "public", safe === "/" ? "index.html" : safe);
+  // Windows 下 path.normalize("/") 返回 "\"，统一斜杠便于判断根路径
+  var norm = safe.replace(/\\/g, "/");
+  var fp = path.join(__dirname, "..", "public", norm === "/" ? "index.html" : norm);
   var ext = path.extname(fp).toLowerCase();
   var ct = MIME[ext] || "application/octet-stream";
   // HTML 经常更新，禁止启发式缓存，保证前端每次拿到最新版
@@ -68,6 +89,19 @@ function serveStatic(res, urlPath) {
         res.end(data2);
       });
     } else {
+      // 首页/根路径做站点配置注入（TDK/favicon/自定义代码）
+      if (ext === ".html" && (norm === "/" || norm === "index.html")) {
+        const store = require("../lib/store");
+        store.getSiteConfig().then(function(site) {
+          var out = injectSiteMeta(data.toString("utf8"), site);
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+          res.end(out);
+        }).catch(function() {
+          res.writeHead(200, { "Content-Type": ct, "Cache-Control": cacheCtl });
+          res.end(data);
+        });
+        return;
+      }
       res.writeHead(200, { "Content-Type": ct, "Cache-Control": cacheCtl });
       res.end(data);
     }
