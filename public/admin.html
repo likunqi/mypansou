@@ -781,6 +781,98 @@
           </div>
         </div>
 
+        <!-- ========== TG 采集（主力） ========== -->
+        <div v-if="pg==='tg'" class="row">
+          <div class="col-12">
+            <div class="alert alert-info py-2 mb-3">
+              <span>TG 频道是主力采集方式：批量添加频道 → 自动套通用解析规则（title / 夸克百度链接 url / disk_type / description）→ 统一任务「TG 批量采集」按全局间隔跑全部启用源（加新频道无需再建任务）。</span>
+            </div>
+            <div class="card mb-3">
+              <div class="card-header"><h3 class="card-title">全局设置</h3></div>
+              <div class="card-body">
+                <div class="row g-3 align-items-end">
+                  <div class="col-md-6">
+                    <label class="form-label">RSSHub 实例（逗号分隔多配，第一个为默认）</label>
+                    <input class="form-control" v-model="tgSet.instances_text" placeholder="https://rsshub.woodland.cafe, https://rsshub.ktachibana.party">
+                    <div class="form-hint">woodland.cafe 211ms 稳 · ktachibana.party 261ms 备选 · 单实例失效可换</div>
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">抓取条数</label>
+                    <input type="number" class="form-control" v-model="tgSet.limit" min="1" max="100">
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">采集间隔（秒）</label>
+                    <input type="number" class="form-control" v-model="tgSet.interval_sec" min="300">
+                    <div class="form-hint">3600 = 每小时</div>
+                  </div>
+                  <div class="col-md-2">
+                    <button class="btn btn-primary w-100" @click="tgSv">保存设置</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card mb-3">
+              <div class="card-header"><h3 class="card-title">批量添加频道</h3></div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-7">
+                    <label class="form-label">频道用户名（每行一个，可带 @ 或不带）</label>
+                    <textarea class="form-control font-monospace" v-model="tgChannels" rows="5" placeholder="softwareGods&#10;happyflims&#10;Aliyun_4K_Movies&#10;bdyunpan"></textarea>
+                  </div>
+                  <div class="col-md-5">
+                    <div class="mb-2">
+                      <label class="form-label">实例（留空用全局默认）</label>
+                      <input class="form-control" v-model="tgInst" placeholder="https://rsshub.woodland.cafe">
+                    </div>
+                    <div class="mb-2">
+                      <label class="form-label">分类（留空按已知频道自动识别）</label>
+                      <input class="form-control" v-model="tgCat" placeholder="如：软件">
+                    </div>
+                    <button class="btn btn-success w-100" :disabled="tgAdding" @click="tgAdd">{{tgAdding?'添加中…':'批量添加并启用'}}</button>
+                    <div class="form-hint mt-2">自动建源 + 自动套 TG 通用解析规则模板；重复频道自动跳过（幂等）</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">频道源列表（{{tgItems.length}}）</h3>
+                <div class="ms-auto d-flex align-items-center">
+                  <span v-if="tgTask" class="text-secondary small me-2">统一任务 #{{tgTask.id}} · {{String(tgTask.status)==='1'?'启用':'停用'}} · 间隔 {{fmtInt(tgTask.interval_sec)}}s</span>
+                  <button class="btn btn-outline-primary btn-sm me-2" :disabled="tgRunning" @click="tgRunAll">{{tgRunning?'采集中…':'立即批量采集'}}</button>
+                  <button class="btn btn-outline-secondary btn-sm" @click="ldtg">刷新</button>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-vcenter card-table">
+                  <thead><tr><th>ID</th><th>频道</th><th>名称</th><th>实例</th><th>分类</th><th>状态</th><th>最后采集</th><th>入库</th><th class="w-1">操作</th></tr></thead>
+                  <tbody>
+                    <tr v-for="s in tgItems" :key="s.id">
+                      <td class="text-secondary">{{s.id}}</td>
+                      <td class="font-monospace">@{{s.channel}}</td>
+                      <td>{{s.name}}</td>
+                      <td class="text-truncate" style="max-width:140px" :title="s.url_template">{{(s.url_template||'').split('/')[2]}}</td>
+                      <td>{{s.category||'-'}}</td>
+                      <td>
+                        <span class="form-check form-switch d-inline-block mb-0">
+                          <input class="form-check-input" type="checkbox" :checked="String(s.status)==='1'" @change="tgToggle(s)">
+                        </span>
+                      </td>
+                      <td class="text-secondary">{{s.last_crawled_at?fmtTime(s.last_crawled_at):'-'}}</td>
+                      <td><span class="badge bg-green-lt text-green">{{s.count}}</span></td>
+                      <td class="text-nowrap">
+                        <button class="btn btn-sm btn-outline-primary me-1" @click="tgrun(s)" title="采集一次">运行</button>
+                        <button class="btn btn-sm btn-outline-danger" @click="tgdel(s)">删除</button>
+                      </td>
+                    </tr>
+                    <tr v-if="!tgItems.length"><td colspan="9" class="text-center text-secondary py-3">暂无 TG 频道源，用上方「批量添加」接入</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- ========== 任务中心 ========== -->
         <div v-if="pg==='ts'" class="row">
           <div class="col-12">
@@ -1195,7 +1287,8 @@ var IC={
   clock:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/><path d="M12 3a9 9 0 1 0 9 9"/></svg>',
   book:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>',
   fire:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4.418 0 8-3.134 8-7 0-3.5-2.5-5.5-3-8-1.5 1-2 3-3 3 0-3-1-7-5-9 0 5-3 6-3 10 0 1.5.5 3 1 4-1 0-2-1-2-3-2 2-1 10 7 10z"/></svg>',
-  brain:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2a2.5 2.5 0 0 0-2.5 2.5v.5a2.5 2.5 0 0 0-3 2.45A2.5 2.5 0 0 0 2 9.5c0 .78.36 1.47.92 1.92A2.5 2.5 0 0 0 2 13.5a2.5 2.5 0 0 0 2.5 2.5h.5a2.5 2.5 0 0 0 2.45 3A2.5 2.5 0 0 0 9.5 22c.78 0 1.47-.36 1.92-.92A2.5 2.5 0 0 0 13.5 22a2.5 2.5 0 0 0 2.5-2.5v-.5a2.5 2.5 0 0 0 3-2.45A2.5 2.5 0 0 0 22 14.5c0-.78-.36-1.47-.92-1.92A2.5 2.5 0 0 0 22 10.5a2.5 2.5 0 0 0-2.5-2.5h-.5a2.5 2.5 0 0 0-2.45-3A2.5 2.5 0 0 0 14.5 2c-.78 0-1.47.36-1.92.92A2.5 2.5 0 0 0 10.5 2z"/><path d="M12 8v4"/><path d="M12 14v.01"/></svg>'
+  brain:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2a2.5 2.5 0 0 0-2.5 2.5v.5a2.5 2.5 0 0 0-3 2.45A2.5 2.5 0 0 0 2 9.5c0 .78.36 1.47.92 1.92A2.5 2.5 0 0 0 2 13.5a2.5 2.5 0 0 0 2.5 2.5h.5a2.5 2.5 0 0 0 2.45 3A2.5 2.5 0 0 0 9.5 22c.78 0 1.47-.36 1.92-.92A2.5 2.5 0 0 0 13.5 22a2.5 2.5 0 0 0 2.5-2.5v-.5a2.5 2.5 0 0 0 3-2.45A2.5 2.5 0 0 0 22 14.5c0-.78-.36-1.47-.92-1.92A2.5 2.5 0 0 0 22 10.5a2.5 2.5 0 0 0-2.5-2.5h-.5a2.5 2.5 0 0 0-2.45-3A2.5 2.5 0 0 0 14.5 2c-.78 0-1.47.36-1.92.92A2.5 2.5 0 0 0 10.5 2z"/><path d="M12 8v4"/><path d="M12 14v.01"/></svg>',
+  send:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>'
 };
 var menus=[
   {id:"st",title:"仪表盘",icon:IC.home},
@@ -1205,6 +1298,7 @@ var menus=[
   {id:"kw",title:"热搜管理",icon:IC.fire},
   {id:"ai",title:"AI 提炼",icon:IC.brain},
   {id:"sc",title:"搜索源",icon:IC.settings},
+  {id:"tg",title:"TG 采集",icon:IC.send},
   {id:"ts",title:"任务中心",icon:IC.clock},
   {id:"api",title:"API 配置",icon:IC.settings},
   {id:"site",title:"站点配置",icon:IC.settings},
@@ -1362,6 +1456,71 @@ cr({
         if(r.status==="ok"){crRuleStats.value={msg:"采集完成：抓取 "+r.crawled+"，新增 "+r.inserted+"，跳过 "+r.skipped};msg("采集完成，新增 "+r.inserted+" 条");ldres()}
         else{crRuleStats.value={msg:"采集失败："+(r.error||"")};msg("采集失败："+(r.error||""),"e")}
       });
+    }
+    // ---- TG 采集（主力） ----
+    var tgSet=rct({instances_text:"",default_instance:"",limit:50,interval_sec:3600});
+    var tgItems=rf([]);
+    var tgChannels=rf("");
+    var tgInst=rf("");
+    var tgCat=rf("");
+    var tgAdding=rf(false);
+    var tgRunning=rf(false);
+    var tgTask=rf(null);
+    function ldtg(){
+      ap("GET","tg/settings").then(function(r){
+        tgSet.default_instance=r.default_instance||"";
+        tgSet.limit=r.limit||50;
+        tgSet.interval_sec=r.interval_sec||3600;
+        tgSet.instances_text=(r.instances||[]).map(function(i){return i.host}).join(", ");
+      });
+      ap("GET","tg/sources").then(function(r){tgItems.value=r.items||[]});
+      ap("GET","tasks").then(function(r){
+        var t=(r.items||[]).find(function(x){return String(x.task_name).indexOf("TG 批量采集")>-1});
+        tgTask.value=t||null;
+      });
+    }
+    function tgSv(){
+      var hosts=tgSet.instances_text.split(/[,，]/).map(function(s){return s.trim()}).filter(Boolean);
+      if(!hosts.length){msg("至少填一个 RSSHub 实例","e");return}
+      var instances=hosts.map(function(h){return {host:h.replace(/\/+$/,""),enabled:true}});
+      ap("POST","tg/settings",{instances:instances,default_instance:instances[0].host,limit:parseInt(tgSet.limit,10)||50,interval_sec:parseInt(tgSet.interval_sec,10)||3600}).then(function(r){
+        if(r.ok){msg("设置已保存");ldtg()}else msg(r.error||"保存失败","e")
+      });
+    }
+    function tgAdd(){
+      var chs=tgChannels.value.split(/[\n,]/).map(function(s){return s.trim().replace(/^@/,"")}).filter(Boolean);
+      if(!chs.length){msg("请填写频道名","e");return}
+      tgAdding.value=true;
+      ap("POST","tg/batch-add",{channels:chs,instance:tgInst.value,category:tgCat.value}).then(function(r){
+        tgAdding.value=false;
+        if(r.ok){
+          var added=(r.created||[]).length,ex=(r.existed||[]).length;
+          var fail=(r.failed||[]).map(function(f){return f.channel+"("+f.error+")"}).join(" ");
+          msg("新增 "+added+" 个，已存在 "+ex+" 个"+(fail?"，失败:"+fail:""),fail?"w":"s");
+          tgChannels.value="";
+          ldtg();
+        }else msg(r.error||"添加失败","e");
+      }).catch(function(){tgAdding.value=false;msg("请求失败","e")});
+    }
+    function tgrun(s){
+      ap("POST","crawler/sources/"+s.id+"/run",{}).then(function(r){
+        if(r.status==="ok"){msg("@"+s.channel+" 采集完成，新增 "+r.inserted+" 条");ldtg()}else msg("@"+s.channel+" 采集失败："+(r.error||""),"e")
+      });
+    }
+    function tgToggle(s){
+      ap("POST","crawler/sources/"+s.id,{status:String(s.status)==="1"?"0":"1"}).then(function(r){if(r.ok){msg("已"+(String(s.status)==="1"?"停用":"启用"));ldtg()}else msg(r.error||"操作失败","e")});
+    }
+    function tgdel(s){
+      if(!confirm("删除采集源 #"+s.id+"（@"+s.channel+"，含其规则）？"))return;
+      ap("POST","crawler/sources/"+s.id+"/delete",{}).then(function(r){if(r.ok){msg("已删除");ldtg()}else msg(r.error||"删除失败","e")});
+    }
+    function tgRunAll(){
+      if(!tgTask.value){msg("尚未找到统一任务，请先到任务中心创建「TG 批量采集」","e");return}
+      tgRunning.value=true;
+      ap("POST","tasks/"+tgTask.value.id+"/run",{}).then(function(r){
+        tgRunning.value=false;
+        if(r.ok&&r.status==="ok"){msg(r.result||"批量采集完成");ldtg()}else msg("批量采集失败："+(r.error||""),"e")
+      }).catch(function(){tgRunning.value=false;msg("请求失败","e")});
     }
     function ldrule(){
       crRules.value=[];crRuleStats.value=null;
@@ -1755,6 +1914,7 @@ cr({
       if(p==="kw")ldKw();
       if(p==="ai")ldai();
       if(p==="sc")ldsc();
+      if(p==="tg")ldtg();
       if(p==="ts")ldts();
       if(p==="api")ldcfg();
       if(p==="site")ldsite();
@@ -1765,7 +1925,7 @@ cr({
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="ck"){ldck();ldcs()}else if(h==="hi")ldhi();else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="ts")ldts();else if(h==="rs"){ldres();ldsub();ldimp()}else if(h==="site")ldsite();else{loadst();lddb();lddash()}
+        if(h==="ck"){ldck();ldcs()}else if(h==="hi")ldhi();else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="tg")ldtg();else if(h==="ts")ldts();else if(h==="rs"){ldres();ldsub();ldimp()}else if(h==="site")ldsite();else{loadst();lddb();lddash()}
       }
     });
 
@@ -1774,6 +1934,7 @@ cr({
       srcName,srcBadge,fmtT,ldres,rsadd,rsdel,rsedit,rsCancel,rsDiskCls,rsDiskName,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,
       kwItems,kwNew,kwEditId,ldKw,kwadd,kwEdit,kwCancel,kwhot,kwst,kwdel,
       scItems,ldsc,scToggle,scDiskOpts,scDisk,
+      tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,ldtg,tgSv,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
       tsItems,tsLogs,tsShow,tsAdvShow,tsLogShow,tsEditId,tsSaving,tsTypes,tsNew,fmtInt,ldts,ldtslogs,tstoggle,tsrun,tsNewShow,tsedit,tssave,tsdel,
       aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,aiTab,arFm,arRun,arRules,arSrc,arSaving,airules,arsave,asFm,asRun,asCode,asSaving,asscript,assave,ldai,svai,tstai,runai,aiOpen,aiCopy};
   }

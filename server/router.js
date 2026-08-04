@@ -14,6 +14,7 @@ const ai = require("./handlers/ai");
 const multi = require("./handlers/multi");
 const sources = require("./handlers/sources");
 const tasks = require("./handlers/tasks");
+const tg = require("./handlers/tg");
 
 async function handleRequest(req, res) {
   logger(req, res);
@@ -128,6 +129,12 @@ async function handleRequest(req, res) {
       if (/^\/api\/admin\/crawler\/rules\/\d+$/.test(urlPath) && method === "POST") return await crawler.ruleUpdate(req, res);
       if (/^\/api\/admin\/crawler\/rules\/\d+\/delete$/.test(urlPath) && method === "POST") return await crawler.ruleDelete(req, res);
       if (urlPath === "/api/admin/crawler/rules/replace" && method === "POST") return await crawler.ruleReplace(req, res);
+
+      // TG 采集（主力）
+      if (urlPath === "/api/admin/tg/settings" && method === "GET") return await tg.getSettings(req, res);
+      if (urlPath === "/api/admin/tg/settings" && method === "POST") return await tg.saveSettings(req, res);
+      if (urlPath === "/api/admin/tg/batch-add" && method === "POST") return await tg.batchAdd(req, res);
+      if (urlPath === "/api/admin/tg/sources" && method === "GET") return await tg.sourceList(req, res);
 
       json(res, 404, { error: "admin_route_not_found" });
       return;
