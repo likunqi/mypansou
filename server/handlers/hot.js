@@ -134,41 +134,44 @@ async function refreshTrending() {
     if (real.length >= 2) terms = real.concat(terms).slice(0, 8);
   } catch (e) {}
 
-  // Try pansou API first
+  // Try pansou API first（整体 15s 超时：盘搜源慢时快速降级 douban，避免手动触发/预热卡死）
   var items = [];
   var source = "pansou";
   try {
     var cfg = await store.getConfig();
     var base = cfg.pansouBase || PANSOU_BASE;
     var batchTerms = terms.slice(0, 4);
-    await Promise.all(batchTerms.map(async function(term) {
-      try {
-        var pr = await fetchHttps(
-          base,
-          "/api/search?kw=" + encodeURIComponent(term) + "&src=tg&cloud_types=quark,baidu"
-        );
-        if (pr.status !== 200) return;
-        var data = JSON.parse(pr.body);
-        var dt = data.data || data;
-        var merged = dt.merged_by_type || dt.mergedResults || {};
-        var termItems = [];
-        Object.keys(merged).forEach(function(type) {
-          (merged[type] || []).forEach(function(item) {
-            termItems.push({
-              term: term,
-              title: item.title || item.note || term,
-              note: item.note || "",
-              type: type,
-              url: item.url || "",
-              password: item.password || "",
-              cover: (item.images && item.images.length > 0) ? item.images[0] : "",
-              datetime: item.datetime || ""
+    var collect = (async function() {
+      await Promise.all(batchTerms.map(async function(term) {
+        try {
+          var pr = await fetchHttps(
+            base,
+            "/api/search?kw=" + encodeURIComponent(term) + "&src=tg&cloud_types=quark,baidu"
+          );
+          if (pr.status !== 200) return;
+          var data = JSON.parse(pr.body);
+          var dt = data.data || data;
+          var merged = dt.merged_by_type || dt.mergedResults || {};
+          var termItems = [];
+          Object.keys(merged).forEach(function(type) {
+            (merged[type] || []).forEach(function(item) {
+              termItems.push({
+                term: term,
+                title: item.title || item.note || term,
+                note: item.note || "",
+                type: type,
+                url: item.url || "",
+                password: item.password || "",
+                cover: (item.images && item.images.length > 0) ? item.images[0] : "",
+                datetime: item.datetime || ""
+              });
             });
           });
-        });
-        termItems.slice(0, 4).forEach(function(t) { items.push(t); });
-      } catch(e) {}
-    }));
+          termItems.slice(0, 4).forEach(function(t) { items.push(t); });
+        } catch(e) {}
+      }));
+    })();
+    await Promise.race([collect, new Promise(function(resolve) { setTimeout(resolve, 15000); })]);
   } catch(e) {}
 
   // If pansou returned items but only from 1 term, also mix in Douban for diversity

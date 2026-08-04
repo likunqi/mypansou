@@ -13,6 +13,7 @@ const crawler = require("./handlers/crawler");
 const ai = require("./handlers/ai");
 const multi = require("./handlers/multi");
 const sources = require("./handlers/sources");
+const tasks = require("./handlers/tasks");
 
 async function handleRequest(req, res) {
   logger(req, res);
@@ -76,6 +77,15 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/ai/summaries" && method === "GET") return await ai.list(req, res);
       if (urlPath === "/api/admin/sources" && method === "GET") return await sources.list(req, res);
       if (urlPath === "/api/admin/sources/update" && method === "POST") return await sources.update(req, res);
+
+      // 任务中心
+      if (urlPath === "/api/admin/tasks" && method === "GET") return await tasks.list(req, res);
+      if (urlPath === "/api/admin/tasks" && method === "POST") return await tasks.add(req, res);
+      if (urlPath === "/api/admin/task-types" && method === "GET") return await tasks.types(req, res);
+      if (/^\/api\/admin\/tasks\/\d+$/.test(urlPath) && method === "POST") return await tasks.update(req, res);
+      if (/^\/api\/admin\/tasks\/\d+$/.test(urlPath) && method === "DELETE") return await tasks.del(req, res);
+      if (/^\/api\/admin\/tasks\/\d+\/run$/.test(urlPath) && method === "POST") return await tasks.runNow(req, res);
+      if (urlPath === "/api/admin/task-logs" && method === "GET") return await tasks.logs(req, res);
 
       // 热搜词管理
       if (urlPath === "/api/admin/keywords" && method === "GET") return await hot.adminKeywordList(req, res);

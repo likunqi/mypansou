@@ -706,6 +706,111 @@
           </div>
         </div>
 
+        <!-- ========== 任务中心 ========== -->
+        <div v-if="pg==='ts'" class="row">
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">任务中心</h3><div class="ms-auto d-flex gap-2">
+                <button class="btn btn-outline-secondary btn-sm" @click="ldts">刷新</button>
+                <button class="btn btn-primary btn-sm" @click="tsNewShow">新建任务</button>
+              </div></div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-vcenter card-table">
+                    <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>间隔</th><th>状态</th><th>上次运行</th><th>下次运行</th><th>操作</th></tr></thead>
+                    <tbody>
+                      <tr v-for="t in tsItems" :key="t.id">
+                        <td class="text-secondary">{{t.id}}</td>
+                        <td class="fw-bold">{{t.task_name}}</td>
+                        <td><span class="badge bg-secondary-lt text-secondary">{{t.type_label}}</span></td>
+                        <td class="text-secondary">{{fmtInt(t.interval_sec)}}</td>
+                        <td><span class="badge" :class="t.status?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{t.status?'启用':'停用'}}</span></td>
+                        <td class="text-secondary">{{fmtT(t.last_run_at)}}</td>
+                        <td class="text-secondary">{{fmtT(t.next_run_at)}}</td>
+                        <td style="white-space:nowrap">
+                          <button class="btn btn-sm btn-outline-primary me-1" @click="tsrun(t)" title="立即执行一次">▶</button>
+                          <button class="btn btn-sm btn-outline-secondary me-1" @click="tsedit(t)" title="编辑">✎</button>
+                          <button class="btn btn-sm btn-outline-danger" @click="tsdel(t)" title="删除">🗑</button>
+                          <div class="form-check form-switch d-inline-block ms-2">
+                            <input class="form-check-input" type="checkbox" :checked="t.status" @change="tstoggle(t)">
+                          </div>
+                        </td>
+                      </tr>
+                      <tr v-if="!tsItems.length"><td colspan="8" class="text-center text-secondary py-4">暂无任务</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="form-hint mt-2">「▶」立即执行一次（不改变排期）；开关启停；内置任务（清理/热词/预热）已自动注册，自定义任务在「新建任务」里选「自定义脚本」直接写 JS。</div>
+              </div>
+            </div>
+
+            <div class="card mt-3">
+              <div class="card-header"><h3 class="card-title">执行日志 <span class="text-secondary fs-6 fw-normal" v-if="tsLogTask">· {{tsLogTask}}</span></h3>
+                <div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldtslogs">刷新日志</button></div>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-vcenter card-table">
+                    <thead><tr><th>#</th><th>任务</th><th>状态</th><th>耗时</th><th>结果 / 错误</th><th>时间</th></tr></thead>
+                    <tbody>
+                      <tr v-for="(l,i) in tsLogs" :key="l.id">
+                        <td class="text-secondary">{{l.id}}</td>
+                        <td class="text-secondary">{{l.task_type}}</td>
+                        <td><span class="badge" :class="l.status==='ok'?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{l.status}}</span></td>
+                        <td class="text-secondary">{{l.duration_ms}}ms</td>
+                        <td class="text-secondary" style="max-width:420px">{{l.result_msg||l.error_msg||'-'}}</td>
+                        <td class="text-secondary">{{fmtT(l.finished_at)}}</td>
+                      </tr>
+                      <tr v-if="!tsLogs.length"><td colspan="6" class="text-center text-secondary py-4">暂无日志</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 新建/编辑任务模态框 -->
+        <div v-if="tsShow" class="modal show d-block" tabindex="-1" style="background:rgba(0,0,0,.45)">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header"><h5 class="modal-title">{{tsEditId?'编辑任务':'新建任务'}}</h5><button type="button" class="btn-close" @click="tsShow=false"></button></div>
+              <div class="modal-body">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">任务名称</label>
+                    <input class="form-control" v-model="tsNew.task_name" placeholder="如：每日备份">
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">间隔（秒）</label>
+                    <input class="form-control" type="number" v-model="tsNew.interval_sec" placeholder="3600">
+                  </div>
+                  <div class="col-md-3" v-if="!tsEditId">
+                    <label class="form-label">任务类型</label>
+                    <select class="form-select" v-model="tsNew.task_type">
+                      <option value="script">自定义脚本</option>
+                      <option v-for="t in tsTypes.filter(function(x){return x.type!=='script'})" :key="t.type" :value="t.type">{{t.label}}</option>
+                    </select>
+                  </div>
+                  <div class="col-12" v-if="tsNew.task_type==='script'">
+                    <label class="form-label">脚本代码 <span class="text-secondary fw-normal">（async function run(ctx){...} 返回 {status,resultMsg}）</span></label>
+                    <textarea class="form-control font-monospace" v-model="tsNew.script_code" rows="10" placeholder="async function run(ctx){&#10;  // 你的逻辑&#10;  return { status:'ok', resultMsg:'完成' };&#10;}"></textarea>
+                  </div>
+                  <div class="col-12" v-if="tsNew.task_type!=='script'">
+                    <label class="form-label">配置 JSON <span class="text-secondary fw-normal">（可选，如 {"time":"03:00","top":10}）</span></label>
+                    <textarea class="form-control font-monospace" v-model="tsNew.config_json" rows="4" placeholder='{"time":"03:00"}'></textarea>
+                  </div>
+                  <div class="col-12 text-secondary" v-if="tsNew.task_type!=='script'">{{(tsTypes.find(function(x){return x.type===tsNew.task_type})||{}).desc||''}}</div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" @click="tsShow=false">取消</button>
+                <button type="button" class="btn btn-primary" @click="tssave" :disabled="tsSaving">{{tsSaving?'保存中...':'保存'}}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- ========== AI 提炼 ========== -->
         <div v-if="pg==='ai'" class="row">
           <div class="col-lg-5">
@@ -878,6 +983,7 @@ var IC={
   database:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
   shield:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
   history:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  clock:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/><path d="M12 3a9 9 0 1 0 9 9"/></svg>',
   book:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>',
   fire:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4.418 0 8-3.134 8-7 0-3.5-2.5-5.5-3-8-1.5 1-2 3-3 3 0-3-1-7-5-9 0 5-3 6-3 10 0 1.5.5 3 1 4-1 0-2-1-2-3-2 2-1 10 7 10z"/></svg>',
   brain:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2a2.5 2.5 0 0 0-2.5 2.5v.5a2.5 2.5 0 0 0-3 2.45A2.5 2.5 0 0 0 2 9.5c0 .78.36 1.47.92 1.92A2.5 2.5 0 0 0 2 13.5a2.5 2.5 0 0 0 2.5 2.5h.5a2.5 2.5 0 0 0 2.45 3A2.5 2.5 0 0 0 9.5 22c.78 0 1.47-.36 1.92-.92A2.5 2.5 0 0 0 13.5 22a2.5 2.5 0 0 0 2.5-2.5v-.5a2.5 2.5 0 0 0 3-2.45A2.5 2.5 0 0 0 22 14.5c0-.78-.36-1.47-.92-1.92A2.5 2.5 0 0 0 22 10.5a2.5 2.5 0 0 0-2.5-2.5h-.5a2.5 2.5 0 0 0-2.45-3A2.5 2.5 0 0 0 14.5 2c-.78 0-1.47.36-1.92.92A2.5 2.5 0 0 0 10.5 2z"/><path d="M12 8v4"/><path d="M12 14v.01"/></svg>'
@@ -890,6 +996,7 @@ var menus=[
   {id:"kw",title:"热搜管理",icon:IC.fire},
   {id:"ai",title:"AI 提炼",icon:IC.brain},
   {id:"sc",title:"搜索源",icon:IC.settings},
+  {id:"ts",title:"任务中心",icon:IC.clock},
   {id:"api",title:"API 配置",icon:IC.settings},
   {id:"ca",title:"缓存管理",icon:IC.database},
   {id:"se",title:"安全设置",icon:IC.shield}
@@ -1065,6 +1172,92 @@ cr({
       });
     }
 
+    // ---- 任务中心 ----
+    var tsItems=rf([]);
+    var tsLogs=rf([]);
+    var tsLogTask=rf("");
+    var tsShow=rf(false);
+    var tsEditId=rf(0);
+    var tsSaving=rf(false);
+    var tsTypes=rf([]);
+    var tsNew=rct({task_name:"",task_type:"script",interval_sec:3600,script_code:"",config_json:""});
+    function fmtInt(sec){
+      if(!sec)return "-";
+      if(sec<60)return sec+"秒";
+      if(sec<3600)return Math.round(sec/60)+"分钟";
+      if(sec<86400)return Math.round(sec/3600)+"小时";
+      return Math.round(sec/86400)+"天";
+    }
+    function ldts(){
+      ap("GET","tasks").then(function(r){tsItems.value=r.items||[]});
+      ldtslogs();
+    }
+    function ldtslogs(){
+      ap("GET","task-logs?limit=30").then(function(r){tsLogs.value=r.items||[]});
+    }
+    function tstoggle(t){
+      var on=!t.status;
+      ap("POST","tasks/"+t.id,{status:on?1:0}).then(function(r){
+        if(r.ok){msg((on?"已启用":"已停用")+"「"+t.task_name+"」");ldts()}else msg(r.error||"操作失败","e");
+      });
+    }
+    function tsrun(t){
+      ap("POST","tasks/"+t.id+"/run",{}).then(function(r){
+        if(r.ok)msg("「"+t.task_name+"」执行成功"+(r.duration_ms?"（"+r.duration_ms+"ms）":"")+(r.result?"："+r.result:""));
+        else msg("「"+t.task_name+"」执行失败："+(r.error||"未知错误"),"e");
+        ldts();
+      });
+    }
+    function tsNewShow(){
+      tsEditId.value=0;
+      tsNew.task_name="";tsNew.task_type="script";tsNew.interval_sec=3600;tsNew.script_code="";tsNew.config_json="";
+      ap("GET","task-types").then(function(r){
+        tsTypes.value=r.types||[];
+      });
+      tsShow.value=true;
+    }
+    function tsedit(t){
+      tsEditId.value=t.id;
+      tsNew.task_name=t.task_name;
+      tsNew.task_type=t.task_type;
+      tsNew.interval_sec=t.interval_sec;
+      if(t.task_type==="script"){
+        ap("GET","task-types").then(function(r){
+          var scripts=r.scripts||[];
+          var sid=t.task_config&&t.task_config.script_id;
+          var sc=(scripts||[]).find(function(x){return x.id===Number(sid)});
+          tsNew.script_code=sc?sc.script_code:"";
+          tsShow.value=true;
+        });
+      }else{
+        tsNew.config_json=t.task_config?JSON.stringify(t.task_config,null,2):"{}";
+        tsShow.value=true;
+      }
+    }
+    function tssave(){
+      if(!tsNew.task_name.trim()){msg("任务名称必填","e");return}
+      tsSaving.value=true;
+      var body={task_name:tsNew.task_name,interval_sec:parseInt(tsNew.interval_sec,10)||3600};
+      if(tsNew.task_type==="script"){
+        body.task_type="script";
+        body.script_code=tsNew.script_code;
+      }else{
+        body.task_type=tsNew.task_type;
+        try{body.task_config=JSON.parse(tsNew.config_json||"{}")}catch(e){msg("配置 JSON 格式错误","e");tsSaving.value=false;return}
+      }
+      var req=tsEditId.value?ap("POST","tasks/"+tsEditId.value,body):ap("POST","tasks",body);
+      req.then(function(r){
+        tsSaving.value=false;
+        if(r.ok){msg(tsEditId.value?"已更新":"已创建"+"「"+tsNew.task_name+"」");tsShow.value=false;ldts()}else msg(r.error||"操作失败","e");
+      });
+    }
+    function tsdel(t){
+      if(!confirm("确定删除任务「"+t.task_name+"」？"))return;
+      ap("DELETE","tasks/"+t.id).then(function(r){
+        if(r.ok){msg("已删除");ldts()}else msg(r.error||"操作失败","e");
+      });
+    }
+
     // ---- AI 提炼 ----
     var aiCfg=rct({base:"https://api.deepseek.com",key:"",keySet:false,keyMask:"",model:"deepseek-chat"});
     var aiTst=rf(false),aiTestMsg=rf(""),aiTestOk=rf(false);
@@ -1191,6 +1384,7 @@ cr({
       if(p==="kw")ldKw();
       if(p==="ai")ldai();
       if(p==="sc")ldsc();
+      if(p==="ts")ldts();
       if(p==="api")ldcfg();
       if(p==="ca")ldca();
     });
@@ -1199,7 +1393,7 @@ cr({
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="ck")ldcs();else if(h==="hi")ldhi();else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="rs"){ldres();ldsub();ldimp()}else{loadst();lddb()}
+        if(h==="ck")ldcs();else if(h==="hi")ldhi();else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="ts")ldts();else if(h==="rs"){ldres();ldsub();ldimp()}else{loadst();lddb()}
       }
     });
 
@@ -1208,6 +1402,7 @@ cr({
       srcName,srcBadge,fmtT,ldres,rsadd,rsdel,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,
       kwItems,kwNew,ldKw,kwadd,kwhot,kwst,kwdel,
       scItems,ldsc,scToggle,scDiskOpts,scDisk,
+      tsItems,tsLogs,tsShow,tsEditId,tsSaving,tsTypes,tsNew,fmtInt,ldts,ldtslogs,tstoggle,tsrun,tsNewShow,tsedit,tssave,tsdel,
       aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,ldai,svai,tstai,runai,aiOpen,aiCopy};
   }
 }).mount("#aapp");
