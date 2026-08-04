@@ -10,6 +10,7 @@ const admin = require("./handlers/admin");
 const resource = require("./handlers/resource");
 const importH = require("./handlers/import");
 const crawler = require("./handlers/crawler");
+const ai = require("./handlers/ai");
 
 async function handleRequest(req, res) {
   logger(req, res);
@@ -21,6 +22,11 @@ async function handleRequest(req, res) {
   try {
     // Hot trending
     if (urlPath === "/api/hot/trending" && method === "GET") return await hot.getTrending(req, res);
+    if (urlPath === "/api/hot/keywords" && method === "GET") return await hot.getKeywords(req, res);
+    if (urlPath === "/api/hot/resources" && method === "GET") return await hot.getHotResources(req, res);
+
+    // Search keyword record (front-end fire-and-forget)
+    if (urlPath === "/api/search/record" && method === "POST") return await hot.recordSearch(req, res);
 
     // Link availability check
     if (urlPath === "/api/check/links" && method === "POST") return await check.handler(req, res);
@@ -56,6 +62,19 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/db" && method === "GET") return await admin.dbStatus(req, res);
       if (urlPath === "/api/admin/password" && method === "POST") return await admin.changePassword(req, res);
 
+      // AI 提炼
+      if (urlPath === "/api/admin/ai/config" && method === "GET") return await ai.getConfig(req, res);
+      if (urlPath === "/api/admin/ai/config" && method === "POST") return await ai.saveConfig(req, res);
+      if (urlPath === "/api/admin/ai/test" && method === "POST") return await ai.test(req, res);
+      if (urlPath === "/api/admin/ai/summarize" && method === "POST") return await ai.summarize(req, res);
+      if (urlPath === "/api/admin/ai/summaries" && method === "GET") return await ai.list(req, res);
+
+      // 热搜词管理
+      if (urlPath === "/api/admin/keywords" && method === "GET") return await hot.adminKeywordList(req, res);
+      if (urlPath === "/api/admin/keywords" && method === "POST") return await hot.adminKeywordAdd(req, res);
+      if (/^\/api\/admin\/keywords\/\d+$/.test(urlPath) && method === "POST") return await hot.adminKeywordUpdate(req, res);
+      if (/^\/api\/admin\/keywords\/\d+\/delete$/.test(urlPath) && method === "POST") return await hot.adminKeywordDelete(req, res);
+
       // Resource management
       if (urlPath === "/api/admin/resources" && method === "GET") return await resource.adminList(req, res);
       if (urlPath === "/api/admin/resources" && method === "POST") return await resource.adminAdd(req, res);
@@ -71,8 +90,7 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/import/logs" && method === "GET") return await importH.logs(req, res);
 
       // Crawler
-      if (urlPath === "/api/admin/crawler/sources" && method === "GET") return await crawler.sourceList(req, res);
-      if (urlPath === "/api/admin/crawler/sources" && method === "POST") return await crawler.sourceAdd(req, res);
+      if (urlPath === "/api/admin/crawler/sources" && method === "GET") return await crawler.sourceList(req, res);      if (urlPath === "/api/admin/crawler/sources" && method === "POST") return await crawler.sourceAdd(req, res);
       if (/^\/api\/admin\/crawler\/sources\/\d+$/.test(urlPath) && method === "POST") return await crawler.sourceUpdate(req, res);
       if (/^\/api\/admin\/crawler\/sources\/\d+\/delete$/.test(urlPath) && method === "POST") return await crawler.sourceDelete(req, res);
       if (/^\/api\/admin\/crawler\/sources\/\d+\/run$/.test(urlPath) && method === "POST") return await crawler.sourceRun(req, res);

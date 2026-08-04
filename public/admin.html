@@ -616,6 +616,132 @@
           </div>
         </div>
 
+        <!-- ========== 热搜管理 ========== -->
+        <div v-if="pg==='kw'" class="row">
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">热搜关键词管理</h3><div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldKw">刷新</button></div></div>
+              <div class="card-body">
+                <div class="row g-2 mb-3 align-items-end">
+                  <div class="col-auto" style="min-width:220px">
+                    <label class="form-label">新增 / 置顶关键词</label>
+                    <input class="form-control" v-model="kwNew.keyword" placeholder="如：狂飙" @keydown.enter="kwadd">
+                  </div>
+                  <div class="col-auto">
+                    <label class="form-label">排序权重</label>
+                    <input class="form-control" type="number" v-model="kwNew.sort_order" style="width:110px">
+                  </div>
+                  <div class="col-auto">
+                    <div class="form-check form-switch mt-4">
+                      <input class="form-check-input" type="checkbox" v-model="kwNew.is_hot" id="kwHotNew">
+                      <label class="form-check-label" for="kwHotNew">置顶（🔥 热词）</label>
+                    </div>
+                  </div>
+                  <div class="col-auto"><button class="btn btn-primary" @click="kwadd">添加</button></div>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-vcenter card-table">
+                    <thead><tr><th>#</th><th>关键词</th><th>搜索次数</th><th>热词</th><th>排序</th><th>状态</th><th>操作</th></tr></thead>
+                    <tbody>
+                      <tr v-for="k in kwItems" :key="k.id">
+                        <td class="text-secondary">{{k.id}}</td>
+                        <td class="fw-bold">{{k.keyword}}</td>
+                        <td><span class="badge bg-primary-lt text-primary">{{k.search_count||0}}</span></td>
+                        <td><span class="badge" :class="k.is_hot?'bg-warning-lt text-warning':'bg-secondary-lt text-secondary'">{{k.is_hot?'🔥 热词':'普通'}}</span></td>
+                        <td class="text-secondary">{{k.sort_order||0}}</td>
+                        <td><span class="badge" :class="String(k.status)==='1'||k.status===1?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{String(k.status)==='1'||k.status===1?'启用':'停用'}}</span></td>
+                        <td class="text-nowrap">
+                          <button class="btn btn-outline-warning btn-sm" v-if="!k.is_hot" @click="kwhot(k,1)">置顶</button>
+                          <button class="btn btn-outline-secondary btn-sm" v-else @click="kwhot(k,0)">取消置顶</button>
+                          <button class="btn btn-outline-secondary btn-sm" @click="kwst(k)">{{String(k.status)==='1'||k.status===1?'停用':'启用'}}</button>
+                          <button class="btn btn-outline-danger btn-sm" @click="kwdel(k)">删除</button>
+                        </td>
+                      </tr>
+                      <tr v-if="!kwItems.length"><td colspan="7" class="text-center text-secondary py-4">暂无关键词，新增一个试试</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="form-hint mt-2">置顶词会优先展示在首页热搜榜；用户搜索会自动累加「搜索次数」，无需手动维护。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== AI 提炼 ========== -->
+        <div v-if="pg==='ai'" class="row">
+          <div class="col-lg-5">
+            <div class="card mb-3">
+              <div class="card-header"><h3 class="card-title">AI 配置（DeepSeek）</h3></div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <label class="form-label">Base URL</label>
+                  <input class="form-control" v-model="aiCfg.base" placeholder="https://api.deepseek.com">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">API Key</label>
+                  <input class="form-control" v-model="aiCfg.key" type="password" :placeholder="aiCfg.keySet?('已配置 '+aiCfg.keyMask+'，留空不修改'):'sk-...'">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">模型</label>
+                  <input class="form-control" v-model="aiCfg.model" placeholder="deepseek-chat">
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-primary" @click="svai">保存配置</button>
+                  <button class="btn btn-outline-secondary" :disabled="aiTst" @click="tstai">{{aiTst?'测试中…':'测试连接'}}</button>
+                </div>
+                <div v-if="aiTestMsg" class="mt-2 small" :class="aiTestOk?'text-success':'text-danger'">{{aiTestMsg}}</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">提炼历史</h3></div>
+              <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                  <div v-for="s in aiItems" :key="s.id" class="list-group-item">
+                    <div class="d-flex align-items-center mb-1">
+                      <span class="badge bg-primary-lt text-primary me-2">{{s.scope}}</span>
+                      <span class="text-secondary small">{{fmtT(s.created_at)}}</span>
+                      <span class="ms-auto text-secondary small">{{s.model}}</span>
+                    </div>
+                    <div class="text-truncate small">{{(s.output_text||'').slice(0,80)}}</div>
+                    <button class="btn btn-link btn-sm p-0" @click="aiOpen(s)">查看全文</button>
+                  </div>
+                  <div v-if="!aiItems.length" class="list-group-item text-center text-secondary py-4">暂无提炼记录</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-7">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">AI 提炼</h3></div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <label class="form-label">提炼范围</label>
+                  <select class="form-select" v-model="aiScope">
+                    <option value="submissions">待审核资源提交</option>
+                    <option value="reports">失效链接反馈</option>
+                    <option value="history">转存记录</option>
+                    <option value="custom">自定义文本</option>
+                  </select>
+                </div>
+                <div class="mb-3" v-if="aiScope==='custom'">
+                  <label class="form-label">输入文本</label>
+                  <textarea class="form-control" v-model="aiText" rows="8" placeholder="粘贴需要提炼的内容…"></textarea>
+                </div>
+                <button class="btn btn-success" :disabled="aiRun" @click="runai">{{aiRun?'提炼中…':'开始提炼'}}</button>
+                <div v-if="aiRun" class="mt-2 small text-secondary">正在调用 DeepSeek，约需 5~30 秒…</div>
+                <div v-if="aiErr" class="alert alert-danger py-2 mt-3 mb-0">{{aiErr}}</div>
+                <div v-if="aiOut" class="mt-3">
+                  <div class="d-flex align-items-center mb-2">
+                    <h4 class="card-title mb-0">提炼结果</h4>
+                    <button class="btn btn-outline-secondary btn-sm ms-auto" @click="aiCopy">复制</button>
+                  </div>
+                  <div class="border rounded p-3 bg-body-tertiary" style="white-space:pre-wrap;max-height:520px;overflow:auto">{{aiOut}}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- ========== 缓存管理 ========== -->
         <div v-if="pg==='ca'" class="row">
           <div class="col-lg-6">
@@ -713,13 +839,17 @@ var IC={
   database:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
   shield:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
   history:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-  book:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>'
+  book:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>',
+  fire:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4.418 0 8-3.134 8-7 0-3.5-2.5-5.5-3-8-1.5 1-2 3-3 3 0-3-1-7-5-9 0 5-3 6-3 10 0 1.5.5 3 1 4-1 0-2-1-2-3-2 2-1 10 7 10z"/></svg>',
+  brain:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2a2.5 2.5 0 0 0-2.5 2.5v.5a2.5 2.5 0 0 0-3 2.45A2.5 2.5 0 0 0 2 9.5c0 .78.36 1.47.92 1.92A2.5 2.5 0 0 0 2 13.5a2.5 2.5 0 0 0 2.5 2.5h.5a2.5 2.5 0 0 0 2.45 3A2.5 2.5 0 0 0 9.5 22c.78 0 1.47-.36 1.92-.92A2.5 2.5 0 0 0 13.5 22a2.5 2.5 0 0 0 2.5-2.5v-.5a2.5 2.5 0 0 0 3-2.45A2.5 2.5 0 0 0 22 14.5c0-.78-.36-1.47-.92-1.92A2.5 2.5 0 0 0 22 10.5a2.5 2.5 0 0 0-2.5-2.5h-.5a2.5 2.5 0 0 0-2.45-3A2.5 2.5 0 0 0 14.5 2c-.78 0-1.47.36-1.92.92A2.5 2.5 0 0 0 10.5 2z"/><path d="M12 8v4"/><path d="M12 14v.01"/></svg>'
 };
 var menus=[
   {id:"st",title:"仪表盘",icon:IC.home},
   {id:"ck",title:"Cookie 管理",icon:IC.cookie},
   {id:"rs",title:"资源管理",icon:IC.book},
   {id:"hi",title:"转存历史",icon:IC.history},
+  {id:"kw",title:"热搜管理",icon:IC.fire},
+  {id:"ai",title:"AI 提炼",icon:IC.brain},
   {id:"api",title:"API 配置",icon:IC.settings},
   {id:"ca",title:"缓存管理",icon:IC.database},
   {id:"se",title:"安全设置",icon:IC.shield}
@@ -859,6 +989,63 @@ cr({
       ap("POST","crawler/rules/"+rl.id+"/delete",{}).then(function(r){if(r.ok){msg("已删除");ldrule()}else msg(r.error||"删除失败","e")});
     }
 
+    // ---- 热搜管理 ----
+    var kwItems=rf([]);
+    var kwNew=rct({keyword:"",is_hot:false,sort_order:0});
+    function ldKw(){ap("GET","keywords").then(function(r){kwItems.value=r.items||[]})}
+    function kwadd(){
+      if(!kwNew.keyword.trim()){msg("关键词必填","e");return}
+      ap("POST","keywords",{keyword:kwNew.keyword.trim(),is_hot:kwNew.is_hot?1:0,sort_order:parseInt(kwNew.sort_order)||0}).then(function(r){
+        if(r.ok){msg("已添加");kwNew.keyword="";kwNew.is_hot=false;kwNew.sort_order=0;ldKw()}else msg(r.error||"添加失败","e");
+      });
+    }
+    function kwhot(k,v){ap("POST","keywords/"+k.id,{is_hot:v}).then(function(r){if(r.ok){msg(v?"已置顶":"已取消置顶");ldKw()}else msg(r.error||"操作失败","e")})}
+    function kwst(k){var n=String(k.status)==="1"||k.status===1?0:1;ap("POST","keywords/"+k.id,{status:n}).then(function(r){if(r.ok){msg(n?"已启用":"已停用");ldKw()}else msg(r.error||"操作失败","e")})}
+    function kwdel(k){
+      if(!confirm("删除关键词「"+k.keyword+"」？"))return;
+      ap("POST","keywords/"+k.id+"/delete",{}).then(function(r){if(r.ok){msg("已删除");ldKw()}else msg(r.error||"删除失败","e")});
+    }
+
+    // ---- AI 提炼 ----
+    var aiCfg=rct({base:"https://api.deepseek.com",key:"",keySet:false,keyMask:"",model:"deepseek-chat"});
+    var aiTst=rf(false),aiTestMsg=rf(""),aiTestOk=rf(false);
+    var aiItems=rf([]);
+    var aiScope=rf("submissions"),aiText=rf("");
+    var aiRun=rf(false),aiErr=rf(""),aiOut=rf("");
+    function ldai(){
+      ap("GET","ai/config").then(function(r){Object.assign(aiCfg,r)});
+      ap("GET","ai/summaries").then(function(r){aiItems.value=r.items||[]});
+    }
+    function svai(){
+      ap("POST","ai/config",{ai_base:aiCfg.base,ai_key:aiCfg.key,ai_model:aiCfg.model}).then(function(r){
+        if(r.ok){msg("AI 配置已保存");aiCfg.key="";ldai()}else msg(r.error||"保存失败","e");
+      });
+    }
+    function tstai(){
+      aiTst.value=true;aiTestMsg.value="";aiTestOk.value=false;
+      ap("POST","ai/test",{}).then(function(r){
+        aiTestOk.value=!!r.ok;
+        aiTestMsg.value=r.ok?("连接成功："+(r.reply||"")):(r.error||"测试失败");
+        aiTst.value=false;
+      }).catch(function(){aiTestOk.value=false;aiTestMsg.value="测试失败：网络错误";aiTst.value=false});
+    }
+    function runai(){
+      if(aiRun.value)return;
+      aiErr.value="";aiOut.value="";aiRun.value=true;
+      ap("POST","ai/summarize",{scope:aiScope.value,text:aiText.value}).then(function(r){
+        aiRun.value=false;
+        if(r.ok){aiOut.value=r.output;ldai()}else{aiErr.value=r.error||"提炼失败"}
+      }).catch(function(){aiRun.value=false;aiErr.value="提炼失败：网络错误"});
+    }
+    function aiOpen(s){
+      var m=window.open("","_blank");
+      if(!m){alert((s.output_text||"").slice(0,2000));return}
+      m.document.write("<html><head><meta charset='utf-8'><title>AI 提炼 #"+s.id+"</title><style>body{font-family:sans-serif;max-width:820px;margin:24px auto;padding:0 16px;line-height:1.7;white-space:pre-wrap;color:#222}.meta{color:#888;font-size:13px;margin-bottom:12px}</style></head><body><div class='meta'>范围："+s.scope+" ｜ 模型："+s.model+" ｜ 时间："+fmtT(s.created_at)+"</div>"+escapeHtml(s.output_text||"")+"</body></html>");
+      m.document.close();
+    }
+    function aiCopy(){if(aiOut.value){navigator.clipboard.writeText(aiOut.value).then(function(){msg("已复制")}).catch(function(){msg("复制失败","e")})}}
+    function escapeHtml(t){return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+
     function msg(s,t){to.sh=true;to.msg=s;to.tp=t||"s";if(tt)clearTimeout(tt);tt=setTimeout(function(){to.sh=false},3000)}
     function ap(m,p,b){
       return fetch("/api/admin/"+p,{method:m,headers:{"Content-Type":"application/json","Authorization":"Bearer "+tk.value},body:b?JSON.stringify(b):undefined}).then(function(r){
@@ -942,6 +1129,8 @@ cr({
       if(p==="ck")ldcs();
       if(p==="rs"){rsTab.value="list";ldres();ldsub();ldimp()}
       if(p==="hi")ldhi();
+      if(p==="kw")ldKw();
+      if(p==="ai")ldai();
       if(p==="api")ldcfg();
       if(p==="ca")ldca();
     });
@@ -950,13 +1139,15 @@ cr({
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="ck")ldcs();else if(h==="hi")ldhi();else if(h==="rs"){ldres();ldsub();ldimp()}else{loadst();lddb()}
+        if(h==="ck")ldcs();else if(h==="hi")ldhi();else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="rs"){ldres();ldsub();ldimp()}else{loadst();lddb()}
       }
     });
 
     return {tk,pg,sb,th,ldg,lp,le,d,cf,cs,cst,csInfo,cfg,cache:ctt,hi,dbInfo,pw,toast:to,curMenu,menus,msg,gp,login:login,logout:lgout,lgout,ld:loadst,ldcs,lddb,ldhi,fmtTime,tg,tst,svck,ldcfg,svcfg,ldca,clr,chpw,
       rsTab,rsQ,res,rsAddShow,rsAdd,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crRules,crRuleStats,crNew,crRuleNew,
-      srcName,srcBadge,fmtT,ldres,rsadd,rsdel,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel};
+      srcName,srcBadge,fmtT,ldres,rsadd,rsdel,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,
+      kwItems,kwNew,ldKw,kwadd,kwhot,kwst,kwdel,
+      aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,ldai,svai,tstai,runai,aiOpen,aiCopy};
   }
 }).mount("#aapp");
 </script>

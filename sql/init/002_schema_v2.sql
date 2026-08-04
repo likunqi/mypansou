@@ -248,6 +248,17 @@ CREATE TABLE IF NOT EXISTS categories (
   UNIQUE KEY uk_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 17. AI 提炼结果（后台 AI 提炼保存）
+CREATE TABLE IF NOT EXISTS ai_summaries (
+  id           INT          PRIMARY KEY AUTO_INCREMENT,
+  scope        VARCHAR(32)  DEFAULT "",
+  input_text   TEXT         DEFAULT NULL,
+  output_text  MEDIUMTEXT   DEFAULT NULL,
+  model        VARCHAR(64)  DEFAULT "",
+  status       VARCHAR(16)  DEFAULT "ok",
+  created_at   DATETIME     DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ===== 初始数据 =====
 INSERT IGNORE INTO categories (name, sort_order) VALUES
   ("电影", 1), ("电视剧", 2), ("短剧", 3), ("综艺", 4),
