@@ -74,6 +74,31 @@ async function ruleUpdate(req, res) {
     json(res, 200, { ok: true });
   } catch (e) { json(res, 500, { error: e.message }); }
 }
+// 批量替换某源的解析规则（AI 生成场景：清旧插新）
+async function ruleReplace(req, res) {
+  try {
+    var b = JSON.parse(await readBody(req));
+    var sourceId = parseInt(b.source_id, 10);
+    if (!sourceId) return json(res, 400, { error: "source_id required" });
+    var rules = Array.isArray(b.rules) ? b.rules : [];
+    var old = await store.crawlerRuleList(sourceId);
+    for (var i = 0; i < old.length; i++) await store.crawlerRuleDelete(old[i].id);
+    for (var j = 0; j < rules.length; j++) {
+      var r = rules[j] || {};
+      await store.crawlerRuleAdd({
+        source_id: sourceId,
+        field_name: String(r.field_name || "").trim(),
+        rule_type: r.rule_type || "regex",
+        rule_value: r.rule_value || "",
+        required: r.required !== false,
+        default_value: r.default_value || "",
+        filter_regex: r.filter_regex || "",
+        position: j,
+      });
+    }
+    json(res, 200, { ok: true, count: rules.length });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
 async function ruleDelete(req, res) {
   try {
     var id = req.url.split("/")[5];
@@ -82,4 +107,4 @@ async function ruleDelete(req, res) {
   } catch (e) { json(res, 500, { error: e.message }); }
 }
 
-module.exports = { sourceList, sourceAdd, sourceUpdate, sourceDelete, sourceRun, ruleList, ruleAdd, ruleUpdate, ruleDelete };
+module.exports = { sourceList, sourceAdd, sourceUpdate, sourceDelete, sourceRun, ruleList, ruleAdd, ruleUpdate, ruleDelete, ruleReplace };

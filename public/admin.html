@@ -892,7 +892,7 @@
           </div>
         </div>
 
-        <!-- ========== AI 提炼 ========== -->
+        <!-- ========== AI 助手 ========== -->
         <div v-if="pg==='ai'" class="row">
           <div class="col-lg-5">
             <div class="card mb-3">
@@ -918,7 +918,7 @@
               </div>
             </div>
             <div class="card">
-              <div class="card-header"><h3 class="card-title">提炼历史</h3></div>
+              <div class="card-header"><h3 class="card-title">历史记录</h3></div>
               <div class="card-body p-0">
                 <div class="list-group list-group-flush">
                   <div v-for="s in aiItems" :key="s.id" class="list-group-item">
@@ -930,37 +930,108 @@
                     <div class="text-truncate small">{{(s.output_text||'').slice(0,80)}}</div>
                     <button class="btn btn-link btn-sm p-0" @click="aiOpen(s)">查看全文</button>
                   </div>
-                  <div v-if="!aiItems.length" class="list-group-item text-center text-secondary py-4">暂无提炼记录</div>
+                  <div v-if="!aiItems.length" class="list-group-item text-center text-secondary py-4">暂无记录</div>
                 </div>
               </div>
             </div>
           </div>
           <div class="col-lg-7">
-            <div class="card">
-              <div class="card-header"><h3 class="card-title">AI 提炼</h3></div>
-              <div class="card-body">
-                <div class="mb-3">
-                  <label class="form-label">提炼范围</label>
-                  <select class="form-select" v-model="aiScope">
-                    <option value="submissions">待审核资源提交</option>
-                    <option value="reports">失效链接反馈</option>
-                    <option value="history">转存记录</option>
-                    <option value="custom">自定义文本</option>
-                  </select>
-                </div>
-                <div class="mb-3" v-if="aiScope==='custom'">
-                  <label class="form-label">输入文本</label>
-                  <textarea class="form-control" v-model="aiText" rows="8" placeholder="粘贴需要提炼的内容…"></textarea>
-                </div>
-                <button class="btn btn-success" :disabled="aiRun" @click="runai">{{aiRun?'提炼中…':'开始提炼'}}</button>
-                <div v-if="aiRun" class="mt-2 small text-secondary">正在调用 DeepSeek，约需 5~30 秒…</div>
-                <div v-if="aiErr" class="alert alert-danger py-2 mt-3 mb-0">{{aiErr}}</div>
-                <div v-if="aiOut" class="mt-3">
-                  <div class="d-flex align-items-center mb-2">
-                    <h4 class="card-title mb-0">提炼结果</h4>
-                    <button class="btn btn-outline-secondary btn-sm ms-auto" @click="aiCopy">复制</button>
+            <ul class="nav nav-tabs nav-fill mb-3">
+              <li class="nav-item"><a class="nav-link" :class="{active:aiTab==='assist'}" href="javascript:void(0)" @click="aiTab='assist'">AI 助手（规则 / 脚本）</a></li>
+              <li class="nav-item"><a class="nav-link" :class="{active:aiTab==='sum'}" href="javascript:void(0)" @click="aiTab='sum'">内容提炼</a></li>
+            </ul>
+
+            <!-- AI 助手：生成采集规则 / 生成任务脚本 -->
+            <div v-if="aiTab==='assist'" class="row g-3">
+              <div class="col-lg-6">
+                <div class="card h-100">
+                  <div class="card-header"><h3 class="card-title">生成采集解析规则</h3></div>
+                  <div class="card-body">
+                    <div class="mb-2">
+                      <label class="form-label">源类型</label>
+                      <select class="form-select" v-model="arFm.source_type"><option value="rss">RSS</option><option value="page">网页（page）</option><option value="api">JSON API</option></select>
+                    </div>
+                    <div class="mb-2">
+                      <label class="form-label">URL 模板</label>
+                      <input class="form-control" v-model="arFm.url_template" placeholder="https://example.com/feed?page={page}">
+                    </div>
+                    <div class="mb-2">
+                      <label class="form-label">示例内容 <span class="text-secondary fw-normal">（网页/API 粘贴一段原始 HTML 或 JSON）</span></label>
+                      <textarea class="form-control font-monospace" v-model="arFm.sample" rows="5" placeholder="粘贴抓取到的示例内容，AI 据此生成正则/jsonpath…"></textarea>
+                    </div>
+                    <button class="btn btn-success w-100" :disabled="arRun||!arFm.url_template" @click="airules">{{arRun?'生成中…':'生成规则'}}</button>
+                    <div v-if="arRules.rules" class="mt-3">
+                      <label class="form-label">规则 JSON（可手动调整）</label>
+                      <textarea class="form-control font-monospace" v-model="arRules.raw" rows="8" style="font-size:12px"></textarea>
+                      <div class="row g-2 mt-2">
+                        <div class="col-8">
+                          <select class="form-select" v-model="arSrc">
+                            <option value="">— 选择目标采集源 —</option>
+                            <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}</option>
+                          </select>
+                        </div>
+                        <div class="col-4">
+                          <button class="btn btn-primary w-100" :disabled="arSaving||!arSrc" @click="arsave">{{arSaving?'保存中…':'保存到该源'}}</button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="border rounded p-3 bg-body-tertiary" style="white-space:pre-wrap;max-height:520px;overflow:auto">{{aiOut}}</div>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="card h-100">
+                  <div class="card-header"><h3 class="card-title">生成任务脚本</h3></div>
+                  <div class="card-body">
+                    <div class="mb-2">
+                      <label class="form-label">任务需求描述</label>
+                      <textarea class="form-control" v-model="asFm.task_desc" rows="3" placeholder="如：每天清理 30 天前的转存历史和过期缓存"></textarea>
+                    </div>
+                    <button class="btn btn-success w-100" :disabled="asRun||!asFm.task_desc.trim()" @click="asscript">{{asRun?'生成中…':'生成脚本'}}</button>
+                    <div v-if="asCode.code" class="mt-3">
+                      <label class="form-label">脚本代码（async function run(ctx)，可手动调整）</label>
+                      <textarea class="form-control font-monospace" v-model="asCode.code" rows="10" style="font-size:12px"></textarea>
+                      <div class="row g-2 mt-2">
+                        <div class="col-5"><input class="form-control" v-model="asFm.name" placeholder="任务名称"></div>
+                        <div class="col-3"><input class="form-control" type="number" v-model="asFm.interval" title="间隔秒" placeholder="3600"></div>
+                        <div class="col-4">
+                          <button class="btn btn-primary w-100" :disabled="asSaving" @click="assave">{{asSaving?'保存中…':'保存为任务'}}</button>
+                        </div>
+                      </div>
+                      <div class="form-hint mt-2">保存后到「任务中心」启停 / 立即执行；脚本在 vm 沙箱运行，可用 ctx.store / ctx.mysql / fetch / console。</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 内容提炼（降级为次要） -->
+            <div v-if="aiTab==='sum'">
+              <div class="card">
+                <div class="card-header"><h3 class="card-title">AI 提炼</h3></div>
+                <div class="card-body">
+                  <div class="mb-3">
+                    <label class="form-label">提炼范围</label>
+                    <select class="form-select" v-model="aiScope">
+                      <option value="submissions">待审核资源提交</option>
+                      <option value="reports">失效链接反馈</option>
+                      <option value="history">转存记录</option>
+                      <option value="custom">自定义文本</option>
+                    </select>
+                  </div>
+                  <div class="mb-3" v-if="aiScope==='custom'">
+                    <label class="form-label">输入文本</label>
+                    <textarea class="form-control" v-model="aiText" rows="8" placeholder="粘贴需要提炼的内容…"></textarea>
+                  </div>
+                  <button class="btn btn-success" :disabled="aiRun" @click="runai">{{aiRun?'提炼中…':'开始提炼'}}</button>
+                  <div v-if="aiRun" class="mt-2 small text-secondary">正在调用 DeepSeek，约需 5~30 秒…</div>
+                  <div v-if="aiErr" class="alert alert-danger py-2 mt-3 mb-0">{{aiErr}}</div>
+                  <div v-if="aiOut" class="mt-3">
+                    <div class="d-flex align-items-center mb-2">
+                      <h4 class="card-title mb-0">提炼结果</h4>
+                      <button class="btn btn-outline-secondary btn-sm ms-auto" @click="aiCopy">复制</button>
+                    </div>
+                    <div class="border rounded p-3 bg-body-tertiary" style="white-space:pre-wrap;max-height:520px;overflow:auto">{{aiOut}}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1440,15 +1511,57 @@ cr({
       });
     }
 
-    // ---- AI 提炼 ----
+    // ---- AI 助手（规则/脚本）+ 内容提炼 ----
     var aiCfg=rct({base:"https://api.deepseek.com",key:"",keySet:false,keyMask:"",model:"deepseek-chat"});
     var aiTst=rf(false),aiTestMsg=rf(""),aiTestOk=rf(false);
     var aiItems=rf([]);
     var aiScope=rf("submissions"),aiText=rf("");
     var aiRun=rf(false),aiErr=rf(""),aiOut=rf("");
+    var aiTab=rf("assist");
+    var arFm=rct({source_type:"rss",url_template:"",sample:""});
+    var arRun=rf(false),arRules=rct({rules:null,raw:""}),arSrc=rf(""),arSaving=rf(false);
+    var asFm=rct({task_desc:"",name:"",interval:3600});
+    var asRun=rf(false),asCode=rct({code:"",raw:""}),asSaving=rf(false);
+    function airules(){
+      if(!arFm.url_template){msg("URL 模板必填","e");return}
+      arRun.value=true;
+      ap("POST","ai/rules",arFm).then(function(r){
+        arRun.value=false;
+        if(r.ok&&r.rules){arRules.rules=r.rules;arRules.raw=JSON.stringify(r.rules,null,2);msg("规则已生成，选择目标采集源后保存")}
+        else msg(r.error||"生成失败","e");
+      }).catch(function(){arRun.value=false;msg("生成失败：网络错误","e")});
+    }
+    function arsave(){
+      if(!arSrc.value){msg("请选择目标采集源","e");return}
+      var rules;
+      try{rules=JSON.parse(arRules.raw)}catch(e){msg("规则 JSON 解析失败","e");return}
+      arSaving.value=true;
+      ap("POST","crawler/rules/replace",{source_id:parseInt(arSrc.value,10),rules:rules}).then(function(r){
+        arSaving.value=false;
+        if(r.ok){msg("已保存 "+r.count+" 条规则到采集源 #"+arSrc.value);ldsrc();ldrule()}else msg(r.error||"保存失败","e");
+      }).catch(function(){arSaving.value=false;msg("保存失败：网络错误","e")});
+    }
+    function asscript(){
+      if(!asFm.task_desc.trim()){msg("任务需求必填","e");return}
+      asRun.value=true;
+      ap("POST","ai/script",{task_desc:asFm.task_desc}).then(function(r){
+        asRun.value=false;
+        if(r.ok&&r.code){asCode.code=r.code;msg("脚本已生成，可编辑后保存为任务")}
+        else msg(r.error||"生成失败","e");
+      }).catch(function(){asRun.value=false;msg("生成失败：网络错误","e")});
+    }
+    function assave(){
+      if(!asCode.code||!/function run/.test(asCode.code)){msg("脚本无效（需含 async function run）","e");return}
+      asSaving.value=true;
+      ap("POST","tasks",{task_name:asFm.name||"AI 生成任务",task_type:"script",interval_sec:parseInt(asFm.interval,10)||3600,script_code:asCode.code}).then(function(r){
+        asSaving.value=false;
+        if(r.ok){msg("任务已创建（任务中心可启停/执行）");asFm.name="";asCode.code="";asFm.task_desc=""}else msg(r.error||"保存失败","e");
+      }).catch(function(){asSaving.value=false;msg("保存失败：网络错误","e")});
+    }
     function ldai(){
       ap("GET","ai/config").then(function(r){Object.assign(aiCfg,r)});
       ap("GET","ai/summaries").then(function(r){aiItems.value=r.items||[]});
+      ap("GET","crawler/sources").then(function(r){crSrcs.value=r.items||[]}); // 采集源下拉（AI 规则保存用）
     }
     function svai(){
       ap("POST","ai/config",{ai_base:aiCfg.base,ai_key:aiCfg.key,ai_model:aiCfg.model}).then(function(r){
@@ -1651,7 +1764,7 @@ cr({
       kwItems,kwNew,kwEditId,ldKw,kwadd,kwEdit,kwCancel,kwhot,kwst,kwdel,
       scItems,ldsc,scToggle,scDiskOpts,scDisk,
       tsItems,tsLogs,tsShow,tsAdvShow,tsLogShow,tsEditId,tsSaving,tsTypes,tsNew,fmtInt,ldts,ldtslogs,tstoggle,tsrun,tsNewShow,tsedit,tssave,tsdel,
-      aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,ldai,svai,tstai,runai,aiOpen,aiCopy};
+      aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,aiTab,arFm,arRun,arRules,arSrc,arSaving,airules,arsave,asFm,asRun,asCode,asSaving,asscript,assave,ldai,svai,tstai,runai,aiOpen,aiCopy};
   }
 }).mount("#aapp");
 </script>

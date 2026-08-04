@@ -80,6 +80,8 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/ai/test" && method === "POST") return await ai.test(req, res);
       if (urlPath === "/api/admin/ai/summarize" && method === "POST") return await ai.summarize(req, res);
       if (urlPath === "/api/admin/ai/summaries" && method === "GET") return await ai.list(req, res);
+      if (urlPath === "/api/admin/ai/rules" && method === "POST") return await ai.genRules(req, res);
+      if (urlPath === "/api/admin/ai/script" && method === "POST") return await ai.genScript(req, res);
       if (urlPath === "/api/admin/sources" && method === "GET") return await sources.list(req, res);
       if (urlPath === "/api/admin/sources/update" && method === "POST") return await sources.update(req, res);
 
@@ -124,6 +126,7 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/crawler/rules" && method === "POST") return await crawler.ruleAdd(req, res);
       if (/^\/api\/admin\/crawler\/rules\/\d+$/.test(urlPath) && method === "POST") return await crawler.ruleUpdate(req, res);
       if (/^\/api\/admin\/crawler\/rules\/\d+\/delete$/.test(urlPath) && method === "POST") return await crawler.ruleDelete(req, res);
+      if (urlPath === "/api/admin/crawler/rules/replace" && method === "POST") return await crawler.ruleReplace(req, res);
 
       json(res, 404, { error: "admin_route_not_found" });
       return;

@@ -132,4 +132,63 @@ async function list(req, res) {
   json(res, 200, { items: rows });
 }
 
-module.exports = { saveConfig, getConfig, test, summarize, list };
+// ---------- AI 辅助：生成采集解析规则 / 生成任务脚本 ----------
+
+// 从 AI 输出提取 JSON 数组（容错 markdown 代码块 / 尾逗号）
+function extractJsonArray(text) {
+  var m = String(text || "").match(/\[[\s\S]*\]/);
+  if (!m) return null;
+  try {
+    var arr = JSON.parse(m[0]);
+    return Array.isArray(arr) ? arr : null;
+  } catch (e) {
+    try { return JSON.parse(m[0].replace(/,\s*([\]}])/g, "$1")); } catch (e2) { return null; }
+  }
+}
+// 从 AI 输出提取 JS 代码（容错 ```js 围栏 / 前置解释文字）
+function extractCode(text) {
+  var m = String(text || "").match(/```(?:js|javascript)?\s*([\s\S]*?)```/);
+  if (m && m[1].trim()) return m[1].trim();
+  var s = String(text || "");
+  var i = s.indexOf("async function run");
+  if (i < 0) i = s.indexOf("function run");
+  if (i < 0) return "";
+  return s.slice(i).trim();
+}
+
+// 生成采集解析规则（crawler rules JSON 数组）
+async function genRules(req, res) {
+  try {
+    var b = JSON.parse(await readBody(req));
+    var sourceType = b.source_type || "rss";
+    var urlTemplate = b.url_template || "";
+    var sample = b.sample_text || "";
+    var ac = await getAiConfig();
+    var sys = "你是网盘资源站采集规则工程师。根据采集源信息生成 crawler-engine 解析规则 JSON 数组。字段结构：{field_name, rule_type, rule_value, required, default_value?}；rule_type 可选 regex/jsonpath/fixed/concat（css 暂不支持）；必含 title/url 字段（required:true）；page 类型用 __item__（条目分隔正则）、api 类型用 __list__（列表 jsonpath 如 $.data.list）。只输出 JSON 数组，不要任何解释文字或代码围栏。";
+    var prompt = "源类型: " + sourceType + "\nURL 模板: " + (urlTemplate || "-") +
+      "\n\n示例内容（供正则参考）:\n" + (sample || "(未提供)") +
+      "\n\n请生成解析规则 JSON 数组。";
+    var out = await chat(ac, prompt.slice(0, 12000), sys);
+    var rules = extractJsonArray(out);
+    if (!rules || !rules.length) throw new Error("AI 未能生成有效规则 JSON（" + out.slice(0, 80) + "…）");
+    json(res, 200, { ok: true, rules: rules });
+  } catch (e) { json(res, 502, { ok: false, error: e.message }); }
+}
+
+// 生成自定义任务脚本（async function run(ctx)）
+async function genScript(req, res) {
+  try {
+    var b = JSON.parse(await readBody(req));
+    var taskDesc = String(b.task_desc || "").trim();
+    if (!taskDesc) { json(res, 400, { error: "task_desc 必填" }); return; }
+    var ac = await getAiConfig();
+    var sys = "你是 Node.js 定时任务脚本工程师。根据需求生成自定义任务脚本代码。约定：async function run(ctx){...}；ctx 提供 store（数据层，含 resourceAdd/resourceList/historyList/historyDelete 等）、mysql（lib/mysql 直连）、fetch（全局 fetch）、console；脚本返回 {status:'ok', resultMsg:'...'} 或 {status:'failed', error:'...'}。只输出完整可运行的 JS 代码，不要解释文字，不要 markdown 代码围栏。";
+    var prompt = "任务需求: " + taskDesc + "\n\n生成脚本代码。";
+    var out = await chat(ac, prompt.slice(0, 12000), sys);
+    var code = extractCode(out);
+    if (!code || !/function run/.test(code)) throw new Error("AI 生成内容不含 run 函数");
+    json(res, 200, { ok: true, code: code });
+  } catch (e) { json(res, 502, { ok: false, error: e.message }); }
+}
+
+module.exports = { saveConfig, getConfig, test, summarize, list, genRules, genScript };
