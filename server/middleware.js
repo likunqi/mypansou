@@ -55,15 +55,17 @@ function serveStatic(res, urlPath) {
   var fp = path.join(__dirname, "..", "public", safe === "/" ? "index.html" : safe);
   var ext = path.extname(fp).toLowerCase();
   var ct = MIME[ext] || "application/octet-stream";
+  // HTML 经常更新，禁止启发式缓存，保证前端每次拿到最新版
+  var cacheCtl = ext === ".html" ? "no-cache" : "public, max-age=3600";
   fs.readFile(fp, function(err, data) {
     if (err) {
       fs.readFile(path.join(__dirname, "..", "public", "index.html"), function(err2, data2) {
         if (err2) return json(res, 404, { error: "Not Found" });
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
         res.end(data2);
       });
     } else {
-      res.writeHead(200, { "Content-Type": ct });
+      res.writeHead(200, { "Content-Type": ct, "Cache-Control": cacheCtl });
       res.end(data);
     }
   });
