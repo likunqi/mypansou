@@ -102,13 +102,29 @@ async function adminKeywordDelete(req, res) {
 }
 
 async function getTrending(req, res) {
-  var cache = store.getTrendingCache();
-  var trending = cache.trending;
-  var now = Date.now();
+  try {
+    var cache = store.getTrendingCache();
+    var trending = cache.trending;
+    var now = Date.now();
 
-  if (trending && now - trending.ts < 30 * 60 * 1000) {
-    return json(res, 200, trending.data);
+    if (trending && now - trending.ts < 30 * 60 * 1000) {
+      return json(res, 200, trending.data);
+    }
+
+    var out = await refreshTrending();
+    json(res, 200, out);
+  } catch (e) {
+    // 采集失败时兜底返回缓存（可能过期），不把错误抛给前端
+    var cache2 = store.getTrendingCache();
+    if (cache2.trending && cache2.trending.data) return json(res, 200, cache2.trending.data);
+    json(res, 502, { error: "trending_error", message: e.message });
   }
+}
+
+// 采集热门推荐数据并写入缓存（供 getTrending 与定时预热任务共用）
+async function refreshTrending() {
+  var cache = store.getTrendingCache();
+  var now = Date.now();
 
   // 热搜词：优先真实采集/手动维护词，不足用默认兜底
   var terms = HOT_TERMS.slice();
@@ -225,7 +241,7 @@ async function getTrending(req, res) {
   cache.trending = { ts: now, data: out };
   store.saveTrendingCache(cache);
 
-  json(res, 200, out);
+  return out;
 }
 
-module.exports = { getTrending, getKeywords, getHotResources, getStats, recordSearch, adminKeywordList, adminKeywordAdd, adminKeywordUpdate, adminKeywordDelete, HOT_TERMS };
+module.exports = { getTrending, getKeywords, getHotResources, getStats, recordSearch, adminKeywordList, adminKeywordAdd, adminKeywordUpdate, adminKeywordDelete, refreshTrending, HOT_TERMS };
