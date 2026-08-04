@@ -12,6 +12,7 @@ const importH = require("./handlers/import");
 const crawler = require("./handlers/crawler");
 const ai = require("./handlers/ai");
 const multi = require("./handlers/multi");
+const sources = require("./handlers/sources");
 
 async function handleRequest(req, res) {
   logger(req, res);
@@ -73,6 +74,8 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/ai/test" && method === "POST") return await ai.test(req, res);
       if (urlPath === "/api/admin/ai/summarize" && method === "POST") return await ai.summarize(req, res);
       if (urlPath === "/api/admin/ai/summaries" && method === "GET") return await ai.list(req, res);
+      if (urlPath === "/api/admin/sources" && method === "GET") return await sources.list(req, res);
+      if (urlPath === "/api/admin/sources/update" && method === "POST") return await sources.update(req, res);
 
       // 热搜词管理
       if (urlPath === "/api/admin/keywords" && method === "GET") return await hot.adminKeywordList(req, res);

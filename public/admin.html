@@ -668,6 +668,38 @@
           </div>
         </div>
 
+        <!-- ========== 搜索源管理 ========== -->
+        <div v-if="pg==='sc'" class="row">
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">搜索源管理</h3><div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldsc">刷新</button></div></div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-vcenter card-table">
+                    <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>说明</th><th>状态</th><th>启停</th></tr></thead>
+                    <tbody>
+                      <tr v-for="s in scItems" :key="s.id">
+                        <td class="text-secondary">{{s.id}}</td>
+                        <td class="fw-bold">{{s.name}}</td>
+                        <td><span class="badge bg-secondary-lt text-secondary">{{s.type==='browser'?'浏览器':'API'}}</span></td>
+                        <td class="text-secondary">{{s.desc}}</td>
+                        <td><span class="badge" :class="s.enabled?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{s.enabled?'启用':'停用'}}</span></td>
+                        <td>
+                          <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" :checked="s.enabled" @change="scToggle(s)">
+                          </div>
+                        </td>
+                      </tr>
+                      <tr v-if="!scItems.length"><td colspan="6" class="text-center text-secondary py-4">暂无搜索源</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="form-hint mt-2">切换即时生效；停用后前端「搜索源」选择里不再出现该源。新增搜索源需在代码里注册（lib/sources/registry.js），注册后本页即可启停。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- ========== AI 提炼 ========== -->
         <div v-if="pg==='ai'" class="row">
           <div class="col-lg-5">
@@ -851,6 +883,7 @@ var menus=[
   {id:"hi",title:"转存历史",icon:IC.history},
   {id:"kw",title:"热搜管理",icon:IC.fire},
   {id:"ai",title:"AI 提炼",icon:IC.brain},
+  {id:"sc",title:"搜索源",icon:IC.settings},
   {id:"api",title:"API 配置",icon:IC.settings},
   {id:"ca",title:"缓存管理",icon:IC.database},
   {id:"se",title:"安全设置",icon:IC.shield}
@@ -1007,6 +1040,16 @@ cr({
       ap("POST","keywords/"+k.id+"/delete",{}).then(function(r){if(r.ok){msg("已删除");ldKw()}else msg(r.error||"删除失败","e")});
     }
 
+    // ---- 搜索源管理 ----
+    var scItems=rf([]);
+    function ldsc(){ap("GET","sources").then(function(r){scItems.value=r.items||[]})}
+    function scToggle(s){
+      var on=!s.enabled;
+      ap("POST","sources/update",{id:s.id,enabled:on}).then(function(r){
+        if(r.ok){msg((on?"已启用":"已停用")+"「"+s.name+"」");ldsc()}else msg(r.error||"操作失败","e");
+      });
+    }
+
     // ---- AI 提炼 ----
     var aiCfg=rct({base:"https://api.deepseek.com",key:"",keySet:false,keyMask:"",model:"deepseek-chat"});
     var aiTst=rf(false),aiTestMsg=rf(""),aiTestOk=rf(false);
@@ -1132,6 +1175,7 @@ cr({
       if(p==="hi")ldhi();
       if(p==="kw")ldKw();
       if(p==="ai")ldai();
+      if(p==="sc")ldsc();
       if(p==="api")ldcfg();
       if(p==="ca")ldca();
     });
@@ -1140,7 +1184,7 @@ cr({
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="ck")ldcs();else if(h==="hi")ldhi();else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="rs"){ldres();ldsub();ldimp()}else{loadst();lddb()}
+        if(h==="ck")ldcs();else if(h==="hi")ldhi();else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="rs"){ldres();ldsub();ldimp()}else{loadst();lddb()}
       }
     });
 
@@ -1148,6 +1192,7 @@ cr({
       rsTab,rsQ,res,rsAddShow,rsAdd,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crRules,crRuleStats,crNew,crRuleNew,
       srcName,srcBadge,fmtT,ldres,rsadd,rsdel,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,
       kwItems,kwNew,ldKw,kwadd,kwhot,kwst,kwdel,
+      scItems,ldsc,scToggle,
       aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,ldai,svai,tstai,runai,aiOpen,aiCopy};
   }
 }).mount("#aapp");
