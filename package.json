@@ -17,6 +17,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "mysql2": "^3.23.2"
+    "mysql2": "^3.23.2",
+    "playwright-core": "^1.62.1"
   }
 }

@@ -11,6 +11,7 @@ const resource = require("./handlers/resource");
 const importH = require("./handlers/import");
 const crawler = require("./handlers/crawler");
 const ai = require("./handlers/ai");
+const multi = require("./handlers/multi");
 
 async function handleRequest(req, res) {
   logger(req, res);
@@ -35,6 +36,9 @@ async function handleRequest(req, res) {
 
     // Pansou proxy
     if (urlPath.startsWith("/api/pansou/") && method === "GET") return await pansou.proxyPansou(req, res);
+
+    // Multi-source aggregate search
+    if (urlPath === "/api/multi/search" && method === "GET") return await multi.multiSearch(req, res);
 
     // Transfer (Quark save)
     if (urlPath === "/api/transfer/save" && method === "POST") return await transfer.handler(req, res);
