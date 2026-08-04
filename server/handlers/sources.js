@@ -1,22 +1,19 @@
-// server/handlers/sources.js — 后台搜索源管理：列出/启停多搜索源（写 site_config.multi_sources）
+// server/handlers/sources.js — 后台搜索源管理：列表 / 启停 / 网盘限制（写 site_config.multi_sources）
 const { json, readBody } = require("../middleware");
 const store = require("../../lib/store");
 const registry = require("../../lib/sources/registry");
 
-// GET /api/admin/sources — 源列表（含启停状态）
+// GET /api/admin/sources — 源列表（含启停 + 网盘限制 disks）
 async function list(req, res) {
   try {
     var cfg = await store.getConfig();
-    var enabled = registry.getEnabledSet(cfg);
-    var items = Object.keys(registry.REGISTRY).map(function (id) {
-      var m = registry.REGISTRY[id];
-      return { id: id, name: m.name, short: m.short, type: m.type, desc: m.desc, enabled: !!enabled[id] };
-    });
+    var items = registry.getAllSources(cfg);
     json(res, 200, { items: items, total: items.length });
   } catch (e) { json(res, 500, { error: e.message }); }
 }
 
-// POST /api/admin/sources/update — {id, enabled} 写回 site_config.multi_sources
+// POST /api/admin/sources/update — {id, enabled?, disks?} 写回 site_config.multi_sources
+// disks 为空数组 = 不限制；仅更新传入字段
 async function update(req, res) {
   try {
     var b = JSON.parse(await readBody(req));
@@ -25,7 +22,10 @@ async function update(req, res) {
     var cfg = await store.getConfig();
     var ms = {};
     try { ms = cfg.multi_sources ? JSON.parse(cfg.multi_sources) : {}; } catch (e) { ms = {}; }
-    ms[id] = !!b.enabled;
+    var cur = registry.parseSourceCfg(ms[id], registry.REGISTRY[id].defaultEnabled !== false);
+    if (b.enabled !== undefined) cur.enabled = !!b.enabled;
+    if (Array.isArray(b.disks)) cur.disks = b.disks.filter(function (d) { return typeof d === "string" && d; });
+    ms[id] = cur;
     await store.saveConfig({ multi_sources: JSON.stringify(ms) });
     json(res, 200, { ok: true });
   } catch (e) { json(res, 500, { error: e.message }); }

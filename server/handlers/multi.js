@@ -53,7 +53,13 @@ async function multiSearch(req, res) {
   var errors = {};
   results.forEach(function (r) {
     if (r.ok && Array.isArray(r.items)) {
-      var list = r.items.slice(0, maxPerSource);
+      // 源级网盘限制：该源配置的 disks 非空时，过滤掉非指定盘的条目（兜底，不依赖源 API）
+      var disks = registry.getSourceDisks(r.id, cfg);
+      var list = r.items;
+      if (disks && disks.length) {
+        list = list.filter(function (it) { return disks.indexOf(it.disk_type) >= 0; });
+      }
+      list = list.slice(0, maxPerSource);
       perSource[r.id] = list.length;
       allItems = allItems.concat(list);
     } else {

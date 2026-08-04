@@ -676,13 +676,19 @@
               <div class="card-body">
                 <div class="table-responsive">
                   <table class="table table-vcenter card-table">
-                    <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>说明</th><th>状态</th><th>启停</th></tr></thead>
+                    <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>说明</th><th>网盘限制</th><th>状态</th><th>启停</th></tr></thead>
                     <tbody>
                       <tr v-for="s in scItems" :key="s.id">
                         <td class="text-secondary">{{s.id}}</td>
                         <td class="fw-bold">{{s.name}}</td>
                         <td><span class="badge bg-secondary-lt text-secondary">{{s.type==='browser'?'浏览器':'API'}}</span></td>
                         <td class="text-secondary">{{s.desc}}</td>
+                        <td style="min-width:280px">
+                          <span class="me-1" v-for="(nm,dk) in scDiskOpts" :key="dk">
+                            <button class="btn btn-sm me-1 mb-1" :class="(s.disks||[]).indexOf(dk)>=0?'btn-primary':'btn-outline-secondary'" @click="scDisk(s,dk)" style="padding:2px 10px;font-size:.75rem">{{nm}}</button>
+                          </span>
+                          <span v-if="!(s.disks||[]).length" class="badge bg-secondary-lt text-secondary">全部</span>
+                        </td>
                         <td><span class="badge" :class="s.enabled?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{s.enabled?'启用':'停用'}}</span></td>
                         <td>
                           <div class="form-check form-switch">
@@ -690,11 +696,11 @@
                           </div>
                         </td>
                       </tr>
-                      <tr v-if="!scItems.length"><td colspan="6" class="text-center text-secondary py-4">暂无搜索源</td></tr>
+                      <tr v-if="!scItems.length"><td colspan="7" class="text-center text-secondary py-4">暂无搜索源</td></tr>
                     </tbody>
                   </table>
                 </div>
-                <div class="form-hint mt-2">切换即时生效；停用后前端「搜索源」选择里不再出现该源。新增搜索源需在代码里注册（lib/sources/registry.js），注册后本页即可启停。</div>
+                <div class="form-hint mt-2">「网盘限制」点击胶囊切换（选中=只保留该网盘结果，空=全部）；启用/限制即时生效。新增搜索源需在代码里注册（lib/sources/registry.js），注册后本页即可启停。</div>
               </div>
             </div>
           </div>
@@ -1042,11 +1048,20 @@ cr({
 
     // ---- 搜索源管理 ----
     var scItems=rf([]);
+    var scDiskOpts={quark:"夸克",baidu:"百度",aliyun:"阿里",tianyi:"天翼",uc:"UC",xunlei:"迅雷"};
     function ldsc(){ap("GET","sources").then(function(r){scItems.value=r.items||[]})}
     function scToggle(s){
       var on=!s.enabled;
       ap("POST","sources/update",{id:s.id,enabled:on}).then(function(r){
         if(r.ok){msg((on?"已启用":"已停用")+"「"+s.name+"」");ldsc()}else msg(r.error||"操作失败","e");
+      });
+    }
+    function scDisk(s,dk){
+      var disks=(s.disks||[]).slice();
+      var i=disks.indexOf(dk);
+      if(i>=0)disks.splice(i,1);else disks.push(dk);
+      ap("POST","sources/update",{id:s.id,disks:disks}).then(function(r){
+        if(r.ok){msg("「"+s.name+"」网盘限制已更新");ldsc()}else msg(r.error||"操作失败","e");
       });
     }
 
@@ -1192,7 +1207,7 @@ cr({
       rsTab,rsQ,res,rsAddShow,rsAdd,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crRules,crRuleStats,crNew,crRuleNew,
       srcName,srcBadge,fmtT,ldres,rsadd,rsdel,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,
       kwItems,kwNew,ldKw,kwadd,kwhot,kwst,kwdel,
-      scItems,ldsc,scToggle,
+      scItems,ldsc,scToggle,scDiskOpts,scDisk,
       aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,ldai,svai,tstai,runai,aiOpen,aiCopy};
   }
 }).mount("#aapp");
