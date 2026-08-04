@@ -10,7 +10,7 @@ async function getKeywords(req, res) {
   try {
     var list = await store.keywordList(50, false);
     var items = (list || []).map(function (k) {
-      return { keyword: k.keyword, search_count: k.search_count || 0, is_hot: k.is_hot ? 1 : 0, sort_order: k.sort_order || 0 };
+      return { keyword: k.keyword, search_count: k.search_count || 0, is_hot: k.is_hot ? 1 : 0, sort_order: k.sort_order || 0, source: k.source || "" };
     });
     // 手动置顶词（is_hot）按 sort_order 在前，其余按 search_count
     var manual = items.filter(function (i) { return i.is_hot === 1; }).sort(function (a, b) { return b.sort_order - a.sort_order || b.search_count - a.search_count; });
@@ -19,6 +19,16 @@ async function getKeywords(req, res) {
     json(res, 200, { items: merged, total: merged.length, source: "keywords" });
   } catch (e) {
     json(res, 502, { error: "keywords_error", message: e.message });
+  }
+}
+
+// 资源库真实统计（首页收录数字）：按 disk_type 汇总 + 有效链接数
+async function getStats(req, res) {
+  try {
+    var st = await store.resourceStats();
+    json(res, 200, st);
+  } catch (e) {
+    json(res, 502, { error: "stats_error", message: e.message });
   }
 }
 
@@ -218,4 +228,4 @@ async function getTrending(req, res) {
   json(res, 200, out);
 }
 
-module.exports = { getTrending, getKeywords, getHotResources, recordSearch, adminKeywordList, adminKeywordAdd, adminKeywordUpdate, adminKeywordDelete, HOT_TERMS };
+module.exports = { getTrending, getKeywords, getHotResources, getStats, recordSearch, adminKeywordList, adminKeywordAdd, adminKeywordUpdate, adminKeywordDelete, HOT_TERMS };

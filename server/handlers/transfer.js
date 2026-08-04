@@ -15,6 +15,7 @@ async function handler(req, res) {
     var b = JSON.parse(await readBody(req));
     var url = b.url;
     var type = b.type || "quark";
+    var srcTitle = String(b.title || "").trim().slice(0, 256); // 采集标题（前端卡片传），优先于网盘侧名称
     if (!url) { json(res, 400, { error: "url required" }); return; }
 
     var cfg = await store.getConfig();
@@ -29,7 +30,7 @@ async function handler(req, res) {
         var sid = (qr.url || "").match(/\x2fs\x2f([a-zA-Z0-9]+)/);
         if (sid) result.newUrl = cfg.shareUrlPrefix + sid[1];
       }
-      await store.historyAdd({ originalUrl: url, newUrl: result.newUrl, pwd: result.pwd, type: "baidu", title: qr.fileName || "", success: true, createdAt: Date.now() });
+      await store.historyAdd({ originalUrl: url, newUrl: result.newUrl, pwd: result.pwd, type: "baidu", title: srcTitle || qr.fileName || "", success: true, createdAt: Date.now() });
       json(res, 200, { cached: false, result: result });
       return;
     }
@@ -47,7 +48,7 @@ async function handler(req, res) {
       if (sid) result.newUrl = cfg.shareUrlPrefix + sid[1];
     }
     await store.cacheSet(url, result);
-    await store.historyAdd({ originalUrl: url, newUrl: result.newUrl, pwd: result.pwd, type: "quark", title: qr.fileName || "", success: true, createdAt: Date.now() });
+    await store.historyAdd({ originalUrl: url, newUrl: result.newUrl, pwd: result.pwd, type: "quark", title: srcTitle || qr.fileName || "", success: true, createdAt: Date.now() });
     json(res, 200, { cached: false, result: result });
   } catch (e) { json(res, 500, { error: e.message }); }
 }

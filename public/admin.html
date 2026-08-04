@@ -641,12 +641,13 @@
                 </div>
                 <div class="table-responsive">
                   <table class="table table-vcenter card-table">
-                    <thead><tr><th>#</th><th>关键词</th><th>搜索次数</th><th>热词</th><th>排序</th><th>状态</th><th>操作</th></tr></thead>
+                    <thead><tr><th>#</th><th>关键词</th><th>搜索次数</th><th>来源</th><th>热词</th><th>排序</th><th>状态</th><th>操作</th></tr></thead>
                     <tbody>
                       <tr v-for="k in kwItems" :key="k.id">
                         <td class="text-secondary">{{k.id}}</td>
                         <td class="fw-bold">{{k.keyword}}</td>
                         <td><span class="badge bg-primary-lt text-primary">{{k.search_count||0}}</span></td>
+                        <td><span class="badge" :class="k.source==='douban'?'bg-warning-lt text-warning':(k.is_hot?'bg-info-lt text-info':'bg-secondary-lt text-secondary')">{{k.source==='douban'?'豆瓣采集':(k.is_hot?'手动置顶':'用户搜索')}}</span></td>
                         <td><span class="badge" :class="k.is_hot?'bg-warning-lt text-warning':'bg-secondary-lt text-secondary'">{{k.is_hot?'🔥 热词':'普通'}}</span></td>
                         <td class="text-secondary">{{k.sort_order||0}}</td>
                         <td><span class="badge" :class="String(k.status)==='1'||k.status===1?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{String(k.status)==='1'||k.status===1?'启用':'停用'}}</span></td>
@@ -657,11 +658,11 @@
                           <button class="btn btn-outline-danger btn-sm" @click="kwdel(k)">删除</button>
                         </td>
                       </tr>
-                      <tr v-if="!kwItems.length"><td colspan="7" class="text-center text-secondary py-4">暂无关键词，新增一个试试</td></tr>
+                      <tr v-if="!kwItems.length"><td colspan="8" class="text-center text-secondary py-4">暂无关键词，新增一个试试</td></tr>
                     </tbody>
                   </table>
                 </div>
-                <div class="form-hint mt-2">置顶词会优先展示在首页热搜榜；用户搜索会自动累加「搜索次数」，无需手动维护。</div>
+                <div class="form-hint mt-2">置顶词优先展示；用户搜索自动累加「搜索次数」；「豆瓣采集」词由每日 08:00 定时任务从豆瓣热榜自动入库（可在本页停用/删除）。</div>
               </div>
             </div>
           </div>

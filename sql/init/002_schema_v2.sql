@@ -188,6 +188,7 @@ CREATE TABLE IF NOT EXISTS search_keywords (
   search_count INT          DEFAULT 1,
   is_hot       TINYINT(1)   DEFAULT 0,
   sort_order   INT          DEFAULT 0,
+  source       VARCHAR(16)  DEFAULT "",
   status       TINYINT(1)   DEFAULT 1,
   created_at   DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_at   DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -284,4 +285,5 @@ INSERT IGNORE INTO site_config (config_key, config_value, description) VALUES
 INSERT IGNORE INTO scheduled_tasks (task_name, task_type, interval_sec, task_config, status) VALUES
   ("转存资源清理", "cleanup", 86400, JSON_OBJECT("time", "03:00", "keep_days", 1), 1),
   ("链接可用性检测", "check_links", 3600,  JSON_OBJECT("batch_size", 50), 1),
-  ("Cookie 状态刷新", "refresh_cookies", 43200, NULL, 1);
+  ("Cookie 状态刷新", "refresh_cookies", 43200, NULL, 1),
+  ("豆瓣热词采集", "douban_hotwords", 86400, JSON_OBJECT("time", "08:00", "top", 10), 1);

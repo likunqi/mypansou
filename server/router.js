@@ -24,6 +24,7 @@ async function handleRequest(req, res) {
     if (urlPath === "/api/hot/trending" && method === "GET") return await hot.getTrending(req, res);
     if (urlPath === "/api/hot/keywords" && method === "GET") return await hot.getKeywords(req, res);
     if (urlPath === "/api/hot/resources" && method === "GET") return await hot.getHotResources(req, res);
+    if (urlPath === "/api/hot/stats" && method === "GET") return await hot.getStats(req, res);
 
     // Search keyword record (front-end fire-and-forget)
     if (urlPath === "/api/search/record" && method === "POST") return await hot.recordSearch(req, res);
