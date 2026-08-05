@@ -111,6 +111,7 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/resources" && method === "POST") return await resource.adminAdd(req, res);
       if (/^\/api\/admin\/resources\/\d+$/.test(urlPath) && method === "POST") return await resource.adminUpdate(req, res);
       if (/^\/api\/admin\/resources\/\d+$/.test(urlPath) && method === "DELETE") return await resource.adminDelete(req, res);
+      if (urlPath === "/api/admin/resources/batch-delete" && method === "POST") return await resource.adminDeleteBatch(req, res);
       if (urlPath === "/api/admin/submissions" && method === "GET") return await resource.adminSubmissions(req, res);
       if (/^\/api\/admin\/submissions\/\d+\/approve$/.test(urlPath) && method === "POST") return await resource.adminApprove(req, res);
       if (/^\/api\/admin\/submissions\/\d+\/reject$/.test(urlPath) && method === "POST") return await resource.adminReject(req, res);

@@ -365,6 +365,23 @@
                 </select>
               </div>
               <div class="col-md-2">
+                <select class="form-select" v-model="rsQ.disk_type">
+                  <option value="">全部网盘</option>
+                  <option value="quark">夸克</option>
+                  <option value="baidu">百度</option>
+                  <option value="aliyun">阿里</option>
+                  <option value="tianyi">天翼</option>
+                  <option value="uc">UC</option>
+                  <option value="xunlei">迅雷</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <select class="form-select" v-model="rsQ.category">
+                  <option value="">全部分类</option>
+                  <option v-for="c in rsCats" :key="c.name" :value="c.name">{{c.name}}<template v-if="c.res_count">({{c.res_count}})</template></option>
+                </select>
+              </div>
+              <div class="col-md-2">
                 <select class="form-select" v-model="rsQ.status">
                   <option value="">全部状态</option>
                   <option value="1">启用</option>
@@ -372,12 +389,20 @@
                 </select>
               </div>
               <div class="col-md-2">
-                <button class="btn btn-primary w-100" @click="ldres()">
+                <button class="btn btn-primary w-100" @click="rsSearch()">
                   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                   搜索
                 </button>
               </div>
+              <div class="col-md-2">
+                <select class="form-select" v-model="rsQ.size" @change="rsSearch()" title="每页条数">
+                  <option value="20">20 条/页</option>
+                  <option value="50">50 条/页</option>
+                  <option value="100">100 条/页</option>
+                </select>
+              </div>
               <div class="col-md-2 text-end">
+                <button class="btn btn-outline-secondary me-1" @click="rsReset()" title="重置筛选">重置</button>
                 <button class="btn btn-outline-primary" @click="rsAddShow=!rsAddShow">
                   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   手动新增
@@ -411,10 +436,12 @@
               <div class="table-responsive">
                 <table class="table table-vcenter card-table">
                   <thead><tr>
+                    <th class="w-1"><input class="form-check-input" type="checkbox" :checked="rsAllChecked" @change="rsAll($event)"></th>
                     <th>ID</th><th>标题</th><th>链接</th><th>提取码</th><th>网盘</th><th>分类</th><th>来源</th><th>状态</th><th>入库时间</th><th class="w-1"></th>
                   </tr></thead>
                   <tbody>
-                    <tr v-for="r in res.items" :key="r.id">
+                    <tr v-for="r in res.items" :key="r.id" :class="rsSel.indexOf(r.id)>=0?'table-active':''">
+                      <td><input class="form-check-input" type="checkbox" :checked="rsSel.indexOf(r.id)>=0" @change="rsTgl(r.id)"></td>
                       <td class="text-secondary">{{r.id}}</td>
                       <td class="text-truncate" style="max-width:200px" :title="r.title">{{r.title}}</td>
                       <td><a class="text-truncate d-inline-block" style="max-width:180px" :href="r.url" target="_blank" :title="r.url">{{r.url}}</a></td>
@@ -433,16 +460,66 @@
                         </button>
                       </td>
                     </tr>
-                    <tr v-if="!res.items||!res.items.length"><td colspan="10" class="text-center text-secondary py-4">暂无资源</td></tr>
+                    <tr v-if="!res.items||!res.items.length"><td colspan="11" class="text-center text-secondary py-4">暂无资源</td></tr>
                   </tbody>
                 </table>
               </div>
               <div class="card-footer d-flex align-items-center">
                 <span class="text-secondary">共 {{res.total||0}} 条</span>
+                <div class="ms-3" v-if="rsSel.length">
+                  <span class="text-secondary me-2">已选 {{rsSel.length}} 条</span>
+                  <button class="btn btn-sm btn-outline-danger" @click="rsDelBatch()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    删除选中
+                  </button>
+                  <button class="btn btn-sm btn-link" @click="rsSel=[]">取消选择</button>
+                </div>
                 <div class="ms-auto btn-group">
                   <button class="btn btn-sm btn-outline-secondary" :disabled="res.page<=1" @click="res.page--;ldres()">上一页</button>
                   <span class="btn btn-sm btn-light disabled">第 {{res.page||1}} 页</span>
-                  <button class="btn btn-sm btn-outline-secondary" :disabled="!res.items||res.items.length<20" @click="res.page++;ldres()">下一页</button>
+                  <button class="btn btn-sm btn-outline-secondary" :disabled="!res.items||res.items.length<parseInt(rsQ.size)" @click="res.page++;ldres()">下一页</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 删除确认弹窗（单删/批量共用） -->
+          <div v-if="rsDelShow" class="modal show d-block" tabindex="-1" style="background:rgba(0,0,0,.45)">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title text-danger">删除确认</h5>
+                  <button type="button" class="btn-close" @click="rsDelShow=false"></button>
+                </div>
+                <div class="modal-body">
+                  <div v-if="rsDelMode==='batch'">
+                    <p>确定删除选中的 <b class="text-danger">{{rsSel.length}}</b> 条资源？</p>
+                    <p class="form-hint mb-1">以下资源将被移除：</p>
+                    <ul class="list-unstyled mb-0" style="max-height:220px;overflow:auto">
+                      <li v-for="r in rsDelItems" :key="r.id" class="text-truncate py-1 border-bottom" style="max-width:100%">
+                        <span class="badge bg-secondary-lt text-secondary me-1">#{{r.id}}</span>{{r.title}}
+                      </li>
+                    </ul>
+                  </div>
+                  <div v-else>
+                    <p>确定删除资源 <b>#{{rsDelTarget.id}}</b>？</p>
+                    <div class="border rounded p-2 bg-light">
+                      <div class="fw-bold text-truncate">{{rsDelTarget.title}}</div>
+                      <div class="text-truncate text-secondary small">{{rsDelTarget.url}}</div>
+                      <div class="mt-1">
+                        <span class="badge me-1" :class="rsDiskCls(rsDelTarget.disk_type)">{{rsDiskName(rsDelTarget.disk_type)}}</span>
+                        <span class="badge bg-primary-lt text-primary">{{rsDelTarget.category||'未分类'}}</span>
+                        <span class="badge" :class="rsDelTarget.status==1?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{rsDelTarget.status==1?'启用':'停用'}}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-link" @click="rsDelShow=false">取消</button>
+                  <button type="button" class="btn btn-danger" @click="rsDelConfirm()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    确认删除
+                  </button>
                 </div>
               </div>
             </div>
@@ -1416,11 +1493,18 @@ cr({
 
     // ---- 资源管理（三管道）----
     var rsTab=rf("list");
-    var rsQ=rct({kw:"",source:"",status:""});
+    var rsQ=rct({kw:"",source:"",disk_type:"",category:"",status:"",size:20});
     var res=rct({items:[],total:0,page:1});
     var rsAddShow=rf(false);
     var rsEditId=rf(0);
     var rsAdd=rct({title:"",url:"",password:"",disk_type:"quark",category:"",description:""});
+    var rsCats=rf([]);
+    var rsSel=rf([]);
+    var rsAllChecked=Vue.computed(function(){return res.items.length>0&&res.items.every(function(r){return rsSel.value.indexOf(r.id)>=0})});
+    var rsDelShow=rf(false);
+    var rsDelMode=rf("single");
+    var rsDelTarget=rct({id:0,title:"",url:"",disk_type:"",category:"",status:1});
+    var rsDelItems=rf([]);
     var subQ=rct({status:"0"});
     var subs=rct({items:[],total:0});
     var subPending=rf(0);
@@ -1447,7 +1531,53 @@ cr({
     }
     function qs(o){var p=[];for(var k in o){if(o[k]===""||o[k]===undefined||o[k]===null)continue;p.push(encodeURIComponent(k)+"="+encodeURIComponent(o[k]))}return p.length?"?"+p.join("&"):""}
     function ldres(){
-      ap("GET","resources"+qs({kw:rsQ.kw,source:rsQ.source,status:rsQ.status,page:res.page,size:20})).then(function(r){res.items=r.items||[];res.total=r.total||0;res.page=r.page||1});
+      ap("GET","resources"+qs({kw:rsQ.kw,source:rsQ.source,disk_type:rsQ.disk_type,category:rsQ.category,status:rsQ.status,page:res.page,size:rsQ.size})).then(function(r){
+        res.items=r.items||[];res.total=r.total||0;res.page=r.page||1;
+        // 勾选态只保留当前页仍存在的 id
+        var ids={};res.items.forEach(function(x){ids[x.id]=1});
+        rsSel.value=rsSel.value.filter(function(id){return ids[id]});
+      });
+    }
+    // 查询辅助：重置筛选 / 强制第一页搜索 / 分类字典
+    function rsSearch(){res.page=1;ldres()}
+    function rsReset(){rsQ.kw="";rsQ.source="";rsQ.disk_type="";rsQ.category="";rsQ.status="";rsQ.size=20;res.page=1;ldres()}
+    function ldrsCats(){ap("GET","categories").then(function(r){rsCats.value=r.items||[]})}
+    // 多选辅助
+    function rsTgl(id){
+      var i=rsSel.value.indexOf(id);
+      if(i>=0)rsSel.value.splice(i,1);else rsSel.value.push(id);
+    }
+    function rsAll(ev){
+      rsSel.value=ev.target.checked?res.items.map(function(r){return r.id}):[];
+    }
+    // 删除：打开确认弹窗（单删/批量共用）
+    function rsdel(r){
+      rsDelMode.value="single";
+      rsDelTarget.id=r.id;rsDelTarget.title=r.title||"";rsDelTarget.url=r.url||"";
+      rsDelTarget.disk_type=r.disk_type||"quark";rsDelTarget.category=r.category||"";
+      rsDelTarget.status=r.status;
+      rsDelShow.value=true;
+    }
+    function rsDelBatch(){
+      if(!rsSel.value.length){msg("请先勾选要删除的资源","e");return}
+      rsDelMode.value="batch";
+      rsDelItems.value=res.items.filter(function(r){return rsSel.value.indexOf(r.id)>=0});
+      rsDelShow.value=true;
+    }
+    function rsDelConfirm(){
+      var body;
+      if(rsDelMode.value==="batch"){
+        body={ids:rsSel.value};
+        ap("POST","resources/batch-delete",body).then(function(r){
+          if(r.error){msg(r.error,"e");return}
+          msg("已删除 "+r.deleted+" 条资源");rsDelShow.value=false;rsSel.value=[];ldres();
+        });
+        return;
+      }
+      ap("DELETE","resources/"+rsDelTarget.id).then(function(r){
+        if(r.error){msg(r.error,"e");return}
+        msg("已删除 #"+rsDelTarget.id);rsDelShow.value=false;ldres();
+      });
     }
     function rsadd(){
       if(!rsAdd.title||!rsAdd.url){msg("标题和链接必填","e");return}
@@ -1469,10 +1599,6 @@ cr({
     var RS_DISK_NAME={quark:"夸克",baidu:"百度",aliyun:"阿里云盘",tianyi:"天翼",uc:"UC",xunlei:"迅雷"};
     function rsDiskCls(t){return RS_DISK_CLS[t]||"bg-secondary-lt text-secondary"}
     function rsDiskName(t){return RS_DISK_NAME[t]||t||"未知"}
-    function rsdel(r){
-      if(!confirm("确认删除资源 #"+r.id+"？"))return;
-      ap("DELETE","resources/"+r.id,null).then(function(){ldres();msg("已删除")});
-    }
     function ldsub(){
       ap("GET","submissions"+qs({status:subQ.status,page:1,size:50})).then(function(r){
         subs.items=r.items||[];subs.total=r.total||0;
@@ -2036,7 +2162,7 @@ cr({
     Vue.watch(pg,function(p){
       if(p==="st"){loadst();lddb();lddash()}
       if(p==="ck"){ldck();ldcs()};
-      if(p==="rs"){rsTab.value="list";ldres();ldsub();ldimp()}
+      if(p==="rs"){rsTab.value="list";ldres();ldsub();ldimp();ldrsCats()}
       if(p==="hi")ldhi();
       if(p==="ct"){ldct();ldctmap()}
       if(p==="kw")ldKw();
@@ -2053,12 +2179,13 @@ cr({
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="ck"){ldck();ldcs()}else if(h==="hi")ldhi();else if(h==="ct"){ldct();ldctmap()}else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="tg")ldtg();else if(h==="ts")ldts();else if(h==="rs"){ldres();ldsub();ldimp()}else if(h==="site")ldsite();else{loadst();lddb();lddash()}
+        if(h==="ck"){ldck();ldcs()}else if(h==="hi")ldhi();else if(h==="ct"){ldct();ldctmap()}else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="tg")ldtg();else if(h==="ts")ldts();else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats()}else if(h==="site")ldsite();else{loadst();lddb();lddash()}
       }
     });
 
     return {tk,pg,sb,th,ldg,lp,le,d,cf,cs,cst,csInfo,ckItems,ckLoaded,ckFm,ckT,ldck,ckStat,ckNew,ckEdit,ckTest,ckTestRow,ckSave,ckDel,ckToggle,cfg,pbAdd,pbDel,site,ldsite,svsite,cache:ctt,hi,hiSel,hiAll,hiTgl,hiDel,hiClr,dbInfo,dash,dashBars,lddash,pw,toast:to,curMenu,menus,msg,gp,login:login,logout:lgout,lgout,ld:loadst,ldcs,lddb,ldhi,fmtTime,tg,tst,svck,ldcfg,svcfg,ldca,clr,chpw,
-      rsTab,rsQ,res,rsAddShow,rsEditId,rsAdd,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crRules,crRuleStats,crNew,crRuleNew,
+      rsTab,rsQ,res,rsAddShow,rsEditId,rsAdd,rsCats,rsSel,rsAllChecked,rsDelShow,rsDelMode,rsDelTarget,rsDelItems,
+      rsSearch,rsReset,ldrsCats,rsTgl,rsAll,rsDelBatch,rsDelConfirm,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crRules,crRuleStats,crNew,crRuleNew,
       srcName,srcBadge,fmtT,ldres,rsadd,rsdel,rsedit,rsCancel,rsDiskCls,rsDiskName,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,
       kwItems,kwNew,kwEditId,ldKw,kwadd,kwEdit,kwCancel,kwhot,kwst,kwdel,
       ctItems,ctNew,ctEditId,ctChannels,ctMap,ctAllNames,ldct,ctadd,ctedit,ctCancel,ctst,ctdel,ldctmap,ctmapsave,

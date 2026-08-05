@@ -124,6 +124,17 @@ async function adminDelete(req, res) {
   } catch (e) { json(res, 500, { error: e.message }); }
 }
 
+// ---------- 管理：批量删除资源（多选） ----------
+async function adminDeleteBatch(req, res) {
+  try {
+    var b = JSON.parse(await readBody(req));
+    var ids = Array.isArray(b.ids) ? b.ids.map(Number).filter(function (n) { return n > 0; }) : [];
+    if (!ids.length) return json(res, 400, { error: "ids_required" });
+    var deleted = await store.resourceDeleteBatch(ids);
+    json(res, 200, { ok: true, deleted: deleted });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+
 // ---------- 管理：提交审核列表 ----------
 async function adminSubmissions(req, res) {
   var u = new URL(req.url, "http://" + req.headers.host);
@@ -181,6 +192,6 @@ async function getSubmission(id) {
 
 module.exports = {
   submitResource, localSearch, reportBroken,
-  adminList, adminAdd, adminUpdate, adminDelete,
+  adminList, adminAdd, adminUpdate, adminDelete, adminDeleteBatch,
   adminSubmissions, adminApprove, adminReject,
 };
