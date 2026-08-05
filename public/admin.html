@@ -264,85 +264,6 @@
         </div>
 
         <!-- ========== Cookie 管理 ========== -->
-        <div v-if="pg==='ck'" class="row row-cards">
-          <div class="col-12">
-            <div class="alert alert-info py-2 mb-3 d-flex align-items-center">
-              <span class="me-3">账号概览：</span>
-              <span v-if="ckLoaded">
-                <span class="me-3">夸克 <b>{{ckStat('quark').total}}</b> 个 / 有效 <b class="text-success">{{ckStat('quark').valid}}</b></span>
-                <span class="me-3">百度 <b>{{ckStat('baidu').total}}</b> 个 / 有效 <b class="text-success">{{ckStat('baidu').valid}}</b></span>
-                <span v-if="!ckStat('quark').total&&!ckStat('baidu').total" class="text-secondary">尚未配置任何账号</span>
-              </span>
-              <span v-else class="text-secondary">检测中…</span>
-              <div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldck">刷新</button></div>
-            </div>
-          </div>
-          <div class="col-lg-8">
-            <div class="card">
-              <div class="card-header"><h3 class="card-title">账号列表（多号轮询降风控）</h3></div>
-              <div class="table-responsive">
-                <table class="table table-vcenter card-table">
-                  <thead><tr><th>ID</th><th>类型</th><th>名称</th><th>有效</th><th>启用</th><th>操作</th></tr></thead>
-                  <tbody>
-                    <tr v-for="a in ckItems" :key="a.id">
-                      <td class="text-secondary">{{a.id}}</td>
-                      <td><span class="badge" :class="a.provider==='baidu'?'bg-primary-lt text-primary':'bg-cyan-lt text-cyan'">{{a.provider==='baidu'?'百度':'夸克'}}</span></td>
-                      <td>{{a.name || '未命名账号'}}</td>
-                      <td><span class="badge" :class="a.is_valid?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{a.is_valid?'有效':'未知/失效'}}</span></td>
-                      <td><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" :checked="a.enabled" @change="ckToggle(a)"></div></td>
-                      <td class="text-nowrap">
-                        <button class="btn btn-outline-secondary btn-sm" :disabled="a.testing" @click="ckTestRow(a)">{{a.testing?'测试中…':'测试'}}</button>
-                        <button class="btn btn-outline-primary btn-sm" @click="ckEdit(a)">编辑</button>
-                        <button class="btn btn-outline-danger btn-sm" @click="ckDel(a)">删除</button>
-                      </td>
-                    </tr>
-                    <tr v-if="!ckItems.length"><td colspan="6" class="text-center text-secondary py-4">暂无账号，右侧添加一个</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="card-footer text-secondary small">转存请求时按启用账号随机轮询，分散风控；失效账号建议停用。</div>
-            </div>
-          </div>
-          <div class="col-lg-4">
-            <div class="card">
-              <div class="card-header"><h3 class="card-title">{{ckFm.id?'编辑账号 #'+ckFm.id:'新增账号'}}</h3>
-                <div class="ms-auto" v-if="ckFm.id"><button class="btn btn-outline-secondary btn-sm" @click="ckNew">取消</button></div>
-              </div>
-              <div class="card-body">
-                <div class="mb-3">
-                  <label class="form-label">网盘类型</label>
-                  <select class="form-select" v-model="ckFm.provider" :disabled="!!ckFm.id">
-                    <option value="quark">夸克</option>
-                    <option value="baidu">百度</option>
-                  </select>
-                </div>
-                <div class="mb-3">
-                  <label class="form-label">账号名称（可选）</label>
-                  <input class="form-control" v-model="ckFm.name" placeholder="如：主号 / 小号1">
-                </div>
-                <div class="mb-3">
-                  <label class="form-label">Cookie</label>
-                  <textarea class="form-control" v-model="ckFm.cookie" rows="4" placeholder="粘贴 Cookie（百度填 BDUSS）"></textarea>
-                  <div v-if="ckT.running" class="form-hint mt-1">测试中…</div>
-                  <div v-else-if="ckT.ok!==null" class="form-hint mt-1" :class="ckT.ok?'text-success':'text-danger'">{{ckT.ok?'验证通过 ✓':'验证失败：'+(ckT.detail||'')}}</div>
-                  <div v-if="ckFm.id" class="form-hint mt-1 text-secondary">编辑模式：Cookie 留空表示不修改；要测试现有账号点列表行的「测试」按钮</div>
-                </div>
-                <div class="d-flex gap-2">
-                  <button class="btn btn-outline-secondary" :disabled="ckT.running||!ckFm.cookie.trim()" @click="ckTest">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                    测试
-                  </button>
-                  <button class="btn btn-primary" :disabled="ckT.running||(!ckFm.cookie.trim()&&!ckFm.id)" @click="ckSave">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                    {{ckFm.id?'保存修改':'添加账号'}}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ========== 转存历史 ========== -->
         <div v-if="pg==='hi'" class="row">
           <div class="col-12">
             <div class="card">
@@ -383,10 +304,79 @@
         <!-- ========== 资源管理（三管道：提交审核 / 批量导入 / 自动采集） ========== -->
         <div v-if="pg==='rs'">
           <ul class="nav nav-tabs nav-fill mb-3">
+            <li class="nav-item"><a class="nav-link" :class="{active:rsTab==='ct'}" href="javascript:void(0)" @click="rsTab='ct';ldct();ldctmap()">分类管理</a></li>
             <li class="nav-item"><a class="nav-link" :class="{active:rsTab==='list'}" href="javascript:void(0)" @click="rsTab='list'">资源列表</a></li>
             <li class="nav-item"><a class="nav-link" :class="{active:rsTab==='sub'}" href="javascript:void(0)" @click="rsTab='sub';ldsub()">提交审核<span v-if="subPending" class="badge bg-danger ms-1">{{subPending}}</span></a></li>
             <li class="nav-item"><a class="nav-link" :class="{active:rsTab==='imp'}" href="javascript:void(0)" @click="rsTab='imp'">批量导入</a></li>
           </ul>
+
+          <!-- 分类管理（原独立菜单迁入） -->
+          <div v-if="rsTab==='ct'">
+            <div class="alert alert-info py-2 mb-3">
+              <span>管理资源分类字典：新增/改名/排序/启停。改名会同步更新已入库资源与采集源的分类；删除分类会把引用它的资源/源分类清空（数据不删）。TG 频道分类映射 = 批量添加频道时自动套用的分类（可覆盖内置默认）。</span>
+            </div>
+            <div class="card mb-3">
+              <div class="card-header"><h3 class="card-title">分类管理</h3><div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldct">刷新</button></div></div>
+              <div class="card-body">
+                <div class="row g-2 mb-3 align-items-end">
+                  <div class="col-auto" style="min-width:220px">
+                    <label class="form-label">{{ctEditId?'编辑分类':'新增分类'}}</label>
+                    <input class="form-control" v-model="ctNew.name" placeholder="如：软件" @keydown.enter="ctadd">
+                  </div>
+                  <div class="col-auto">
+                    <label class="form-label">排序权重</label>
+                    <input class="form-control" type="number" v-model="ctNew.sort_order" style="width:110px">
+                  </div>
+                  <div class="col-auto">
+                    <label class="form-label">状态</label>
+                    <select class="form-select" v-model="ctNew.status" style="width:100px">
+                      <option value="1">启用</option><option value="0">停用</option>
+                    </select>
+                  </div>
+                  <div class="col-auto"><button class="btn btn-primary" @click="ctadd">{{ctEditId?'保存':'添加'}}</button></div>
+                  <div class="col-auto" v-if="ctEditId"><button class="btn btn-outline-secondary" @click="ctCancel">取消编辑</button></div>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-vcenter card-table">
+                    <thead><tr><th>#</th><th>分类</th><th>资源数</th><th>采集源</th><th>排序</th><th>状态</th><th>操作</th></tr></thead>
+                    <tbody>
+                      <tr v-for="c in ctItems" :key="c.id">
+                        <td class="text-secondary">{{c.id}}</td>
+                        <td class="fw-bold">{{c.name}}</td>
+                        <td><span class="badge bg-primary-lt text-primary">{{c.res_count||0}}</span></td>
+                        <td><span class="badge bg-info-lt text-info">{{c.src_count||0}}</span></td>
+                        <td class="text-secondary">{{c.sort_order||0}}</td>
+                        <td><span class="badge" :class="String(c.status)==='1'||c.status===1?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{String(c.status)==='1'||c.status===1?'启用':'停用'}}</span></td>
+                        <td class="text-nowrap">
+                          <button class="btn btn-outline-primary btn-sm" @click="ctedit(c)">编辑</button>
+                          <button class="btn btn-outline-secondary btn-sm" @click="ctst(c)">{{String(c.status)==='1'||c.status===1?'停用':'启用'}}</button>
+                          <button class="btn btn-outline-danger btn-sm" @click="ctdel(c)">删除</button>
+                        </td>
+                      </tr>
+                      <tr v-if="!ctItems.length"><td colspan="7" class="text-center text-secondary py-4">暂无分类</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="form-hint mt-2">sort_order=0 的分类（自动补种/未设置）排在最后；已有分类会在服务启动时从资源数据自动补入。</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">TG 频道分类映射</h3><div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldctmap">刷新</button></div></div>
+              <div class="card-body">
+                <p class="form-hint">批量添加 TG 频道时按此映射自动填分类；留空 = 用内置默认。保存后立即生效。</p>
+                <div class="row g-2">
+                  <div class="col-6 col-md-4 col-xl-3" v-for="ch in ctChannels" :key="ch">
+                    <label class="form-label">{{ch}}</label>
+                    <select class="form-select form-select-sm" v-model="ctMap[ch]">
+                      <option value="">（默认）</option>
+                      <option v-for="c in ctAllNames" :key="c" :value="c">{{c}}</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="mt-3"><button class="btn btn-primary" @click="ctmapsave">保存映射</button></div>
+              </div>
+            </div>
+          </div>
 
           <!-- 资源列表 -->
           <div v-if="rsTab==='list'">
@@ -683,118 +673,179 @@
 
 
 
-        <!-- ========== 搜索源管理 ========== -->
-        <div v-if="pg==='sc'" class="row">
+        <!-- ========== 数据源配置（搜索源 / API 源 / Cookie） ========== -->
+        <div v-if="pg==='ds'" class="row">
           <div class="col-12">
-            <div class="card">
-              <div class="card-header"><h3 class="card-title">搜索源管理</h3><div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldsc">刷新</button></div></div>
-              <div class="card-body">
-                <div class="table-responsive">
-                  <table class="table table-vcenter card-table">
-                    <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>说明</th><th>网盘限制</th><th>状态</th><th>启停</th></tr></thead>
-                    <tbody>
-                      <tr v-for="s in scItems" :key="s.id">
-                        <td class="text-secondary">{{s.id}}</td>
-                        <td class="fw-bold">
-                          <input v-if="scEditId===s.id" class="form-control form-control-sm" v-model="scNameDraft" @keyup.enter="scSaveName(s)" @blur="scSaveName(s)" style="min-width:130px" :placeholder="s.name">
-                          <a v-else href="javascript:void(0)" @click="scEditName(s)" class="text-decoration-none" title="点击修改名称">{{s.name}} <span class="text-secondary" style="font-size:.72rem">✎</span></a>
-                        </td>
-                        <td><span class="badge bg-secondary-lt text-secondary">{{s.type==='browser'?'浏览器':'API'}}</span></td>
-                        <td class="text-secondary">{{s.desc}}</td>
-                        <td style="min-width:280px">
-                          <span class="me-1" v-for="(nm,dk) in scDiskOpts" :key="dk">
-                            <button class="btn btn-sm me-1 mb-1" :class="(s.disks||[]).indexOf(dk)>=0?'btn-primary':'btn-outline-secondary'" @click="scDisk(s,dk)" style="padding:2px 10px;font-size:.75rem">{{nm}}</button>
-                          </span>
-                          <span v-if="!(s.disks||[]).length" class="badge bg-secondary-lt text-secondary">全部</span>
-                        </td>
-                        <td><span class="badge" :class="s.enabled?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{s.enabled?'启用':'停用'}}</span></td>
-                        <td>
-                          <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" :checked="s.enabled" @change="scToggle(s)">
-                          </div>
-                        </td>
-                      </tr>
-                      <tr v-if="!scItems.length"><td colspan="7" class="text-center text-secondary py-4">暂无搜索源</td></tr>
-                    </tbody>
-                  </table>
+            <div class="d-flex align-items-center mb-3">
+              <ul class="nav nav-pills nav-scrollable">
+                <li class="nav-item"><a class="nav-link" :class="{active:dsTab==='sc'}" href="javascript:void(0)" @click="dsTab='sc';ldsc()">搜索源</a></li>
+                <li class="nav-item"><a class="nav-link" :class="{active:dsTab==='api'}" href="javascript:void(0)" @click="dsTab='api';ldcfg()">API 源</a></li>
+                <li class="nav-item"><a class="nav-link" :class="{active:dsTab==='ck'}" href="javascript:void(0)" @click="dsTab='ck';ldck();ldcs()">Cookie 管理</a></li>
+              </ul>
+            </div>
+            <div v-if="dsTab==='sc'">
+              <div class="card">
+                <div class="card-header"><h3 class="card-title">搜索源管理</h3><div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldsc">刷新</button></div></div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-vcenter card-table">
+                      <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>说明</th><th>网盘限制</th><th>状态</th><th>启停</th></tr></thead>
+                      <tbody>
+                        <tr v-for="s in scItems" :key="s.id">
+                          <td class="text-secondary">{{s.id}}</td>
+                          <td class="fw-bold">
+                            <input v-if="scEditId===s.id" class="form-control form-control-sm" v-model="scNameDraft" @keyup.enter="scSaveName(s)" @blur="scSaveName(s)" style="min-width:130px" :placeholder="s.name">
+                            <a v-else href="javascript:void(0)" @click="scEditName(s)" class="text-decoration-none" title="点击修改名称">{{s.name}} <span class="text-secondary" style="font-size:.72rem">✎</span></a>
+                          </td>
+                          <td><span class="badge bg-secondary-lt text-secondary">{{s.type==='browser'?'浏览器':'API'}}</span></td>
+                          <td class="text-secondary">{{s.desc}}</td>
+                          <td style="min-width:280px">
+                            <span class="me-1" v-for="(nm,dk) in scDiskOpts" :key="dk">
+                              <button class="btn btn-sm me-1 mb-1" :class="(s.disks||[]).indexOf(dk)>=0?'btn-primary':'btn-outline-secondary'" @click="scDisk(s,dk)" style="padding:2px 10px;font-size:.75rem">{{nm}}</button>
+                            </span>
+                            <span v-if="!(s.disks||[]).length" class="badge bg-secondary-lt text-secondary">全部</span>
+                          </td>
+                          <td><span class="badge" :class="s.enabled?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{s.enabled?'启用':'停用'}}</span></td>
+                          <td>
+                            <div class="form-check form-switch">
+                              <input class="form-check-input" type="checkbox" :checked="s.enabled" @change="scToggle(s)">
+                            </div>
+                          </td>
+                        </tr>
+                        <tr v-if="!scItems.length"><td colspan="7" class="text-center text-secondary py-4">暂无搜索源</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="form-hint mt-2">「网盘限制」点击胶囊切换（选中=只保留该网盘结果，空=全部）；启用/限制即时生效。新增搜索源需在代码里注册（lib/sources/registry.js），注册后本页即可启停。</div>
                 </div>
-                <div class="form-hint mt-2">「网盘限制」点击胶囊切换（选中=只保留该网盘结果，空=全部）；启用/限制即时生效。新增搜索源需在代码里注册（lib/sources/registry.js），注册后本页即可启停。</div>
+              </div>
+            </div>
+            <div v-if="dsTab==='api'">
+              <div class="row">
+                <div class="col-lg-8">
+                  <div class="card">
+                    <div class="card-header"><h3 class="card-title">API 配置</h3></div>
+                    <div class="card-body">
+                      <div class="mb-3">
+                        <label class="form-label">盘搜 API 列表（多 Host 随机轮询，故障自动切换）</label>
+                        <div v-for="(pb,i) in cfg.pansouBases" :key="i" class="row g-2 mb-2 align-items-center">
+                          <div class="col-2"><input class="form-control form-control-sm" v-model="pb.name" placeholder="名称"></div>
+                          <div class="col-6"><input class="form-control form-control-sm" v-model="pb.host" placeholder="pansou.makepic.online:8001"></div>
+                          <div class="col-auto"><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" v-model="pb.enabled" :id="'pben'+i"><label class="form-check-label" :for="'pben'+i">启用</label></div></div>
+                          <div class="col-auto"><input class="form-control form-control-sm" type="number" min="1" v-model="pb.weight" style="width:80px" title="权重（越大越优先）"></div>
+                          <div class="col-auto"><button class="btn btn-outline-danger btn-sm" @click="pbDel(i)">删除</button></div>
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm" @click="pbAdd">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                          添加 Host
+                        </button>
+                        <div class="form-hint mt-2">格式：host 或 host:port 或 http(s)://host[:port]；请求时按权重随机选启用 Host，失败自动切换下一个</div>
+                      </div>
+                      <button class="btn btn-primary" @click="svcfg">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        保存
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-4">
+                  <div class="card">
+                    <div class="card-header"><h3 class="card-title">多 Host 轮询说明</h3></div>
+                    <div class="card-body text-secondary">
+                      <ul class="list-unstyled mb-0 small">
+                        <li class="mb-2">· <b>权重</b>：越大越优先被选中（默认 1）</li>
+                        <li class="mb-2">· <b>请求时</b>按权重随机选<b>已启用</b>的 Host</li>
+                        <li class="mb-2">· <b>故障自动切换</b>：当前 Host 失败时尝试下一个</li>
+                        <li class="mb-2">· <b>格式</b>：pansou.example.com 或 host:port</li>
+                        <li class="mb-2">· 留空或禁用将跳过该 Host</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-if="dsTab==='ck'">
+              <div class="row row-cards">
+                <div class="col-12">
+                  <div class="alert alert-info py-2 mb-3 d-flex align-items-center">
+                    <span class="me-3">账号概览：</span>
+                    <span v-if="ckLoaded">
+                      <span class="me-3">夸克 <b>{{ckStat('quark').total}}</b> 个 / 有效 <b class="text-success">{{ckStat('quark').valid}}</b></span>
+                      <span class="me-3">百度 <b>{{ckStat('baidu').total}}</b> 个 / 有效 <b class="text-success">{{ckStat('baidu').valid}}</b></span>
+                      <span v-if="!ckStat('quark').total&&!ckStat('baidu').total" class="text-secondary">尚未配置任何账号</span>
+                    </span>
+                    <span v-else class="text-secondary">检测中…</span>
+                    <div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldck">刷新</button></div>
+                  </div>
+                </div>
+                <div class="col-lg-8">
+                  <div class="card">
+                    <div class="card-header"><h3 class="card-title">账号列表（多号轮询降风控）</h3></div>
+                    <div class="table-responsive">
+                      <table class="table table-vcenter card-table">
+                        <thead><tr><th>ID</th><th>类型</th><th>名称</th><th>有效</th><th>启用</th><th>操作</th></tr></thead>
+                        <tbody>
+                          <tr v-for="a in ckItems" :key="a.id">
+                            <td class="text-secondary">{{a.id}}</td>
+                            <td><span class="badge" :class="a.provider==='baidu'?'bg-primary-lt text-primary':'bg-cyan-lt text-cyan'">{{a.provider==='baidu'?'百度':'夸克'}}</span></td>
+                            <td>{{a.name || '未命名账号'}}</td>
+                            <td><span class="badge" :class="a.is_valid?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{a.is_valid?'有效':'未知/失效'}}</span></td>
+                            <td><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" :checked="a.enabled" @change="ckToggle(a)"></div></td>
+                            <td class="text-nowrap">
+                              <button class="btn btn-outline-secondary btn-sm" :disabled="a.testing" @click="ckTestRow(a)">{{a.testing?'测试中…':'测试'}}</button>
+                              <button class="btn btn-outline-primary btn-sm" @click="ckEdit(a)">编辑</button>
+                              <button class="btn btn-outline-danger btn-sm" @click="ckDel(a)">删除</button>
+                            </td>
+                          </tr>
+                          <tr v-if="!ckItems.length"><td colspan="6" class="text-center text-secondary py-4">暂无账号，右侧添加一个</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="card-footer text-secondary small">转存请求时按启用账号随机轮询，分散风控；失效账号建议停用。</div>
+                  </div>
+                </div>
+                <div class="col-lg-4">
+                  <div class="card">
+                    <div class="card-header"><h3 class="card-title">{{ckFm.id?'编辑账号 #'+ckFm.id:'新增账号'}}</h3>
+                      <div class="ms-auto" v-if="ckFm.id"><button class="btn btn-outline-secondary btn-sm" @click="ckNew">取消</button></div>
+                    </div>
+                    <div class="card-body">
+                      <div class="mb-3">
+                        <label class="form-label">网盘类型</label>
+                        <select class="form-select" v-model="ckFm.provider" :disabled="!!ckFm.id">
+                          <option value="quark">夸克</option>
+                          <option value="baidu">百度</option>
+                        </select>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">账号名称（可选）</label>
+                        <input class="form-control" v-model="ckFm.name" placeholder="如：主号 / 小号1">
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">Cookie</label>
+                        <textarea class="form-control" v-model="ckFm.cookie" rows="4" placeholder="粘贴 Cookie（百度填 BDUSS）"></textarea>
+                        <div v-if="ckT.running" class="form-hint mt-1">测试中…</div>
+                        <div v-else-if="ckT.ok!==null" class="form-hint mt-1" :class="ckT.ok?'text-success':'text-danger'">{{ckT.ok?'验证通过 ✓':'验证失败：'+(ckT.detail||'')}}</div>
+                        <div v-if="ckFm.id" class="form-hint mt-1 text-secondary">编辑模式：Cookie 留空表示不修改；要测试现有账号点列表行的「测试」按钮</div>
+                      </div>
+                      <div class="d-flex gap-2">
+                        <button class="btn btn-outline-secondary" :disabled="ckT.running||!ckFm.cookie.trim()" @click="ckTest">
+                          测试
+                        </button>
+                        <button class="btn btn-primary" :disabled="ckT.running||(!ckFm.cookie.trim()&&!ckFm.id)" @click="ckSave">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                          {{ckFm.id?'保存修改':'添加账号'}}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- ========== 分类管理 ========== -->
-        <div v-if="pg==='ct'" class="row">
-          <div class="col-12">
-            <div class="alert alert-info py-2 mb-3">
-              <span>管理资源分类字典：新增/改名/排序/启停。改名会同步更新已入库资源与采集源的分类；删除分类会把引用它的资源/源分类清空（数据不删）。TG 频道分类映射 = 批量添加频道时自动套用的分类（可覆盖内置默认）。</span>
-            </div>
-            <div class="card mb-3">
-              <div class="card-header"><h3 class="card-title">分类管理</h3><div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldct">刷新</button></div></div>
-              <div class="card-body">
-                <div class="row g-2 mb-3 align-items-end">
-                  <div class="col-auto" style="min-width:220px">
-                    <label class="form-label">{{ctEditId?'编辑分类':'新增分类'}}</label>
-                    <input class="form-control" v-model="ctNew.name" placeholder="如：软件" @keydown.enter="ctadd">
-                  </div>
-                  <div class="col-auto">
-                    <label class="form-label">排序权重</label>
-                    <input class="form-control" type="number" v-model="ctNew.sort_order" style="width:110px">
-                  </div>
-                  <div class="col-auto">
-                    <label class="form-label">状态</label>
-                    <select class="form-select" v-model="ctNew.status" style="width:100px">
-                      <option value="1">启用</option><option value="0">停用</option>
-                    </select>
-                  </div>
-                  <div class="col-auto"><button class="btn btn-primary" @click="ctadd">{{ctEditId?'保存':'添加'}}</button></div>
-                  <div class="col-auto" v-if="ctEditId"><button class="btn btn-outline-secondary" @click="ctCancel">取消编辑</button></div>
-                </div>
-                <div class="table-responsive">
-                  <table class="table table-vcenter card-table">
-                    <thead><tr><th>#</th><th>分类</th><th>资源数</th><th>采集源</th><th>排序</th><th>状态</th><th>操作</th></tr></thead>
-                    <tbody>
-                      <tr v-for="c in ctItems" :key="c.id">
-                        <td class="text-secondary">{{c.id}}</td>
-                        <td class="fw-bold">{{c.name}}</td>
-                        <td><span class="badge bg-primary-lt text-primary">{{c.res_count||0}}</span></td>
-                        <td><span class="badge bg-info-lt text-info">{{c.src_count||0}}</span></td>
-                        <td class="text-secondary">{{c.sort_order||0}}</td>
-                        <td><span class="badge" :class="String(c.status)==='1'||c.status===1?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{String(c.status)==='1'||c.status===1?'启用':'停用'}}</span></td>
-                        <td class="text-nowrap">
-                          <button class="btn btn-outline-primary btn-sm" @click="ctedit(c)">编辑</button>
-                          <button class="btn btn-outline-secondary btn-sm" @click="ctst(c)">{{String(c.status)==='1'||c.status===1?'停用':'启用'}}</button>
-                          <button class="btn btn-outline-danger btn-sm" @click="ctdel(c)">删除</button>
-                        </td>
-                      </tr>
-                      <tr v-if="!ctItems.length"><td colspan="7" class="text-center text-secondary py-4">暂无分类</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="form-hint mt-2">sort_order=0 的分类（自动补种/未设置）排在最后；已有分类会在服务启动时从资源数据自动补入。</div>
-              </div>
-            </div>
-            <div class="card">
-              <div class="card-header"><h3 class="card-title">TG 频道分类映射</h3><div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldctmap">刷新</button></div></div>
-              <div class="card-body">
-                <p class="form-hint">批量添加 TG 频道时按此映射自动填分类；留空 = 用内置默认。保存后立即生效。</p>
-                <div class="row g-2">
-                  <div class="col-6 col-md-4 col-xl-3" v-for="ch in ctChannels" :key="ch">
-                    <label class="form-label">{{ch}}</label>
-                    <select class="form-select form-select-sm" v-model="ctMap[ch]">
-                      <option value="">（默认）</option>
-                      <option v-for="c in ctAllNames" :key="c" :value="c">{{c}}</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="mt-3"><button class="btn btn-primary" @click="ctmapsave">保存映射</button></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ========== 采集管理（TG 频道 / 采集源 / 任务） ========== -->
+        <!-- ========== 采集管理（TG 频道 / 采集源 / 任务 / AI 助手） ========== -->
         <div v-if="pg==='cg'" class="row">
           <div class="col-12">
             <div class="d-flex align-items-center mb-3">
@@ -802,6 +853,7 @@
                 <li class="nav-item"><a class="nav-link" :class="{active:tgTab==='tg'}" href="javascript:void(0)" @click="tgTab='tg'">TG 频道</a></li>
                 <li class="nav-item"><a class="nav-link" :class="{active:tgTab==='cr'}" href="javascript:void(0)" @click="tgTab='cr';ldsrc()">采集源 / 解析规则</a></li>
                 <li class="nav-item"><a class="nav-link" :class="{active:tgTab==='ts'}" href="javascript:void(0)" @click="tgTab='ts';ldts();ldtslogs()">任务与日志</a></li>
+                <li class="nav-item"><a class="nav-link" :class="{active:tgTab==='ai'}" href="javascript:void(0)" @click="tgTab='ai';ldai()">AI 助手<span v-if="tgTab==='ai'" class="badge bg-purple-lt text-purple ms-1">规则/脚本</span></a></li>
               </ul>
             </div>
             <div v-if="tgTab==='tg'">
@@ -1056,6 +1108,190 @@
           </div>
         </div>
 
+        <!-- AI 助手（规则/脚本 + 内容提炼，原独立页迁入） -->
+        <div v-if="tgTab==='ai'">
+          <div class="row g-3">
+            <div class="col-lg-5">
+              <div class="card">
+                <div class="card-header"><h3 class="card-title">历史记录</h3></div>
+                <div class="card-body p-0">
+                  <div class="list-group list-group-flush">
+                    <div v-for="s in aiItems" :key="s.id" class="list-group-item">
+                      <div class="d-flex align-items-center mb-1">
+                        <span class="badge bg-primary-lt text-primary me-2">{{s.scope}}</span>
+                        <span class="text-secondary small">{{fmtT(s.created_at)}}</span>
+                        <span class="ms-auto text-secondary small">{{s.model}}</span>
+                      </div>
+                      <div class="text-truncate small">{{(s.output_text||'').slice(0,80)}}</div>
+                      <button class="btn btn-link btn-sm p-0" @click="aiOpen(s)">查看全文</button>
+                    </div>
+                    <div v-if="!aiItems.length" class="list-group-item text-center text-secondary py-4">暂无记录</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-7">
+              <ul class="nav nav-tabs nav-fill mb-3">
+                <li class="nav-item"><a class="nav-link" :class="{active:aiTab==='assist'}" href="javascript:void(0)" @click="aiTab='assist'">AI 助手（规则 / 脚本）</a></li>
+                <li class="nav-item"><a class="nav-link" :class="{active:aiTab==='sum'}" href="javascript:void(0)" @click="aiTab='sum'">内容提炼</a></li>
+              </ul>
+
+              <!-- AI 助手：生成采集规则（受控生成）/ 生成任务（关联采集） -->
+              <div v-if="aiTab==='assist'" class="row g-3">
+                <div class="col-lg-6">
+                  <div class="card h-100">
+                    <div class="card-header"><h3 class="card-title">生成采集解析规则（受控生成）</h3></div>
+                    <div class="card-body">
+                      <div class="alert alert-info py-2 small mb-3">内置领域提示词自动注入：字段/规则类型白名单 · 网盘链接正则 · 分类字典。AI 只能生成系统已有字段与类型的组合，无法新增。</div>
+                      <div class="mb-2">
+                        <label class="form-label">① 选择目标采集源（只能选已有源）</label>
+                        <select class="form-select" v-model="arFm.source_id" @change="arPick">
+                          <option value="">— 选择已有采集源 —</option>
+                          <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}（{{s.source_type}}）</option>
+                        </select>
+                      </div>
+                      <div v-if="arFm.ctx" class="alert alert-success py-2 small mb-2">
+                        已载入源 #{{arFm.ctx.source.id}} {{arFm.ctx.source.name}} · {{arFm.ctx.source.source_type}} · 分类 {{arFm.ctx.source.category||'未设置'}} · 现有规则 {{arFm.ctx.rules.length}} 条
+                      </div>
+                      <div class="mb-2">
+                        <label class="form-label">② URL 模板（已带出，可改）</label>
+                        <input class="form-control" v-model="arFm.url_template" placeholder="https://example.com/feed?page={page}">
+                      </div>
+                      <div class="mb-2">
+                        <label class="form-label">示例内容 <span class="text-secondary fw-normal">（粘贴一段原文，可选）</span></label>
+                        <textarea class="form-control font-monospace" v-model="arFm.sample" rows="4" placeholder="粘贴抓取到的 HTML/JSON 片段，AI 据此生成正则…"></textarea>
+                      </div>
+                      <button class="btn btn-success w-100" :disabled="arRun||!arFm.source_id" @click="airules">{{arRun?'生成中…':'③ 生成规则（AI + 内置提示词）'}}</button>
+                      <div v-if="arRules.rules.length" class="mt-3">
+                        <label class="form-label">④ 规则确认（字段/类型只能从白名单选）</label>
+                        <div v-if="arRules.report&&(arRules.report.rejected.length||arRules.report.fixed.length)" class="alert alert-warning py-2 small mb-2">
+                          <div v-for="(rd,i) in arRules.report.rejected" :key="'r'+i">✕ 已剔除：{{rd.field}} — {{rd.reason}}</div>
+                          <div v-for="(fx,i) in arRules.report.fixed" :key="'f'+i">⇄ 已修正：{{fx.field}} → {{fx.to}}（{{fx.reason}}）</div>
+                        </div>
+                        <div class="table-responsive">
+                          <table class="table table-sm align-middle mb-2">
+                            <thead><tr><th style="width:120px">字段</th><th style="width:110px">类型</th><th>规则值</th><th style="width:46px;text-align:center">必填</th><th style="width:34px"></th></tr></thead>
+                            <tbody>
+                              <tr v-for="(rl,i) in arRules.rules" :key="i">
+                                <td><select class="form-select form-select-sm" v-model="rl.field_name"><option v-for="f in arFm.fieldWhitelist" :key="f" :value="f">{{f}}</option></select></td>
+                                <td><select class="form-select form-select-sm" v-model="rl.rule_type"><option v-for="t in arFm.ruleTypeWhitelist" :key="t" :value="t">{{t}}</option></select></td>
+                                <td><input class="form-control form-control-sm font-monospace" v-model="rl.rule_value" placeholder="正则 / jsonpath / 固定值"></td>
+                                <td style="text-align:center"><input type="checkbox" class="form-check-input" v-model="rl.required"></td>
+                                <td><button class="btn btn-link btn-sm text-danger p-0" @click="arDel(i)">✕</button></td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm mb-2" @click="arAdd">＋ 添加规则行</button>
+                        <div class="row g-2 mt-1">
+                          <div class="col-12"><label class="form-label">⑤ 保存 + 关联任务</label></div>
+                          <div class="col-8">
+                            <div class="form-check mb-2">
+                              <input class="form-check-input" type="checkbox" id="arMakeTask" v-model="arFm.make_task">
+                              <label class="form-check-label" for="arMakeTask">同时创建定时采集任务（crawl_source）</label>
+                            </div>
+                            <div v-if="arFm.make_task" class="row g-2">
+                              <div class="col-6"><input class="form-control form-control-sm" v-model="arFm.task_name" placeholder="任务名（如：采集 okpojie 每小时）"></div>
+                              <div class="col-6"><input class="form-control form-control-sm" type="number" v-model="arFm.task_interval" placeholder="间隔秒（默认3600）"></div>
+                            </div>
+                          </div>
+                          <div class="col-4">
+                            <button class="btn btn-primary w-100" :disabled="arSaving" @click="arsave">{{arSaving?'保存中…':'保存到该源'}}</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-6">
+                  <div class="card h-100">
+                    <div class="card-header"><h3 class="card-title">生成任务（与采集规则关联）</h3></div>
+                    <div class="card-body">
+                      <div class="btn-group w-100 mb-3" role="group">
+                        <button type="button" class="btn btn-sm" :class="asMode==='A'?'btn-primary':'btn-outline-secondary'" @click="asMode='A'">模式 A：采集任务（零代码）</button>
+                        <button type="button" class="btn btn-sm" :class="asMode==='B'?'btn-primary':'btn-outline-secondary'" @click="asMode='B'">模式 B：自定义脚本</button>
+                      </div>
+                      <div v-if="asMode==='A'">
+                        <div class="mb-2">
+                          <label class="form-label">选择要定时采集的源</label>
+                          <select class="form-select" v-model="asFm.source_id">
+                            <option value="">— 选择已有采集源 —</option>
+                            <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}（{{s.source_type}}）</option>
+                          </select>
+                        </div>
+                        <div class="row g-2">
+                          <div class="col-6"><div class="mb-2"><label class="form-label">任务名</label><input class="form-control" v-model="asFm.name" placeholder="采集 okpojie 每小时"></div></div>
+                          <div class="col-6"><div class="mb-2"><label class="form-label">间隔（秒）</label><input class="form-control" type="number" v-model="asFm.interval" placeholder="3600"></div></div>
+                        </div>
+                        <button class="btn btn-success w-100" :disabled="asSaving||!asFm.source_id" @click="asTaskA">{{asSaving?'创建中…':'创建采集任务（自动跑该源全部规则）'}}</button>
+                        <div class="form-hint mt-2">生成任务类型 crawl_source，调度器定时调用采集引擎跑该源全部解析规则入库。</div>
+                      </div>
+                      <div v-if="asMode==='B'">
+                        <div class="mb-2">
+                          <label class="form-label">任务需求描述</label>
+                          <textarea class="form-control" v-model="asFm.task_desc" rows="3" placeholder="如：每天 08:00 采集 #10 源新资源，然后清理 30 天前的转存历史"></textarea>
+                        </div>
+                        <div class="mb-2">
+                          <label class="form-label">关联采集源（可选，脚本内可用 crawlSource(id)）</label>
+                          <select class="form-select" v-model="asFm.source_id">
+                            <option value="">— 不关联（纯脚本）—</option>
+                            <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}（{{s.source_type}}）</option>
+                          </select>
+                        </div>
+                        <button class="btn btn-success w-100" :disabled="asRun||!asFm.task_desc.trim()" @click="asscript">{{asRun?'生成中…':'生成脚本'}}</button>
+                        <div v-if="asCode.code" class="mt-3">
+                          <label class="form-label">脚本代码（async function run(ctx)，可手动调整）</label>
+                          <textarea class="form-control font-monospace" v-model="asCode.code" rows="8" style="font-size:12px"></textarea>
+                          <div class="row g-2 mt-2">
+                            <div class="col-5"><input class="form-control" v-model="asFm.name" placeholder="任务名称"></div>
+                            <div class="col-3"><input class="form-control" type="number" v-model="asFm.interval" title="间隔秒" placeholder="3600"></div>
+                            <div class="col-4">
+                              <button class="btn btn-primary w-100" :disabled="asSaving" @click="assave">{{asSaving?'保存中…':'保存为任务'}}</button>
+                            </div>
+                          </div>
+                          <div class="form-hint mt-2">保存后到「任务中心」启停 / 立即执行；脚本内全局可用 store / mysql / fetch / crawlSource(id)。</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 内容提炼（降级为次要） -->
+              <div v-if="aiTab==='sum'">
+                <div class="card">
+                  <div class="card-header"><h3 class="card-title">AI 提炼</h3></div>
+                  <div class="card-body">
+                    <div class="mb-3">
+                      <label class="form-label">提炼范围</label>
+                      <select class="form-select" v-model="aiScope">
+                        <option value="submissions">待审核资源提交</option>
+                        <option value="reports">失效链接反馈</option>
+                        <option value="history">转存记录</option>
+                        <option value="custom">自定义文本</option>
+                      </select>
+                    </div>
+                    <div class="mb-3" v-if="aiScope==='custom'">
+                      <label class="form-label">输入文本</label>
+                      <textarea class="form-control" v-model="aiText" rows="8" placeholder="粘贴需要提炼的内容…"></textarea>
+                    </div>
+                    <button class="btn btn-success" :disabled="aiRun" @click="runai">{{aiRun?'提炼中…':'开始提炼'}}</button>
+                    <div v-if="aiRun" class="mt-2 small text-secondary">正在调用 DeepSeek，约需 5~30 秒…</div>
+                    <div v-if="aiErr" class="alert alert-danger py-2 mt-3 mb-0">{{aiErr}}</div>
+                    <div v-if="aiOut" class="mt-3">
+                      <div class="d-flex align-items-center mb-2">
+                        <h4 class="card-title mb-0">提炼结果</h4>
+                        <button class="btn btn-outline-secondary btn-sm ms-auto" @click="aiCopy">复制</button>
+                      </div>
+                      <div class="border rounded p-3 bg-body-tertiary" style="white-space:pre-wrap;max-height:520px;overflow:auto">{{aiOut}}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 新建/编辑任务模态框 -->
         <div v-if="tsShow" class="modal show d-block" tabindex="-1" style="background:rgba(0,0,0,.45)">
           <div class="modal-dialog modal-lg">
@@ -1097,219 +1333,13 @@
           </div>
         </div>
 
-        <!-- ========== AI 助手 ========== -->
-        <div v-if="pg==='ai'" class="row">
-          <div class="col-lg-5">
-            <div class="card mb-3">
-              <div class="card-header"><h3 class="card-title">AI 配置（DeepSeek）</h3></div>
-              <div class="card-body">
-                <div class="mb-3">
-                  <label class="form-label">Base URL</label>
-                  <input class="form-control" v-model="aiCfg.base" placeholder="https://api.deepseek.com">
-                </div>
-                <div class="mb-3">
-                  <label class="form-label">API Key</label>
-                  <input class="form-control" v-model="aiCfg.key" type="password" :placeholder="aiCfg.keySet?('已配置 '+aiCfg.keyMask+'，留空不修改'):'sk-...'">
-                </div>
-                <div class="mb-3">
-                  <label class="form-label">模型</label>
-                  <input class="form-control" v-model="aiCfg.model" placeholder="deepseek-chat">
-                </div>
-                <div class="d-flex gap-2">
-                  <button class="btn btn-primary" @click="svai">保存配置</button>
-                  <button class="btn btn-outline-secondary" :disabled="aiTst" @click="tstai">{{aiTst?'测试中…':'测试连接'}}</button>
-                </div>
-                <div v-if="aiTestMsg" class="mt-2 small" :class="aiTestOk?'text-success':'text-danger'">{{aiTestMsg}}</div>
-              </div>
-            </div>
-            <div class="card">
-              <div class="card-header"><h3 class="card-title">历史记录</h3></div>
-              <div class="card-body p-0">
-                <div class="list-group list-group-flush">
-                  <div v-for="s in aiItems" :key="s.id" class="list-group-item">
-                    <div class="d-flex align-items-center mb-1">
-                      <span class="badge bg-primary-lt text-primary me-2">{{s.scope}}</span>
-                      <span class="text-secondary small">{{fmtT(s.created_at)}}</span>
-                      <span class="ms-auto text-secondary small">{{s.model}}</span>
-                    </div>
-                    <div class="text-truncate small">{{(s.output_text||'').slice(0,80)}}</div>
-                    <button class="btn btn-link btn-sm p-0" @click="aiOpen(s)">查看全文</button>
-                  </div>
-                  <div v-if="!aiItems.length" class="list-group-item text-center text-secondary py-4">暂无记录</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-7">
-            <ul class="nav nav-tabs nav-fill mb-3">
-              <li class="nav-item"><a class="nav-link" :class="{active:aiTab==='assist'}" href="javascript:void(0)" @click="aiTab='assist'">AI 助手（规则 / 脚本）</a></li>
-              <li class="nav-item"><a class="nav-link" :class="{active:aiTab==='sum'}" href="javascript:void(0)" @click="aiTab='sum'">内容提炼</a></li>
-            </ul>
-
-            <!-- AI 助手：生成采集规则（受控生成）/ 生成任务（关联采集） -->
-            <div v-if="aiTab==='assist'" class="row g-3">
-              <div class="col-lg-6">
-                <div class="card h-100">
-                  <div class="card-header"><h3 class="card-title">生成采集解析规则（受控生成）</h3></div>
-                  <div class="card-body">
-                    <div class="alert alert-info py-2 small mb-3">内置领域提示词自动注入：字段/规则类型白名单 · 网盘链接正则 · 分类字典。AI 只能生成系统已有字段与类型的组合，无法新增。</div>
-                    <div class="mb-2">
-                      <label class="form-label">① 选择目标采集源（只能选已有源）</label>
-                      <select class="form-select" v-model="arFm.source_id" @change="arPick">
-                        <option value="">— 选择已有采集源 —</option>
-                        <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}（{{s.source_type}}）</option>
-                      </select>
-                    </div>
-                    <div v-if="arFm.ctx" class="alert alert-success py-2 small mb-2">
-                      已载入源 #{{arFm.ctx.source.id}} {{arFm.ctx.source.name}} · {{arFm.ctx.source.source_type}} · 分类 {{arFm.ctx.source.category||'未设置'}} · 现有规则 {{arFm.ctx.rules.length}} 条
-                    </div>
-                    <div class="mb-2">
-                      <label class="form-label">② URL 模板（已带出，可改）</label>
-                      <input class="form-control" v-model="arFm.url_template" placeholder="https://example.com/feed?page={page}">
-                    </div>
-                    <div class="mb-2">
-                      <label class="form-label">示例内容 <span class="text-secondary fw-normal">（粘贴一段原文，可选）</span></label>
-                      <textarea class="form-control font-monospace" v-model="arFm.sample" rows="4" placeholder="粘贴抓取到的 HTML/JSON 片段，AI 据此生成正则…"></textarea>
-                    </div>
-                    <button class="btn btn-success w-100" :disabled="arRun||!arFm.source_id" @click="airules">{{arRun?'生成中…':'③ 生成规则（AI + 内置提示词）'}}</button>
-                    <div v-if="arRules.rules.length" class="mt-3">
-                      <label class="form-label">④ 规则确认（字段/类型只能从白名单选）</label>
-                      <div v-if="arRules.report&&(arRules.report.rejected.length||arRules.report.fixed.length)" class="alert alert-warning py-2 small mb-2">
-                        <div v-for="(rd,i) in arRules.report.rejected" :key="'r'+i">✕ 已剔除：{{rd.field}} — {{rd.reason}}</div>
-                        <div v-for="(fx,i) in arRules.report.fixed" :key="'f'+i">⇄ 已修正：{{fx.field}} → {{fx.to}}（{{fx.reason}}）</div>
-                      </div>
-                      <div class="table-responsive">
-                        <table class="table table-sm align-middle mb-2">
-                          <thead><tr><th style="width:120px">字段</th><th style="width:110px">类型</th><th>规则值</th><th style="width:46px;text-align:center">必填</th><th style="width:34px"></th></tr></thead>
-                          <tbody>
-                            <tr v-for="(rl,i) in arRules.rules" :key="i">
-                              <td><select class="form-select form-select-sm" v-model="rl.field_name"><option v-for="f in arFm.fieldWhitelist" :key="f" :value="f">{{f}}</option></select></td>
-                              <td><select class="form-select form-select-sm" v-model="rl.rule_type"><option v-for="t in arFm.ruleTypeWhitelist" :key="t" :value="t">{{t}}</option></select></td>
-                              <td><input class="form-control form-control-sm font-monospace" v-model="rl.rule_value" placeholder="正则 / jsonpath / 固定值"></td>
-                              <td style="text-align:center"><input type="checkbox" class="form-check-input" v-model="rl.required"></td>
-                              <td><button class="btn btn-link btn-sm text-danger p-0" @click="arDel(i)">✕</button></td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      <button class="btn btn-outline-secondary btn-sm mb-2" @click="arAdd">＋ 添加规则行</button>
-                      <div class="row g-2 mt-1">
-                        <div class="col-12"><label class="form-label">⑤ 保存 + 关联任务</label></div>
-                        <div class="col-8">
-                          <div class="form-check mb-2">
-                            <input class="form-check-input" type="checkbox" id="arMakeTask" v-model="arFm.make_task">
-                            <label class="form-check-label" for="arMakeTask">同时创建定时采集任务（crawl_source）</label>
-                          </div>
-                          <div v-if="arFm.make_task" class="row g-2">
-                            <div class="col-6"><input class="form-control form-control-sm" v-model="arFm.task_name" placeholder="任务名（如：采集 okpojie 每小时）"></div>
-                            <div class="col-6"><input class="form-control form-control-sm" type="number" v-model="arFm.task_interval" placeholder="间隔秒（默认3600）"></div>
-                          </div>
-                        </div>
-                        <div class="col-4">
-                          <button class="btn btn-primary w-100" :disabled="arSaving" @click="arsave">{{arSaving?'保存中…':'保存到该源'}}</button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="col-lg-6">
-                <div class="card h-100">
-                  <div class="card-header"><h3 class="card-title">生成任务（与采集规则关联）</h3></div>
-                  <div class="card-body">
-                    <div class="btn-group w-100 mb-3" role="group">
-                      <button type="button" class="btn btn-sm" :class="asMode==='A'?'btn-primary':'btn-outline-secondary'" @click="asMode='A'">模式 A：采集任务（零代码）</button>
-                      <button type="button" class="btn btn-sm" :class="asMode==='B'?'btn-primary':'btn-outline-secondary'" @click="asMode='B'">模式 B：自定义脚本</button>
-                    </div>
-                    <div v-if="asMode==='A'">
-                      <div class="mb-2">
-                        <label class="form-label">选择要定时采集的源</label>
-                        <select class="form-select" v-model="asFm.source_id">
-                          <option value="">— 选择已有采集源 —</option>
-                          <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}（{{s.source_type}}）</option>
-                        </select>
-                      </div>
-                      <div class="row g-2">
-                        <div class="col-6"><div class="mb-2"><label class="form-label">任务名</label><input class="form-control" v-model="asFm.name" placeholder="采集 okpojie 每小时"></div></div>
-                        <div class="col-6"><div class="mb-2"><label class="form-label">间隔（秒）</label><input class="form-control" type="number" v-model="asFm.interval" placeholder="3600"></div></div>
-                      </div>
-                      <button class="btn btn-success w-100" :disabled="asSaving||!asFm.source_id" @click="asTaskA">{{asSaving?'创建中…':'创建采集任务（自动跑该源全部规则）'}}</button>
-                      <div class="form-hint mt-2">生成任务类型 crawl_source，调度器定时调用采集引擎跑该源全部解析规则入库。</div>
-                    </div>
-                    <div v-if="asMode==='B'">
-                      <div class="mb-2">
-                        <label class="form-label">任务需求描述</label>
-                        <textarea class="form-control" v-model="asFm.task_desc" rows="3" placeholder="如：每天 08:00 采集 #10 源新资源，然后清理 30 天前的转存历史"></textarea>
-                      </div>
-                      <div class="mb-2">
-                        <label class="form-label">关联采集源（可选，脚本内可用 crawlSource(id)）</label>
-                        <select class="form-select" v-model="asFm.source_id">
-                          <option value="">— 不关联（纯脚本）—</option>
-                          <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}（{{s.source_type}}）</option>
-                        </select>
-                      </div>
-                      <button class="btn btn-success w-100" :disabled="asRun||!asFm.task_desc.trim()" @click="asscript">{{asRun?'生成中…':'生成脚本'}}</button>
-                      <div v-if="asCode.code" class="mt-3">
-                        <label class="form-label">脚本代码（async function run(ctx)，可手动调整）</label>
-                        <textarea class="form-control font-monospace" v-model="asCode.code" rows="8" style="font-size:12px"></textarea>
-                        <div class="row g-2 mt-2">
-                          <div class="col-5"><input class="form-control" v-model="asFm.name" placeholder="任务名称"></div>
-                          <div class="col-3"><input class="form-control" type="number" v-model="asFm.interval" title="间隔秒" placeholder="3600"></div>
-                          <div class="col-4">
-                            <button class="btn btn-primary w-100" :disabled="asSaving" @click="assave">{{asSaving?'保存中…':'保存为任务'}}</button>
-                          </div>
-                        </div>
-                        <div class="form-hint mt-2">保存后到「任务中心」启停 / 立即执行；脚本内全局可用 store / mysql / fetch / crawlSource(id)。</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 内容提炼（降级为次要） -->
-            <div v-if="aiTab==='sum'">
-              <div class="card">
-                <div class="card-header"><h3 class="card-title">AI 提炼</h3></div>
-                <div class="card-body">
-                  <div class="mb-3">
-                    <label class="form-label">提炼范围</label>
-                    <select class="form-select" v-model="aiScope">
-                      <option value="submissions">待审核资源提交</option>
-                      <option value="reports">失效链接反馈</option>
-                      <option value="history">转存记录</option>
-                      <option value="custom">自定义文本</option>
-                    </select>
-                  </div>
-                  <div class="mb-3" v-if="aiScope==='custom'">
-                    <label class="form-label">输入文本</label>
-                    <textarea class="form-control" v-model="aiText" rows="8" placeholder="粘贴需要提炼的内容…"></textarea>
-                  </div>
-                  <button class="btn btn-success" :disabled="aiRun" @click="runai">{{aiRun?'提炼中…':'开始提炼'}}</button>
-                  <div v-if="aiRun" class="mt-2 small text-secondary">正在调用 DeepSeek，约需 5~30 秒…</div>
-                  <div v-if="aiErr" class="alert alert-danger py-2 mt-3 mb-0">{{aiErr}}</div>
-                  <div v-if="aiOut" class="mt-3">
-                    <div class="d-flex align-items-center mb-2">
-                      <h4 class="card-title mb-0">提炼结果</h4>
-                      <button class="btn btn-outline-secondary btn-sm ms-auto" @click="aiCopy">复制</button>
-                    </div>
-                    <div class="border rounded p-3 bg-body-tertiary" style="white-space:pre-wrap;max-height:520px;overflow:auto">{{aiOut}}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-
-
         <!-- ========== 站点配置 ========== -->
         <div v-if="pg==='set'" class="row">
           <div class="col-12">
             <div class="d-flex align-items-center mb-3">
               <ul class="nav nav-pills nav-scrollable">
                 <li class="nav-item"><a class="nav-link" :class="{active:setTab==='site'}" href="javascript:void(0)" @click="setTab='site'">站点</a></li>
-                <li class="nav-item"><a class="nav-link" :class="{active:setTab==='api'}" href="javascript:void(0)" @click="setTab='api'">API 源</a></li>
+                <li class="nav-item"><a class="nav-link" :class="{active:setTab==='aicfg'}" href="javascript:void(0)" @click="setTab='aicfg';ldai()">AI 配置</a></li>
                 <li class="nav-item"><a class="nav-link" :class="{active:setTab==='cache'}" href="javascript:void(0)" @click="setTab='cache'">缓存</a></li>
                 <li class="nav-item"><a class="nav-link" :class="{active:setTab==='sec'}" href="javascript:void(0)" @click="setTab='sec'">安全</a></li>
               </ul>
@@ -1370,44 +1400,41 @@
           </div>
             </div>
             </div>
-            <div v-if="setTab==='api'">
+            <div v-if="setTab==='aicfg'">
             <div class="row">
               <div class="col-lg-8">
                 <div class="card">
-                  <div class="card-header"><h3 class="card-title">API 配置</h3></div>
+                  <div class="card-header"><h3 class="card-title">AI 配置（DeepSeek）</h3></div>
                   <div class="card-body">
                     <div class="mb-3">
-                      <label class="form-label">盘搜 API 列表（多 Host 随机轮询，故障自动切换）</label>
-                      <div v-for="(pb,i) in cfg.pansouBases" :key="i" class="row g-2 mb-2 align-items-center">
-                        <div class="col-2"><input class="form-control form-control-sm" v-model="pb.name" placeholder="名称"></div>
-                        <div class="col-6"><input class="form-control form-control-sm" v-model="pb.host" placeholder="pansou.makepic.online:8001"></div>
-                        <div class="col-auto"><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" v-model="pb.enabled" :id="'pben'+i"><label class="form-check-label" :for="'pben'+i">启用</label></div></div>
-                        <div class="col-auto"><input class="form-control form-control-sm" type="number" min="1" v-model="pb.weight" style="width:80px" title="权重（越大越优先）"></div>
-                        <div class="col-auto"><button class="btn btn-outline-danger btn-sm" @click="pbDel(i)">删除</button></div>
-                      </div>
-                      <button class="btn btn-outline-secondary btn-sm" @click="pbAdd">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        添加 Host
-                      </button>
-                      <div class="form-hint mt-2">格式：host 或 host:port 或 http(s)://host[:port]；请求时按权重随机选启用 Host，失败自动切换下一个</div>
+                      <label class="form-label">Base URL</label>
+                      <input class="form-control" v-model="aiCfg.base" placeholder="https://api.deepseek.com">
                     </div>
-                    <button class="btn btn-primary" @click="svcfg">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                      保存
-                    </button>
+                    <div class="mb-3">
+                      <label class="form-label">API Key</label>
+                      <input class="form-control" v-model="aiCfg.key" type="password" :placeholder="aiCfg.keySet?('已配置 '+aiCfg.keyMask+'，留空不修改'):'sk-...'">
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">模型</label>
+                      <input class="form-control" v-model="aiCfg.model" placeholder="deepseek-chat">
+                    </div>
+                    <div class="d-flex gap-2">
+                      <button class="btn btn-primary" @click="svai">保存配置</button>
+                      <button class="btn btn-outline-secondary" :disabled="aiTst" @click="tstai">{{aiTst?'测试中…':'测试连接'}}</button>
+                    </div>
+                    <div v-if="aiTestMsg" class="mt-2 small" :class="aiTestOk?'text-success':'text-danger'">{{aiTestMsg}}</div>
                   </div>
                 </div>
               </div>
               <div class="col-lg-4">
                 <div class="card">
-                  <div class="card-header"><h3 class="card-title">多 Host 轮询说明</h3></div>
+                  <div class="card-header"><h3 class="card-title">AI 用途说明</h3></div>
                   <div class="card-body text-secondary">
                     <ul class="list-unstyled mb-0 small">
-                      <li class="mb-2">· <b>权重</b>：越大越优先被选中（默认 1）</li>
-                      <li class="mb-2">· <b>请求时</b>按权重随机选<b>已启用</b>的 Host</li>
-                      <li class="mb-2">· <b>故障自动切换</b>：当前 Host 失败时尝试下一个</li>
-                      <li class="mb-2">· <b>格式</b>：pansou.example.com 或 host:port</li>
-                      <li class="mb-2">· 留空或禁用将跳过该 Host</li>
+                      <li class="mb-2">· <b>采集规则生成</b>：采集管理 → AI 助手，自动注入领域提示词生成解析规则（受控白名单）</li>
+                      <li class="mb-2">· <b>任务脚本生成</b>：描述需求 → AI 生成定时脚本（全局可用 store / mysql / crawlSource）</li>
+                      <li class="mb-2">· <b>内容提炼</b>：待审核/失效反馈/转存记录 智能摘要</li>
+                      <li class="mb-2">· Key 只存服务端（site_config），前端不回显明文</li>
                     </ul>
                   </div>
                 </div>
@@ -1551,16 +1578,13 @@ var menus=[
   {g:"运营",items:[
     {id:"st",title:"仪表盘",icon:IC.home},
     {id:"rs",title:"资源管理",icon:IC.book},
-    {id:"hi",title:"转存历史",icon:IC.history},
-    {id:"ct",title:"分类管理",icon:IC.tag}
+    {id:"hi",title:"转存历史",icon:IC.history}
   ]},
   {g:"数据源",items:[
-    {id:"sc",title:"搜索源",icon:IC.settings},
-    {id:"cg",title:"采集管理",icon:IC.send},
-    {id:"ck",title:"Cookie 管理",icon:IC.cookie}
+    {id:"cg",title:"采集管理",icon:IC.send}
   ]},
   {g:"系统",items:[
-    {id:"ai",title:"AI 助手",icon:IC.brain},
+    {id:"ds",title:"数据源配置",icon:IC.settings},
     {id:"set",title:"系统设置",icon:IC.shield}
   ]}
 ];
@@ -1765,9 +1789,10 @@ cr({
         else{crRuleStats.value={msg:"采集失败："+(r.error||"")};msg("采集失败："+(r.error||""),"e")}
       });
     }
-    // ---- 采集管理（TG 频道 / 采集源 / 任务） ----
+    // ---- 采集管理（TG 频道 / 采集源 / 任务 / AI 助手） ----
     var tgTab=rf("tg");
     var setTab=rf("site");
+    var dsTab=rf("sc");
     var tgSet=rct({instances_text:"",default_instance:"",limit:50,interval_sec:3600});
     var tgItems=rf([]);
     var tgChannels=rf("");
@@ -2322,21 +2347,18 @@ cr({
 
     Vue.watch(pg,function(p){
       if(p==="st"){loadst();lddb();lddash();ldKw();ldts()}
-      if(p==="ck"){ldck();ldcs()};
       if(p==="rs"){rsTab.value="list";ldres();ldsub();ldimp();ldrsCats()}
       if(p==="hi")ldhi();
-      if(p==="ct"){ldct();ldctmap()}
-      if(p==="ai")ldai();
-      if(p==="sc")ldsc();
+      if(p==="ds"){ldsc();ldcfg();ldck();ldcs()}
       if(p==="cg"){ldtg();ldsrc();ldts();ldtslogs()}
-      if(p==="set"){ldsite();ldcfg();ldca()}
+      if(p==="set"){ldsite();ldca()}
     });
     Vue.onMounted(function(){
       applyTheme(th.value);
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="ck"){ldck();ldcs()}else if(h==="hi")ldhi();else if(h==="ct"){ldct();ldctmap()}else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="cg"){ldtg();ldsrc();ldts();ldtslogs()}else if(h==="set"){ldsite();ldcfg();ldca()}else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats()}else{loadst();lddb();lddash();ldKw();ldts()}
+        if(h==="hi")ldhi();else if(h==="ds"){ldsc();ldcfg();ldck();ldcs()}else if(h==="cg"){ldtg();ldsrc();ldts();ldtslogs()}else if(h==="set"){ldsite();ldca()}else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats()}else{loadst();lddb();lddash();ldKw();ldts()}
       }
     });
 
@@ -2347,7 +2369,7 @@ cr({
       kwItems,kwNew,kwEditId,ldKw,kwadd,kwEdit,kwCancel,kwhot,kwst,kwdel,
       ctItems,ctNew,ctEditId,ctChannels,ctMap,ctAllNames,ldct,ctadd,ctedit,ctCancel,ctst,ctdel,ldctmap,ctmapsave,
       scItems,ldsc,scToggle,scDiskOpts,scDisk,scEditId,scNameDraft,scEditName,scSaveName,
-      tgTab,setTab,tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,ldtg,tgSv,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
+      tgTab,setTab,dsTab,tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,ldtg,tgSv,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
       tsItems,tsLogs,tsShow,tsAdvShow,tsLogShow,tsEditId,tsSaving,tsTypes,tsNew,fmtInt,ldts,ldtslogs,tstoggle,tsrun,tsNewShow,tsedit,tssave,tsdel,
       aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,aiTab,arFm,arRun,arRules,arSaving,airules,arsave,arPick,arAdd,arDel,asFm,asMode,asRun,asCode,asSaving,asscript,assave,asTaskA,ldai,svai,tstai,runai,aiOpen,aiCopy};
   }
