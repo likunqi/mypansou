@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据大屏 Demo · 云盘搜监控</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif; background:#070b1d; color:#c8d6f0; overflow:hidden; }
+  .screen { width:100vw; height:100vh; background:radial-gradient(ellipse at 50% -10%, rgba(64,158,255,.18), transparent 55%), radial-gradient(ellipse at 90% 110%, rgba(124,92,255,.14), transparent 50%), #070b1d; display:flex; flex-direction:column; position:relative; }
+  .screen::before { content:""; position:absolute; inset:0; background-image:linear-gradient(rgba(64,158,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(64,158,255,.05) 1px,transparent 1px); background-size:42px 42px; pointer-events:none; }
+  .header { flex:none; height:74px; display:flex; align-items:center; justify-content:center; position:relative; }
+  .header-title { font-size:30px; font-weight:700; letter-spacing:8px; background:linear-gradient(90deg,#4dc8ff,#7c5cff,#4dc8ff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-shadow:none; }
+  .header-sub { position:absolute; right:28px; font-size:13px; color:#5b6b93; font-family:Consolas,monospace; }
+  .header-line { position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:640px; height:2px; background:linear-gradient(90deg,transparent,#4dc8ff,transparent); }
+  .body { flex:1; display:grid; grid-template-columns:1fr 1.6fr 1fr; gap:14px; padding:10px 16px 14px; min-height:0; }
+  .panel { background:rgba(17,23,54,.72); border:1px solid rgba(64,158,255,.22); border-radius:8px; padding:12px 14px; position:relative; display:flex; flex-direction:column; min-height:0; }
+  .panel::before { content:""; position:absolute; top:0; left:0; width:14px; height:14px; border-top:2px solid #4dc8ff; border-left:2px solid #4dc8ff; border-radius:2px 0 0 0; }
+  .panel::after { content:""; position:absolute; bottom:0; right:0; width:14px; height:14px; border-bottom:2px solid #4dc8ff; border-right:2px solid #4dc8ff; border-radius:0 0 2px 0; }
+  .pt { flex:none; font-size:15px; font-weight:600; color:#7dd3fc; letter-spacing:2px; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+  .pt::before { content:""; width:4px; height:16px; background:linear-gradient(180deg,#4dc8ff,#7c5cff); border-radius:2px; }
+  .chart { flex:1; min-height:0; }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:10px; }
+  .kpi { background:rgba(64,158,255,.08); border:1px solid rgba(64,158,255,.25); border-radius:6px; padding:8px 6px; text-align:center; position:relative; overflow:hidden; }
+  .kpi::after { content:""; position:absolute; left:0; bottom:0; height:2px; width:100%; background:linear-gradient(90deg,transparent,#4dc8ff,transparent); }
+  .kpi-num { font-size:22px; font-weight:700; font-family:Consolas,monospace; color:#fff; text-shadow:0 0 12px rgba(77,200,255,.55); }
+  .kpi-label { font-size:11px; color:#8ba3d4; margin-top:2px; }
+  .rank { flex:1; overflow:auto; min-height:0; }
+  .rank-item { display:flex; align-items:center; gap:8px; padding:5px 0; font-size:13px; border-bottom:1px dashed rgba(64,158,255,.12); }
+  .rank-no { width:20px; height:20px; border-radius:4px; background:rgba(64,158,255,.15); color:#4dc8ff; font-size:11px; display:flex; align-items:center; justify-content:center; flex:none; }
+  .rank-no.top { background:linear-gradient(135deg,#4dc8ff,#7c5cff); color:#fff; }
+  .rank-name { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .rank-bar { width:90px; height:6px; background:rgba(255,255,255,.08); border-radius:3px; overflow:hidden; flex:none; }
+  .rank-bar i { display:block; height:100%; background:linear-gradient(90deg,#4dc8ff,#7c5cff); border-radius:3px; }
+  .rank-num { width:34px; text-align:right; color:#4dc8ff; font-family:Consolas,monospace; font-size:12px; flex:none; }
+  .status-row { display:flex; justify-content:space-between; padding:6px 2px; font-size:12px; border-bottom:1px dashed rgba(64,158,255,.12); }
+  .ok { color:#2fe6a7; } .fail { color:#f76560; }
+  .footer { flex:none; height:34px; display:flex; align-items:center; justify-content:center; gap:30px; font-size:12px; color:#5b6b93; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="header">
+    <div class="header-title">云盘搜 · 数据监控大屏</div>
+    <div class="header-sub" id="clock"></div>
+    <div class="header-line"></div>
+  </div>
+  <div class="body">
+    <!-- 左列 -->
+    <div style="display:flex;flex-direction:column;gap:14px;min-height:0">
+      <div class="panel" style="flex:1.1">
+        <div class="pt">分类资源分布</div>
+        <div class="chart" id="catBar"></div>
+      </div>
+      <div class="panel" style="flex:1">
+        <div class="pt">网盘类型占比</div>
+        <div class="chart" id="diskPie"></div>
+      </div>
+    </div>
+    <!-- 中列 -->
+    <div style="display:flex;flex-direction:column;min-height:0">
+      <div class="kpis">
+        <div class="kpi"><div class="kpi-num" data-n="455">0</div><div class="kpi-label">资源总数</div></div>
+        <div class="kpi"><div class="kpi-num" data-n="12">0</div><div class="kpi-label">今日新增</div></div>
+        <div class="kpi"><div class="kpi-num" data-n="98">0<span style="font-size:12px">%</span></div><div class="kpi-label">采集成功率</div></div>
+        <div class="kpi"><div class="kpi-num" data-n="128">0</div><div class="kpi-label">累计转存</div></div>
+      </div>
+      <div class="panel" style="flex:1">
+        <div class="pt">近 7 日资源增长趋势</div>
+        <div class="chart" id="trend"></div>
+      </div>
+      <div class="panel" style="flex:0 0 44%">
+        <div class="pt">采集任务状态</div>
+        <div id="taskPie" style="height:100%"></div>
+      </div>
+    </div>
+    <!-- 右列 -->
+    <div style="display:flex;flex-direction:column;gap:14px;min-height:0">
+      <div class="panel" style="flex:1.2">
+        <div class="pt">热门搜索 TOP 10</div>
+        <div class="rank" id="rankList"></div>
+      </div>
+      <div class="panel" style="flex:1">
+        <div class="pt">今日采集动态</div>
+        <div style="flex:1;overflow:auto;min-height:0">
+          <div class="status-row"><span>djya5 TG</span><span class="ok">✔ 抓 20 入 20</span></div>
+          <div class="status-row"><span>kuyupan TG</span><span class="ok">✔ 抓 20 入 18</span></div>
+          <div class="status-row"><span>WPpindao TG</span><span class="fail">✘ RSS 503</span></div>
+          <div class="status-row"><span>ucshare TG</span><span class="ok">✔ 抓 20 入 20</span></div>
+          <div class="status-row"><span>jzmm_123pan TG</span><span class="ok">✔ 抓 20 入 19</span></div>
+          <div class="status-row"><span>热搜热词预加载</span><span class="ok">✔ 更新 25 词</span></div>
+          <div class="status-row"><span>链接可用性检查</span><span class="ok">✔ 检测 86 条</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>数据更新于 2026-08-05 17:30</span><span>采集源 54 · 规则 335 · 任务 54</span><span>MySQL 192.168.1.65 / pansou</span></div>
+</div>
+<script src="lib/echarts.min.js"></script>
+<script>
+function clock(){ var d=new Date(),p=function(x){return x<10?'0'+x:x}; document.getElementById('clock').textContent = d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+setInterval(clock,1000); clock();
+function countUp(){
+  document.querySelectorAll('.kpi-num').forEach(function(el){
+    var target = parseInt(el.dataset.n), t0 = performance.now(), dur = 1400;
+    (function tick(now){
+      var k = Math.min((now-t0)/dur, 1), e = 1-Math.pow(1-k,3);
+      el.firstChild.textContent = Math.round(target*e).toLocaleString();
+      if(k<1) requestAnimationFrame(tick);
+    })(t0);
+  });
+}
+var axis = '#3a4a73', txt = '#8ba3d4', grid = { left:44, right:16, top:24, bottom:24 };
+var catBar = echarts.init(document.getElementById('catBar'));
+catBar.setOption({ grid:grid, tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
+  xAxis:{type:'value',axisLine:{lineStyle:{color:axis}},axisLabel:{color:txt,fontSize:11},splitLine:{lineStyle:{color:'rgba(64,158,255,.08)'}}},
+  yAxis:{type:'category',data:['影视','课程','资料','素材','软件'],axisLine:{lineStyle:{color:axis}},axisLabel:{color:txt,fontSize:11}},
+  series:[{type:'bar',barWidth:10,data:[312,96,28,19,10],
+    itemStyle:{borderRadius:[0,5,5,0],color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#4dc8ff'},{offset:1,color:'#7c5cff'}])}}] });
+var diskPie = echarts.init(document.getElementById('diskPie'));
+diskPie.setOption({ tooltip:{trigger:'item'}, series:[{type:'pie',radius:['46%','68%'],center:['50%','52%'],
+  itemStyle:{borderColor:'#0b1026',borderWidth:3},
+  label:{color:txt,fontSize:11,formatter:'{b} {d}%'}, labelLine:{lineStyle:{color:axis}},
+  data:[{value:451,name:'夸克',itemStyle:{color:'#4dc8ff'}},{value:4,name:'百度',itemStyle:{color:'#2fe6a7'}}]}] });
+var trend = echarts.init(document.getElementById('trend'));
+trend.setOption({ grid:{left:40,right:16,top:28,bottom:24}, tooltip:{trigger:'axis'},
+  xAxis:{type:'category',data:['07-30','07-31','08-01','08-02','08-03','08-04','08-05'],axisLine:{lineStyle:{color:axis}},axisLabel:{color:txt,fontSize:11}},
+  yAxis:{type:'value',axisLine:{show:false},axisLabel:{color:txt,fontSize:11},splitLine:{lineStyle:{color:'rgba(64,158,255,.08)'}}},
+  series:[{type:'line',smooth:true,symbol:'circle',symbolSize:5,data:[38,41,49,63,85,120,132],
+    lineStyle:{color:'#4dc8ff',width:2},itemStyle:{color:'#4dc8ff'},
+    areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(77,200,255,.32)'},{offset:1,color:'rgba(77,200,255,0)'}])}}] });
+var taskPie = echarts.init(document.getElementById('taskPie'));
+taskPie.setOption({ tooltip:{trigger:'item'}, series:[{type:'pie',radius:['40%','66%'],center:['50%','52%'],
+  itemStyle:{borderColor:'#0b1026',borderWidth:3}, label:{color:txt,fontSize:11,formatter:'{b} {c}'},
+  data:[{value:51,name:'运行正常',itemStyle:{color:'#2fe6a7'}},{value:3,name:'失败待查',itemStyle:{color:'#f76560'}}]}] });
+var ranks = [['流浪地球2',86],['Python 全栈',72],['设计素材',64],['前端面试',58],['NAS 教程',47],['2026 影视合集',41],['办公模板',35],['英语口语',29],['AI 工具包',22],['考研资料',18]];
+var rankHtml = ranks.map(function(r,i){
+  var pct = Math.round(r[1]/86*100);
+  return '<div class="rank-item"><div class="rank-no '+(i<3?'top':'')+'">'+(i+1)+'</div><div class="rank-name">'+r[0]+'</div><div class="rank-bar"><i style="width:'+pct+'%"></i></div><div class="rank-num">'+r[1]+'</div></div>';
+}).join('');
+document.getElementById('rankList').innerHTML = rankHtml;
+window.addEventListener('resize', function(){ catBar.resize(); diskPie.resize(); trend.resize(); taskPie.resize(); });
+setTimeout(countUp, 200);
+</script>
+</body>
+</html>

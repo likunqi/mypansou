@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>方案 A · Element Plus 后台 Demo</title>
+<link rel="stylesheet" href="lib/element-plus.css">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif; background:#f5f7fa; color:#303133; }
+  .demo-banner { background:linear-gradient(90deg,#534AB7,#185FA5); color:#fff; text-align:center; padding:10px; font-size:13px; letter-spacing:1px; }
+  .demo-banner b { margin:0 6px; }
+  .sidebar { background:#1d2233; color:#fff; display:flex; flex-direction:column; }
+  .logo { height:56px; display:flex; align-items:center; gap:10px; padding:0 18px; color:#fff; font-size:16px; font-weight:500; border-bottom:1px solid rgba(255,255,255,.08); }
+  .logo-dot { width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,#7F77DD,#378ADD); display:flex; align-items:center; justify-content:center; font-size:14px; }
+  .sidebar .el-menu { border-right:none; background:transparent; flex:1; }
+  .sidebar .el-menu-item { color:#a8b0c3; height:46px; border-radius:8px; margin:4px 10px; }
+  .sidebar .el-menu-item:hover { background:rgba(255,255,255,.06); color:#fff; }
+  .sidebar .el-menu-item.is-active { background:linear-gradient(90deg,rgba(83,74,183,.35),rgba(55,138,221,.25)); color:#fff; }
+  .menu-ico { width:20px; height:20px; border-radius:5px; margin-right:10px; display:inline-block; flex:none; }
+  .el-header { background:#fff; border-bottom:1px solid #e4e7ed; display:flex; align-items:center; justify-content:space-between; height:56px; padding:0 20px; }
+  .crumb { font-size:14px; color:#606266; }
+  .crumb b { color:#303133; }
+  .hdr-right { display:flex; align-items:center; gap:14px; font-size:13px; color:#606266; }
+  .avatar { width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg,#7F77DD,#D4537E); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; }
+  .el-main { padding:16px; overflow:auto; }
+  .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:14px; }
+  .stat { background:#fff; border-radius:10px; padding:16px 18px; display:flex; align-items:center; gap:14px; border:1px solid #ebeef5; }
+  .stat-ico { width:46px; height:46px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; color:#fff; flex:none; }
+  .stat-num { font-size:24px; font-weight:600; color:#303133; line-height:1.2; }
+  .stat-label { font-size:12px; color:#909399; margin-top:2px; }
+  .stat-delta { font-size:12px; color:#67C23A; }
+  .chart-row { display:grid; grid-template-columns:1.4fr 1fr; gap:14px; margin-bottom:14px; }
+  .panel { background:#fff; border-radius:10px; border:1px solid #ebeef5; padding:16px; }
+  .panel-title { font-size:14px; font-weight:500; color:#303133; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; }
+  .cover { width:40px; height:54px; border-radius:6px; background:linear-gradient(135deg,#EEEDFE,#B5D4F4); display:flex; align-items:center; justify-content:center; font-size:16px; color:#534AB7; overflow:hidden; }
+  .cover img { width:100%; height:100%; object-fit:cover; }
+  .tag { border-radius:4px; font-size:12px; }
+  .row-flex { display:flex; gap:14px; }
+  .row-flex .panel { flex:1; }
+  .task-list { width:58%; }
+  .log-panel { width:42%; background:#0f1420; border:none; }
+  .log-line { font-family:Consolas,monospace; font-size:12px; color:#9fe1cb; padding:6px 0; border-bottom:1px dashed rgba(255,255,255,.06); display:flex; gap:8px; }
+  .log-time { color:#5F5E5A; flex:none; }
+  .log-ok { color:#1D9E75; }
+  .log-err { color:#E24B4A; }
+  .foot-note { text-align:center; color:#909399; font-size:12px; padding:20px 0 6px; }
+</style>
+</head>
+<body>
+<div class="demo-banner">方案 A · Element Plus 2.9 现代风（组件已本地化，零外网依赖）<b>|</b>左侧深色导航 + 白卡片 + 弹框表格表单全现成</div>
+<div id="app">
+  <el-container style="height:calc(100vh - 38px)">
+    <el-aside width="212px" class="sidebar">
+      <div class="logo"><div class="logo-dot">搜</div>云盘搜管理台</div>
+      <el-menu :default-active="m" @select="m=$event">
+        <el-menu-item index="dash"><span class="menu-ico" style="background:linear-gradient(135deg,#7F77DD,#534AB7)"></span>仪表盘</el-menu-item>
+        <el-menu-item index="res"><span class="menu-ico" style="background:linear-gradient(135deg,#378ADD,#185FA5)"></span>资源管理</el-menu-item>
+        <el-menu-item index="task"><span class="menu-ico" style="background:linear-gradient(135deg,#1D9E75,#0F6E56)"></span>任务中心</el-menu-item>
+        <el-menu-item index="src"><span class="menu-ico" style="background:linear-gradient(135deg,#D4537E,#993556)"></span>采集管理</el-menu-item>
+        <el-menu-item index="sys"><span class="menu-ico" style="background:linear-gradient(135deg,#BA7517,#854F0B)"></span>系统设置</el-menu-item>
+      </el-menu>
+      <div style="padding:14px;font-size:11px;color:#5F5E5A">v2.0 · Element Plus Demo</div>
+    </el-aside>
+    <el-container direction="vertical">
+      <el-header>
+        <div class="crumb">首页 / <b>{{crumb[m]}}</b></div>
+        <div class="hdr-right">
+          <span>AI 助手</span><span>刷新</span>
+          <div class="avatar">管</div>
+        </div>
+      </el-header>
+      <el-main>
+        <!-- ============ 仪表盘 ============ -->
+        <div v-if="m==='dash'">
+          <div class="cards">
+            <div class="stat"><div class="stat-ico" style="background:linear-gradient(135deg,#7F77DD,#534AB7)">资</div><div><div class="stat-num">455</div><div class="stat-label">资源总数</div><div class="stat-delta">▲ 12 今日新增</div></div></div>
+            <div class="stat"><div class="stat-ico" style="background:linear-gradient(135deg,#378ADD,#185FA5)">夸</div><div><div class="stat-num">451</div><div class="stat-label">夸克资源</div><div class="stat-delta">▲ 11 今日新增</div></div></div>
+            <div class="stat"><div class="stat-ico" style="background:linear-gradient(135deg,#1D9E75,#0F6E56)">任</div><div><div class="stat-num">54</div><div class="stat-label">每日采集任务</div><div class="stat-delta" style="color:#E6A23C">● 3 失败待查</div></div></div>
+            <div class="stat"><div class="stat-ico" style="background:linear-gradient(135deg,#D4537E,#993556)">转</div><div><div class="stat-num">128</div><div class="stat-label">累计转存</div><div class="stat-delta">▲ 6 今日</div></div></div>
+          </div>
+          <div class="chart-row">
+            <div class="panel"><div class="panel-title">近 7 日新增资源 <el-tag size="small" type="primary" round>实时</el-tag></div><div id="chartLine" style="height:230px"></div></div>
+            <div class="panel"><div class="panel-title">分类资源分布</div><div id="chartPie" style="height:230px"></div></div>
+          </div>
+          <div class="panel"><div class="panel-title">运行中的采集任务</div>
+            <el-table :data="tasks" size="small">
+              <el-table-column prop="name" label="任务" min-width="180"></el-table-column>
+              <el-table-column prop="interval" label="间隔" width="90"></el-table-column>
+              <el-table-column label="状态" width="90"><template #default="s"><el-tag size="small" :type="s.row.ok?'success':'danger'" round>{{s.row.ok?'成功':'失败'}}</el-tag></template></el-table-column>
+              <el-table-column prop="last" label="上次运行" width="150"></el-table-column>
+              <el-table-column label="操作" width="110"><template #default="s"><el-button size="small" type="primary" plain>运行</el-button></template></el-table-column>
+            </el-table>
+          </div>
+        </div>
+        <!-- ============ 资源管理 ============ -->
+        <div v-if="m==='res'">
+          <div class="panel" style="margin-bottom:14px">
+            <div class="row-flex" style="align-items:center;gap:12px;flex-wrap:wrap">
+              <el-input v-model="q" placeholder="搜索标题 / 链接" style="width:240px" clearable></el-input>
+              <el-select placeholder="网盘类型" style="width:130px"><el-option label="全部" value=""></el-option><el-option label="夸克" value="quark"></el-option><el-option label="百度" value="baidu"></el-option></el-select>
+              <el-select placeholder="分类" style="width:150px"><el-option label="全部" value=""></el-option><el-option label="影视" value="影视"></el-option><el-option label="课程" value="课程"></el-option></el-select>
+              <div style="flex:1"></div>
+              <el-button type="danger" plain :disabled="sel.length===0">删除所选 {{sel.length}} 项</el-button>
+              <el-button type="primary">新增资源</el-button>
+            </div>
+          </div>
+          <div class="panel">
+            <el-table :data="rows" @selection-change="sel=$event" style="width:100%">
+              <el-table-column type="selection" width="44"></el-table-column>
+              <el-table-column label="封面" width="64"><template #default><div class="cover">影</div></template></el-table-column>
+              <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip></el-table-column>
+              <el-table-column prop="disk" label="网盘" width="80"><template #default="s"><el-tag size="small" :type="s.row.disk==='夸克'?'primary':'warning'">{{s.row.disk}}</el-tag></template></el-table-column>
+              <el-table-column prop="cat" label="分类" width="90"></el-table-column>
+              <el-table-column label="状态" width="90"><template #default="s"><el-tag size="small" :type="s.row.valid?'success':'info'">{{s.row.valid?'有效':'未检测'}}</el-tag></template></el-table-column>
+              <el-table-column label="操作" width="150" fixed="right"><template #default="s">
+                <el-button size="small" type="primary" plain @click="openEdit(s.row)">编辑</el-button>
+                <el-button size="small" type="danger" plain>删除</el-button>
+              </template></el-table-column>
+            </el-table>
+            <div style="display:flex;justify-content:flex-end;margin-top:12px"><el-pagination background layout="total, prev, pager, next" :total="rows.length" :page-size="8"></el-pagination></div>
+          </div>
+        </div>
+        <!-- ============ 任务中心（左列表 + 右日志） ============ -->
+        <div v-if="m==='task'">
+          <div class="panel" style="margin-bottom:14px">
+            <div class="row-flex" style="align-items:center;gap:12px;flex-wrap:wrap">
+              <div style="font-weight:500">任务列表</div>
+              <el-button size="small" type="primary" plain :disabled="tsel.length===0" :loading="runing">批量运行 {{tsel.length}} 个</el-button>
+              <el-tag size="small" type="success" v-if="runed">✔ {{runed}} 个任务已触发</el-tag>
+              <div style="flex:1"></div>
+              <el-switch v-model="autoRefresh" active-text="自动刷新"></el-switch>
+            </div>
+          </div>
+          <div class="row-flex">
+            <div class="panel task-list">
+              <el-table :data="tasks" @selection-change="tsel=$event" size="small" max-height="430">
+                <el-table-column type="selection" width="40"></el-table-column>
+                <el-table-column prop="name" label="任务名称" min-width="160" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="interval" label="间隔" width="70"></el-table-column>
+                <el-table-column label="状态" width="80"><template #default="s"><el-tag size="small" :type="s.row.ok?'success':'danger'">{{s.row.ok?'正常':'失败'}}</el-tag></template></el-table-column>
+                <el-table-column prop="last" label="上次" width="140"></el-table-column>
+                <el-table-column label="操作" width="90"><template #default="s"><el-button size="small" type="primary" plain :loading="s.row.loading" @click="runOne(s.row)">{{s.row.loading?'运行中…':'运行'}}</el-button></template></el-table-column>
+              </el-table>
+            </div>
+            <div class="panel log-panel">
+              <div class="panel-title" style="color:#fff">执行日志</div>
+              <div style="height:430px;overflow:auto">
+                <div class="log-line" v-for="l in logs" :key="l.t"><span class="log-time">{{l.t}}</span><span :class="l.ok?'log-ok':'log-err'">{{l.ok?'OK':'ERR'}}</span><span style="color:#B4B2A9">{{l.msg}}</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- ============ 其他页占位 ============ -->
+        <div v-if="m==='src'" class="panel"><div class="panel-title">采集管理</div><el-empty description="采集源 / 规则 / 实例管理（Demo 占位）"></el-empty></div>
+        <div v-if="m==='sys'" class="panel"><div class="panel-title">系统设置</div><el-empty description="站点 / API / 缓存 / 安全（Demo 占位）"></el-empty></div>
+        <div class="foot-note">DEMO 仅展示视觉效果与交互方式，数据为静态示例 · 真实迁移时接口与业务逻辑全部保留</div>
+      </el-main>
+    </el-container>
+  </el-container>
+
+  <!-- 资源编辑弹框 -->
+  <el-dialog v-model="editShow" :title="'编辑资源 #' + (cur?cur.id:'')" width="560px">
+    <el-form label-width="80px">
+      <el-form-item label="标题" required><el-input v-model="f.title" placeholder="资源标题"></el-input></el-form-item>
+      <el-form-item label="链接" required><el-input v-model="f.url" placeholder="https://pan.quark.cn/s/..."></el-input></el-form-item>
+      <div style="display:flex;gap:12px">
+        <el-form-item label="提取码" style="flex:1"><el-input v-model="f.password"></el-input></el-form-item>
+        <el-form-item label="网盘" style="flex:1"><el-select v-model="f.disk" style="width:100%"><el-option label="夸克" value="夸克"></el-option><el-option label="百度" value="百度"></el-option></el-select></el-form-item>
+      </div>
+      <el-form-item label="分类"><el-input v-model="f.cat"></el-input></el-form-item>
+      <el-form-item label="封面"><el-input v-model="f.thumb" placeholder="图片 URL（可选）"></el-input></el-form-item>
+      <el-form-item label="描述"><el-input v-model="f.desc" type="textarea" :rows="2"></el-input></el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="editShow=false">取消</el-button>
+      <el-button type="primary" @click="saveEdit">保存</el-button>
+    </template>
+  </el-dialog>
+</div>
+
+<script src="../public/vue.global.prod.js"></script>
+<script src="lib/element-plus.min.js"></script>
+<script src="lib/echarts.min.js"></script>
+<script>
+var app = Vue.createApp({
+  setup: function () {
+    var m = Vue.ref('dash');
+    var crumb = { dash:'仪表盘', res:'资源管理', task:'任务中心', src:'采集管理', sys:'系统设置' };
+    var q = Vue.ref('');
+    var sel = Vue.ref([]);
+    var editShow = Vue.ref(false);
+    var cur = Vue.ref(null);
+    var f = Vue.reactive({ title:'', url:'', password:'', disk:'夸克', cat:'', thumb:'', desc:'' });
+    var runing = Vue.ref(false), runed = Vue.ref('');
+    var autoRefresh = Vue.ref(true);
+    var tsel = Vue.ref([]);
+    var rows = [
+      { id:1, title:'流浪地球2 · 4K 超清修复版', disk:'夸克', cat:'影视', valid:true },
+      { id:2, title:'Python 全栈开发实战课程（2026）', disk:'夸克', cat:'课程', valid:true },
+      { id:3, title:'设计素材合集 · 500G 精选', disk:'百度', cat:'素材', valid:false },
+      { id:4, title:'前端面试八股文大全.pdf', disk:'夸克', cat:'资料', valid:true },
+      { id:5, title:'NAS 私有云搭建完整教程', disk:'百度', cat:'课程', valid:false },
+      { id:6, title:'2026 年热门影视剧合集', disk:'夸克', cat:'影视', valid:true }
+    ];
+    var tasks = Vue.ref([
+      { name:'采集 djya5 TG（每日）', interval:'86400s', ok:true, last:'10:15', loading:false },
+      { name:'采集 kuyupan TG（每日）', interval:'86400s', ok:true, last:'10:15', loading:false },
+      { name:'采集 WPpindao TG（每日）', interval:'86400s', ok:false, last:'09:02', loading:false },
+      { name:'采集 ucshare TG（每日）', interval:'86400s', ok:true, last:'09:15', loading:false },
+      { name:'采集 jzmm_123pan TG（每日）', interval:'86400s', ok:true, last:'09:15', loading:false },
+      { name:'热搜热词预加载', interval:'30min', ok:true, last:'17:00', loading:false }
+    ]);
+    var logs = [
+      { t:'17:15:22', ok:true,  msg:'djya5 TG 采集完成 · 抓 20 入 20' },
+      { t:'17:15:01', ok:true,  msg:'kuyupan TG 采集完成 · 抓 20 入 18' },
+      { t:'17:14:40', ok:false, msg:'WPpindao TG RSS 拉取失败 503' },
+      { t:'17:14:10', ok:true,  msg:'ucshare TG 采集完成 · 抓 20 入 20' },
+      { t:'17:13:55', ok:false, msg:'jzmm_123pan TG 429 限流，已重试 2 次' },
+      { t:'17:13:20', ok:true,  msg:'热搜热词预加载完成 · 更新 25 词' }
+    ];
+    function openEdit(r){ cur.value = r; f.title=r.title; f.url='https://pan.quark.cn/s/xxxx'; f.password='abcd'; f.disk=r.disk; f.cat=r.cat; f.thumb=''; f.desc=''; editShow.value = true; }
+    function saveEdit(){ editShow.value=false; ElementPlus.ElMessage({ message:'已保存（Demo 演示）', type:'success' }); }
+    function runOne(t){ t.loading=true; setTimeout(function(){ t.loading=false; t.ok=true; ElementPlus.ElMessage({ message:t.name+' 已执行完成', type:'success' }); },1200); }
+    function batchRun(){ runing.value=true; runed.value=''; setTimeout(function(){ runing.value=false; runed.value=tsel.value.length; ElementPlus.ElMessage({ message:'已触发 '+tsel.value.length+' 个任务', type:'success' }); },1000); }
+    function initCharts(){
+      var line = echarts.init(document.getElementById('chartLine'));
+      line.setOption({
+        grid:{left:40,right:16,top:30,bottom:26}, tooltip:{trigger:'axis'},
+        xAxis:{ type:'category', data:['07-30','07-31','08-01','08-02','08-03','08-04','08-05'], axisLine:{lineStyle:{color:'#dcdfe6'}} },
+        yAxis:{ type:'value', splitLine:{lineStyle:{color:'#f0f2f5'}} },
+        series:[{ type:'line', smooth:true, data:[3,8,14,22,35,52,12], symbolSize:6,
+          itemStyle:{color:'#534AB7'}, areaStyle:{color:'rgba(83,74,183,.12)'} }]
+      });
+      var pie = echarts.init(document.getElementById('chartPie'));
+      pie.setOption({
+        tooltip:{trigger:'item'},
+        legend:{bottom:0, itemWidth:10, itemHeight:10, textStyle:{fontSize:12}},
+        series:[{ type:'pie', radius:['38%','62%'], center:['50%','44%'],
+          itemStyle:{borderRadius:6, borderColor:'#fff', borderWidth:2},
+          label:{show:false},
+          data:[{value:312,name:'影视',itemStyle:{color:'#534AB7'}},{value:96,name:'课程',itemStyle:{color:'#378ADD'}},{value:28,name:'资料',itemStyle:{color:'#1D9E75'}},{value:19,name:'素材',itemStyle:{color:'#D4537E'}}] }]
+      });
+    }
+    Vue.onMounted(function(){ setTimeout(initCharts, 100); });
+    return { m, crumb, q, sel, editShow, cur, f, rows, tasks, logs, autoRefresh, tsel, runing, runed, openEdit, saveEdit, runOne, batchRun };
+  }
+});
+app.use(ElementPlus);
+app.mount('#app');
+</script>
+</body>
+</html>

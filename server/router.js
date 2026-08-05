@@ -147,8 +147,6 @@ async function handleRequest(req, res) {
       // 分类管理
       if (urlPath === "/api/admin/categories" && method === "GET") return await categories.list(req, res);
       if (urlPath === "/api/admin/categories" && method === "POST") return await categories.add(req, res);
-      if (urlPath === "/api/admin/categories/tgmap" && method === "GET") return await categories.tgMap(req, res);
-      if (urlPath === "/api/admin/categories/tgmap" && method === "POST") return await categories.saveTgMap(req, res);
       if (/^\/api\/admin\/categories\/\d+$/.test(urlPath) && method === "POST") return await categories.update(req, res);
       if (/^\/api\/admin\/categories\/\d+$/.test(urlPath) && method === "DELETE") return await categories.del(req, res);
 

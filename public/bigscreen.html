@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据大屏 · 云盘搜</title>
+<link rel="stylesheet" href="lib/element-plus.css">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif; background:#070b1d; color:#c8d6f0; overflow:hidden; }
+  .top { position:fixed; top:0; left:0; right:0; height:60px; display:flex; align-items:center; justify-content:center; z-index:10; background:linear-gradient(180deg,rgba(7,11,29,.88),transparent); }
+  .top-title { font-size:26px; font-weight:700; letter-spacing:6px; background:linear-gradient(90deg,#4dc8ff,#7c5cff,#4dc8ff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .top-actions { position:absolute; right:18px; display:flex; gap:12px; font-size:13px; }
+  .top-actions a { color:#8ba3d4; text-decoration:none; cursor:pointer; }
+  .top-actions a:hover { color:#4dc8ff; }
+  .top-actions .clock { color:#5b6b93; font-family:Consolas,monospace; margin-right:8px; }
+  .top-error { position:absolute; left:18px; color:#F76560; font-size:12px; }
+  .grid { position:absolute; top:60px; left:0; right:0; bottom:0; padding:10px 14px; display:grid; grid-template-columns:1fr 1.5fr 1fr; grid-template-rows:1fr 1fr; gap:14px; }
+  .panel { background:rgba(17,23,54,.72); border:1px solid rgba(64,158,255,.22); border-radius:8px; padding:12px 14px; position:relative; display:flex; flex-direction:column; min-height:0; }
+  .panel::before, .panel::after { content:""; position:absolute; width:14px; height:14px; }
+  .panel::before { top:0; left:0; border-top:2px solid #4dc8ff; border-left:2px solid #4dc8ff; border-radius:2px 0 0 0; }
+  .panel::after { bottom:0; right:0; border-bottom:2px solid #4dc8ff; border-right:2px solid #4dc8ff; border-radius:0 0 2px 0; }
+  .pt { font-size:15px; font-weight:600; color:#7dd3fc; letter-spacing:2px; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+  .pt::before { content:""; width:4px; height:16px; background:linear-gradient(180deg,#4dc8ff,#7c5cff); border-radius:2px; }
+  .chart { flex:1; min-height:0; }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:10px; }
+  .kpi { background:rgba(64,158,255,.08); border:1px solid rgba(64,158,255,.25); border-radius:6px; padding:10px 6px; text-align:center; position:relative; overflow:hidden; }
+  .kpi::after { content:""; position:absolute; left:0; bottom:0; height:2px; width:100%; background:linear-gradient(90deg,transparent,#4dc8ff,transparent); }
+  .kpi-num { font-size:22px; font-weight:700; font-family:Consolas,monospace; color:#fff; text-shadow:0 0 12px rgba(77,200,255,.55); }
+  .kpi-label { font-size:11px; color:#8ba3d4; margin-top:2px; }
+  .rank { flex:1; overflow:auto; min-height:0; }
+  .rank-item { display:flex; align-items:center; gap:8px; padding:6px 0; font-size:13px; border-bottom:1px dashed rgba(64,158,255,.12); }
+  .rank-no { width:20px; height:20px; border-radius:4px; background:rgba(64,158,255,.15); color:#4dc8ff; font-size:11px; display:flex; align-items:center; justify-content:center; flex:none; }
+  .rank-no.top { background:linear-gradient(135deg,#4dc8ff,#7c5cff); color:#fff; }
+  .rank-name { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .rank-bar { width:90px; height:6px; background:rgba(255,255,255,.08); border-radius:3px; overflow:hidden; flex:none; }
+  .rank-bar i { display:block; height:100%; background:linear-gradient(90deg,#4dc8ff,#7c5cff); border-radius:3px; }
+  .rank-num { width:34px; text-align:right; color:#4dc8ff; font-family:Consolas,monospace; font-size:12px; flex:none; }
+  .row { display:flex; justify-content:space-between; padding:6px 0; font-size:12px; border-bottom:1px dashed rgba(64,158,255,.12); }
+  .row .name { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-right:8px; }
+  .row .time { color:#5b6b93; font-family:Consolas,monospace; }
+  .ok { color:#2fe6a7; }
+  .fail { color:#f76560; }
+  .login-tip { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); padding:20px 30px; background:rgba(7,11,29,.9); border:1px solid rgba(64,158,255,.4); border-radius:10px; text-align:center; }
+  .login-tip button { background:linear-gradient(90deg,#4dc8ff,#7c5cff); border:none; color:#fff; padding:10px 24px; border-radius:6px; cursor:pointer; font-size:14px; }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="top-title">云盘搜 · 数据监控大屏</div>
+  <div class="top-error" id="topError"></div>
+  <div class="top-actions">
+    <span class="clock" id="clock"></span>
+    <a href="/admin.html">后台</a>
+    <a href="/">前台</a>
+  </div>
+</div>
+<div class="grid">
+  <div class="panel">
+    <div class="pt">分类资源 TOP 5</div>
+    <div class="rank" id="catRank"></div>
+  </div>
+  <div class="panel">
+    <div class="pt">网盘类型分布</div>
+    <div class="chart" id="diskPie"></div>
+  </div>
+  <div class="panel">
+    <div class="pt">今日采集动态</div>
+    <div id="recentTrans" style="overflow:auto;flex:1;min-height:0"></div>
+  </div>
+  <div class="panel" style="grid-column:1;grid-row:2">
+    <div class="pt">任务执行状态</div>
+    <div class="chart" id="taskStatus"></div>
+  </div>
+  <div class="panel" style="grid-column:2;grid-row:2">
+    <div class="pt">中心指标</div>
+    <div class="kpis" id="kpis"></div>
+    <div class="pt" style="margin-top:8px">转存统计</div>
+    <div class="chart" id="transBar"></div>
+  </div>
+  <div class="panel" style="grid-column:3;grid-row:2">
+    <div class="pt">最近任务运行</div>
+    <div id="recentTasks" style="overflow:auto;flex:1;min-height:0"></div>
+  </div>
+</div>
+<div id="loginTip" class="login-tip" style="display:none">
+  <div style="font-size:15px;margin-bottom:12px">需要管理员登录态</div>
+  <div style="font-size:12px;color:#8ba3d4;margin-bottom:14px">大屏数据来自后台接口，需先登录</div>
+  <button onclick="location.href='/admin.html'">前往后台登录</button>
+</div>
+<script src="lib/echarts.min.js"></script>
+<script>
+var tk = localStorage.getItem('at') || '';
+function clock(){
+  var d = new Date(), p = function(x){ return x<10?'0'+x:x; };
+  document.getElementById('clock').textContent = d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+}
+setInterval(clock, 1000); clock();
+function numUp(){
+  document.querySelectorAll('.kpi-num').forEach(function(el){
+    var target = parseInt(el.dataset.n, 10) || 0;
+    var t0 = performance.now(), dur = 1400;
+    (function tick(now){
+      var k = Math.min((now-t0)/dur, 1), e = 1 - Math.pow(1-k, 3);
+      el.textContent = Math.round(target * e).toLocaleString();
+      if (k < 1) requestAnimationFrame(tick);
+    })(t0);
+  });
+}
+function api(p){
+  return fetch('/api/admin/' + p, { headers: { 'Authorization': 'Bearer ' + tk } }).then(function(r){
+    if (r.status === 401) { document.getElementById('loginTip').style.display = 'block'; throw new Error('not_logged_in'); }
+    return r.json();
+  });
+}
+function apiPublic(p){
+  return fetch('/api/' + p).then(function(r){ return r.json(); });
+}
+function showError(msg){
+  var el = document.getElementById('topError');
+  el.textContent = msg;
+  setTimeout(function(){ el.textContent = ''; }, 5000);
+}
+function fmtTime(t){
+  if (!t) return '';
+  var s = String(t);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(11, 16);
+  return s;
+}
+function loadAll(){
+  Promise.all([
+    api('dashboard'),
+    api('tasks'),
+    api('task-logs?limit=20'),
+    apiPublic('transfer/history')
+  ]).then(function(rs){
+    var dash = rs[0], tasks = rs[1], logs = rs[2], trans = rs[3];
+    render(dash, tasks, logs, trans);
+  }).catch(function(e){ if (e.message !== 'not_logged_in') showError('加载失败：' + e.message); });
+}
+function render(dash, tasks, logs, trans){
+  // KPIs
+  var stats = (dash && dash.stats) || {};
+  var transfers = (dash && dash.transfers) || {};
+  var kpis = [
+    { n: stats.total || 0, l: '资源总数' },
+    { n: stats.valid || 0, l: '有效链接' },
+    { n: transfers.total || 0, l: '累计转存' },
+    { n: dash.keywords || 0, l: '热搜词' }
+  ];
+  var kpisEl = document.getElementById('kpis');
+  kpisEl.innerHTML = '';
+  kpis.forEach(function(k){
+    var d = document.createElement('div');
+    d.className = 'kpi';
+    d.innerHTML = '<div class="kpi-num" data-n="'+k.n+'">0</div><div class="kpi-label">'+k.l+'</div>';
+    kpisEl.appendChild(d);
+  });
+  setTimeout(numUp, 100);
+  // 分类 TOP（基于 stats 全量查，需要另查）
+  api('categories').then(function(ct){
+    var top = (ct.items || []).slice().sort(function(a,b){return (b.res_count||0)-(a.res_count||0)}).slice(0,5);
+    var max = top.length ? (top[0].res_count || 1) : 1;
+    document.getElementById('catRank').innerHTML = top.map(function(c, i){
+      var pct = Math.round((c.res_count||0)/max*100);
+      return '<div class="rank-item"><div class="rank-no '+(i<3?'top':'')+'">'+(i+1)+'</div><div class="rank-name">'+c.name+'</div><div class="rank-bar"><i style="width:'+pct+'%"></i></div><div class="rank-num">'+(c.res_count||0)+'</div></div>';
+    }).join('') || '<div style="color:#5b6b93;text-align:center;padding:30px 0">暂无数据</div>';
+  });
+  // 网盘饼图
+  var pie = echarts.init(document.getElementById('diskPie'));
+  var byType = stats.byType || {};
+  var pieData = [];
+  Object.keys(byType).forEach(function(k){
+    var nm = {quark:'夸克',baidu:'百度',aliyun:'阿里',tianyi:'天翼',uc:'UC',xunlei:'迅雷'}[k] || k;
+    var col = {quark:'#4dc8ff',baidu:'#2fe6a7',aliyun:'#7c5cff',tianyi:'#f59e0b',uc:'#ec4899',xunlei:'#d4543e'}[k] || '#888';
+    pieData.push({ name: nm, value: byType[k], itemStyle: { color: col } });
+  });
+  pie.setOption({
+    tooltip: { trigger: 'item' },
+    legend: { bottom: 0, itemWidth: 10, itemHeight: 10, textStyle: { color: '#8ba3d4', fontSize: 11 } },
+    series: [{
+      type: 'pie', radius: ['40%', '64%'], center: ['50%', '46%'],
+      itemStyle: { borderColor: '#0b1026', borderWidth: 3 },
+      label: { color: '#c8d6f0', fontSize: 11, formatter: '{b}\n{d}%' },
+      labelLine: { lineStyle: { color: '#3a4a73' } },
+      data: pieData
+    }]
+  });
+  // 任务执行状态饼图
+  var tsOn = 0, tsOff = 0;
+  (tasks.items || []).forEach(function(t){ if (t.status) tsOn++; else tsOff++; });
+  var tsPie = echarts.init(document.getElementById('taskStatus'));
+  tsPie.setOption({
+    tooltip: { trigger: 'item' },
+    series: [{
+      type: 'pie', radius: ['38%', '60%'], center: ['50%', '50%'],
+      itemStyle: { borderColor: '#0b1026', borderWidth: 3 },
+      label: { color: '#c8d6f0', fontSize: 11, formatter: '{b}\n{c}' },
+      labelLine: { lineStyle: { color: '#3a4a73' } },
+      data: [
+        { name: '启用', value: tsOn, itemStyle: { color: '#2fe6a7' } },
+        { name: '停用', value: tsOff, itemStyle: { color: '#f76560' } }
+      ]
+    }]
+  });
+  // 转存统计柱图
+  var transBar = echarts.init(document.getElementById('transBar'));
+  transBar.setOption({
+    grid: { left: 50, right: 16, top: 16, bottom: 26 },
+    tooltip: { trigger: 'axis' },
+    xAxis: { type: 'category', data: ['累计', '今日'], axisLine: { lineStyle: { color: '#3a4a73' } }, axisLabel: { color: '#8ba3d4', fontSize: 11 } },
+    yAxis: { type: 'value', axisLine: { show: false }, axisLabel: { color: '#8ba3d4', fontSize: 11 }, splitLine: { lineStyle: { color: 'rgba(64,158,255,.08)' } } },
+    series: [{
+      type: 'bar', barWidth: 30,
+      data: [
+        { value: transfers.total || 0, itemStyle: { color: '#4dc8ff' } },
+        { value: transfers.today || 0, itemStyle: { color: '#7c5cff' } }
+      ]
+    }]
+  });
+  // 最近转存
+  var recEl = document.getElementById('recentTrans');
+  var recList = (trans.records || []).slice(0, 8);
+  recEl.innerHTML = recList.map(function(r){
+    return '<div class="row"><span class="name">'+((r.title||r.originalUrl||'').slice(0, 28))+'</span><span class="time">'+fmtTime(r.createdAt||'')+'</span></div>';
+  }).join('') || '<div style="color:#5b6b93;text-align:center;padding:30px 0">暂无转存</div>';
+  // 最近任务
+  var taskEl = document.getElementById('recentTasks');
+  taskEl.innerHTML = (logs.items || []).slice(0, 12).map(function(l){
+    return '<div class="row"><span class="name">'+l.task_type+'</span><span class="'+(l.status==='ok'?'ok':'fail')+'">'+(l.status==='ok'?'✓':'✕')+'</span><span class="time">'+fmtTime(l.finished_at)+'</span></div>';
+  }).join('') || '<div style="color:#5b6b93;text-align:center;padding:30px 0">暂无日志</div>';
+  window.addEventListener('resize', function(){
+    pie.resize(); tsPie.resize(); transBar.resize();
+  });
+}
+if (tk) { loadAll(); setInterval(loadAll, 30000); }
+else { document.getElementById('loginTip').style.display = 'block'; }
+</script>
+</body>
+</html>

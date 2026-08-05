@@ -1,20 +1,6 @@
-// server/handlers/categories.js — 后台分类管理：CRUD / 排序 / 引用联动 / TG 频道分类映射
+// server/handlers/categories.js — 后台分类管理：CRUD / 排序 / 引用联动
 const { json, readBody } = require("../middleware");
 const store = require("../../lib/store");
-
-// TG 频道已知列表（分类映射配置用；与 tg.js CH_NAME 保持一致，此处只用于展示已知频道）
-const KNOWN_CHANNELS = [
-  "okpojie", "softwareGods", "happyflims", "allgamegod", "freekecheng", "ShortDramaGod",
-  "allgirlhunter", "Aliyun_4K_Movies", "netdisk_movies",
-  "bdyunpan", "BaiduCloudDisk", "yunpan139", "yunpan189", "yp123pan", "yunpanuc", "yunpanxunlei", "yunpans",
-];
-
-// site_config.tg_channel_cats = JSON 字符串 {频道名: 分类名}
-function readTgCatMap(cfg) {
-  var raw = cfg && cfg.tg_channel_cats;
-  if (typeof raw === "string") { try { return JSON.parse(raw) || {}; } catch (e) { return {}; } }
-  return raw && typeof raw === "object" ? raw : {};
-}
 
 // GET /api/admin/categories — 分类列表（含资源/源引用计数）
 async function list(req, res) {
@@ -95,33 +81,4 @@ async function del(req, res) {
   } catch (e) { json(res, 500, { error: e.message }); }
 }
 
-// GET /api/admin/categories/tgmap — TG 频道 → 分类映射（含全部已知频道 + 当前配置 + 候选分类）
-async function tgMap(req, res) {
-  try {
-    var cfg = await store.getConfig();
-    var map = readTgCatMap(cfg);
-    var cats = await store.categoryList();
-    json(res, 200, {
-      channels: KNOWN_CHANNELS,
-      map: map,
-      categories: cats.map(function (c) { return c.name; }),
-    });
-  } catch (e) { json(res, 500, { error: e.message }); }
-}
-
-// POST /api/admin/categories/tgmap — 保存映射 {map: {频道: 分类名}}（分类名空=清除该频道映射）
-async function saveTgMap(req, res) {
-  try {
-    var b = JSON.parse(await readBody(req));
-    if (!b.map || typeof b.map !== "object") return json(res, 400, { error: "map 必填" });
-    var clean = {};
-    for (var ch in b.map) {
-      var v = String(b.map[ch] || "").trim();
-      if (v) clean[ch] = v;
-    }
-    await store.saveConfig({ tg_channel_cats: JSON.stringify(clean) });
-    json(res, 200, { ok: true, map: clean });
-  } catch (e) { json(res, 500, { error: e.message }); }
-}
-
-module.exports = { list, add, update, del, tgMap, saveTgMap };
+module.exports = { list, add, update, del };
