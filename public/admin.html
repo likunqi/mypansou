@@ -1314,7 +1314,7 @@
             </div>
             <div v-if="setTab==='api'">
             <div class="row">
-              <div class="col-lg-6">
+              <div class="col-lg-8">
                 <div class="card">
                   <div class="card-header"><h3 class="card-title">API 配置</h3></div>
                   <div class="card-body">
@@ -1340,11 +1340,25 @@
                   </div>
                 </div>
               </div>
+              <div class="col-lg-4">
+                <div class="card">
+                  <div class="card-header"><h3 class="card-title">多 Host 轮询说明</h3></div>
+                  <div class="card-body text-secondary">
+                    <ul class="list-unstyled mb-0 small">
+                      <li class="mb-2">· <b>权重</b>：越大越优先被选中（默认 1）</li>
+                      <li class="mb-2">· <b>请求时</b>按权重随机选<b>已启用</b>的 Host</li>
+                      <li class="mb-2">· <b>故障自动切换</b>：当前 Host 失败时尝试下一个</li>
+                      <li class="mb-2">· <b>格式</b>：pansou.example.com 或 host:port</li>
+                      <li class="mb-2">· 留空或禁用将跳过该 Host</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
             </div>
             </div>
             <div v-if="setTab==='cache'">
             <div class="row">
-              <div class="col-lg-6">
+              <div class="col-lg-8">
                 <div class="card">
                   <div class="card-header"><h3 class="card-title">转存缓存</h3></div>
                   <div class="card-body">
@@ -1375,11 +1389,24 @@
                   </div>
                 </div>
               </div>
+              <div class="col-lg-4">
+                <div class="card">
+                  <div class="card-header"><h3 class="card-title">缓存说明</h3></div>
+                  <div class="card-body text-secondary">
+                    <ul class="list-unstyled mb-0 small">
+                      <li class="mb-2">· 缓存已转存成功的链接，避免重复转存</li>
+                      <li class="mb-2">· 清理后下次转存将重新查询/上传</li>
+                      <li class="mb-2">· 不影响数据库中的资源记录</li>
+                      <li class="mb-2">· 转存失败会自动重试 3 次</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
             </div>
             </div>
             <div v-if="setTab==='sec'">
             <div class="row">
-              <div class="col-lg-6">
+              <div class="col-lg-8">
                 <div class="card">
                   <div class="card-header"><h3 class="card-title">修改密码</h3></div>
                   <div class="card-body">
@@ -1399,6 +1426,19 @@
                       <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
                       保存
                     </button>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-4">
+                <div class="card">
+                  <div class="card-header"><h3 class="card-title">密码安全</h3></div>
+                  <div class="card-body text-secondary">
+                    <ul class="list-unstyled mb-0 small">
+                      <li class="mb-2">· 至少 6 位</li>
+                      <li class="mb-2">· 两次输入须一致</li>
+                      <li class="mb-2">· 当前密码不正确会提示</li>
+                      <li class="mb-2">· scrypt 哈希存储，不存明文</li>
+                    </ul>
                   </div>
                 </div>
               </div>
