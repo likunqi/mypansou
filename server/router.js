@@ -15,6 +15,7 @@ const multi = require("./handlers/multi");
 const sources = require("./handlers/sources");
 const tasks = require("./handlers/tasks");
 const tg = require("./handlers/tg");
+const categories = require("./handlers/categories");
 
 async function handleRequest(req, res) {
   logger(req, res);
@@ -135,6 +136,14 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/tg/settings" && method === "POST") return await tg.saveSettings(req, res);
       if (urlPath === "/api/admin/tg/batch-add" && method === "POST") return await tg.batchAdd(req, res);
       if (urlPath === "/api/admin/tg/sources" && method === "GET") return await tg.sourceList(req, res);
+
+      // 分类管理
+      if (urlPath === "/api/admin/categories" && method === "GET") return await categories.list(req, res);
+      if (urlPath === "/api/admin/categories" && method === "POST") return await categories.add(req, res);
+      if (urlPath === "/api/admin/categories/tgmap" && method === "GET") return await categories.tgMap(req, res);
+      if (urlPath === "/api/admin/categories/tgmap" && method === "POST") return await categories.saveTgMap(req, res);
+      if (/^\/api\/admin\/categories\/\d+$/.test(urlPath) && method === "POST") return await categories.update(req, res);
+      if (/^\/api\/admin\/categories\/\d+$/.test(urlPath) && method === "DELETE") return await categories.del(req, res);
 
       json(res, 404, { error: "admin_route_not_found" });
       return;

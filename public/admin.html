@@ -781,6 +781,76 @@
           </div>
         </div>
 
+        <!-- ========== 分类管理 ========== -->
+        <div v-if="pg==='ct'" class="row">
+          <div class="col-12">
+            <div class="alert alert-info py-2 mb-3">
+              <span>管理资源分类字典：新增/改名/排序/启停。改名会同步更新已入库资源与采集源的分类；删除分类会把引用它的资源/源分类清空（数据不删）。TG 频道分类映射 = 批量添加频道时自动套用的分类（可覆盖内置默认）。</span>
+            </div>
+            <div class="card mb-3">
+              <div class="card-header"><h3 class="card-title">分类管理</h3><div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldct">刷新</button></div></div>
+              <div class="card-body">
+                <div class="row g-2 mb-3 align-items-end">
+                  <div class="col-auto" style="min-width:220px">
+                    <label class="form-label">{{ctEditId?'编辑分类':'新增分类'}}</label>
+                    <input class="form-control" v-model="ctNew.name" placeholder="如：软件" @keydown.enter="ctadd">
+                  </div>
+                  <div class="col-auto">
+                    <label class="form-label">排序权重</label>
+                    <input class="form-control" type="number" v-model="ctNew.sort_order" style="width:110px">
+                  </div>
+                  <div class="col-auto">
+                    <label class="form-label">状态</label>
+                    <select class="form-select" v-model="ctNew.status" style="width:100px">
+                      <option value="1">启用</option><option value="0">停用</option>
+                    </select>
+                  </div>
+                  <div class="col-auto"><button class="btn btn-primary" @click="ctadd">{{ctEditId?'保存':'添加'}}</button></div>
+                  <div class="col-auto" v-if="ctEditId"><button class="btn btn-outline-secondary" @click="ctCancel">取消编辑</button></div>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-vcenter card-table">
+                    <thead><tr><th>#</th><th>分类</th><th>资源数</th><th>采集源</th><th>排序</th><th>状态</th><th>操作</th></tr></thead>
+                    <tbody>
+                      <tr v-for="c in ctItems" :key="c.id">
+                        <td class="text-secondary">{{c.id}}</td>
+                        <td class="fw-bold">{{c.name}}</td>
+                        <td><span class="badge bg-primary-lt text-primary">{{c.res_count||0}}</span></td>
+                        <td><span class="badge bg-info-lt text-info">{{c.src_count||0}}</span></td>
+                        <td class="text-secondary">{{c.sort_order||0}}</td>
+                        <td><span class="badge" :class="String(c.status)==='1'||c.status===1?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{String(c.status)==='1'||c.status===1?'启用':'停用'}}</span></td>
+                        <td class="text-nowrap">
+                          <button class="btn btn-outline-primary btn-sm" @click="ctedit(c)">编辑</button>
+                          <button class="btn btn-outline-secondary btn-sm" @click="ctst(c)">{{String(c.status)==='1'||c.status===1?'停用':'启用'}}</button>
+                          <button class="btn btn-outline-danger btn-sm" @click="ctdel(c)">删除</button>
+                        </td>
+                      </tr>
+                      <tr v-if="!ctItems.length"><td colspan="7" class="text-center text-secondary py-4">暂无分类</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="form-hint mt-2">sort_order=0 的分类（自动补种/未设置）排在最后；已有分类会在服务启动时从资源数据自动补入。</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">TG 频道分类映射</h3><div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldctmap">刷新</button></div></div>
+              <div class="card-body">
+                <p class="form-hint">批量添加 TG 频道时按此映射自动填分类；留空 = 用内置默认。保存后立即生效。</p>
+                <div class="row g-2">
+                  <div class="col-6 col-md-4 col-xl-3" v-for="ch in ctChannels" :key="ch">
+                    <label class="form-label">{{ch}}</label>
+                    <select class="form-select form-select-sm" v-model="ctMap[ch]">
+                      <option value="">（默认）</option>
+                      <option v-for="c in ctAllNames" :key="c" :value="c">{{c}}</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="mt-3"><button class="btn btn-primary" @click="ctmapsave">保存映射</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- ========== TG 采集（主力） ========== -->
         <div v-if="pg==='tg'" class="row">
           <div class="col-12">
@@ -1288,13 +1358,15 @@ var IC={
   book:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>',
   fire:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4.418 0 8-3.134 8-7 0-3.5-2.5-5.5-3-8-1.5 1-2 3-3 3 0-3-1-7-5-9 0 5-3 6-3 10 0 1.5.5 3 1 4-1 0-2-1-2-3-2 2-1 10 7 10z"/></svg>',
   brain:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2a2.5 2.5 0 0 0-2.5 2.5v.5a2.5 2.5 0 0 0-3 2.45A2.5 2.5 0 0 0 2 9.5c0 .78.36 1.47.92 1.92A2.5 2.5 0 0 0 2 13.5a2.5 2.5 0 0 0 2.5 2.5h.5a2.5 2.5 0 0 0 2.45 3A2.5 2.5 0 0 0 9.5 22c.78 0 1.47-.36 1.92-.92A2.5 2.5 0 0 0 13.5 22a2.5 2.5 0 0 0 2.5-2.5v-.5a2.5 2.5 0 0 0 3-2.45A2.5 2.5 0 0 0 22 14.5c0-.78-.36-1.47-.92-1.92A2.5 2.5 0 0 0 22 10.5a2.5 2.5 0 0 0-2.5-2.5h-.5a2.5 2.5 0 0 0-2.45-3A2.5 2.5 0 0 0 14.5 2c-.78 0-1.47.36-1.92.92A2.5 2.5 0 0 0 10.5 2z"/><path d="M12 8v4"/><path d="M12 14v.01"/></svg>',
-  send:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>'
+  send:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>',
+  tag:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.42 0l8.58-8.58a1 1 0 0 0 0-1.42z"/><circle cx="7" cy="7" r="1.5"/></svg>'
 };
 var menus=[
   {id:"st",title:"仪表盘",icon:IC.home},
   {id:"ck",title:"Cookie 管理",icon:IC.cookie},
   {id:"rs",title:"资源管理",icon:IC.book},
   {id:"hi",title:"转存历史",icon:IC.history},
+  {id:"ct",title:"分类管理",icon:IC.tag},
   {id:"kw",title:"热搜管理",icon:IC.fire},
   {id:"ai",title:"AI 提炼",icon:IC.brain},
   {id:"sc",title:"搜索源",icon:IC.settings},
@@ -1580,6 +1652,61 @@ cr({
       if(i>=0)disks.splice(i,1);else disks.push(dk);
       ap("POST","sources/update",{id:s.id,disks:disks}).then(function(r){
         if(r.ok){msg("「"+s.name+"」网盘限制已更新");ldsc()}else msg(r.error||"操作失败","e");
+      });
+    }
+
+    // ---- 分类管理 ----
+    var ctItems=rf([]);
+    var ctNew=rct({name:"",sort_order:0,status:"1"});
+    var ctEditId=rf(0);
+    var ctChannels=rf([]);
+    var ctMap=rct({});
+    var ctAllNames=rf([]);
+    function ldct(){ap("GET","categories").then(function(r){ctItems.value=r.items||[]})}
+    function ctadd(){
+      if(!ctNew.name.trim()){msg("分类名称必填","e");return}
+      var body={name:ctNew.name.trim(),sort_order:parseInt(ctNew.sort_order)||0,status:ctNew.status==="1"?1:0};
+      var url=ctEditId.value?"categories/"+ctEditId.value:"categories";
+      ap("POST",url,body).then(function(r){
+        if(r.error){msg(r.error,"e");return}
+        msg(ctEditId.value?"已保存":"已添加");ctCancel();ldct();
+      });
+    }
+    function ctedit(c){ctEditId.value=c.id;ctNew.name=c.name;ctNew.sort_order=c.sort_order||0;ctNew.status=String(c.status)==="1"||c.status===1?"1":"0"}
+    function ctCancel(){ctEditId.value=0;ctNew.name="";ctNew.sort_order=0;ctNew.status="1"}
+    function ctst(c){
+      var n=String(c.status)==="1"||c.status===1?0:1;
+      ap("POST","categories/"+c.id,{status:n}).then(function(r){
+        if(r.error){msg(r.error,"e");return}
+        msg(n?"已启用":"已停用");ldct();
+      });
+    }
+    function ctdel(c){
+      var extra=c.res_count||c.src_count?"（该分类下有 "+(c.res_count||0)+" 条资源 / "+(c.src_count||0)+" 个采集源，删除后分类将置空）":"";
+      if(!confirm("删除分类「"+c.name+"」？"+extra))return;
+      ap("DELETE","categories/"+c.id).then(function(r){
+        if(r.error){msg(r.error,"e");return}
+        msg("已删除"+(r.cleared&&(r.cleared.res||r.cleared.src)?"，清空 "+r.cleared.res+" 条资源 / "+r.cleared.src+" 个源分类":""));ldct();
+      });
+    }
+    function ldctmap(){
+      ap("GET","categories/tgmap").then(function(r){
+        if(r.error){msg(r.error,"e");return}
+        ctChannels.value=r.channels||[];
+        ctAllNames.value=r.categories||[];
+        var mm=r.map||{};
+        var m={};
+        for(var k in mm)m[k]=mm[k];
+        for(var i=0;i<ctChannels.value.length;i++){if(!(ctChannels.value[i] in m))m[ctChannels.value[i]]=""}
+        ctMap.value=m;
+      });
+    }
+    function ctmapsave(){
+      var m={};
+      for(var k in ctMap.value)if(ctMap.value[k])m[k]=ctMap.value[k];
+      ap("POST","categories/tgmap",{map:m}).then(function(r){
+        if(r.error){msg(r.error,"e");return}
+        msg("映射已保存");ldctmap();
       });
     }
 
@@ -1911,6 +2038,7 @@ cr({
       if(p==="ck"){ldck();ldcs()};
       if(p==="rs"){rsTab.value="list";ldres();ldsub();ldimp()}
       if(p==="hi")ldhi();
+      if(p==="ct"){ldct();ldctmap()}
       if(p==="kw")ldKw();
       if(p==="ai")ldai();
       if(p==="sc")ldsc();
@@ -1925,7 +2053,7 @@ cr({
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="ck"){ldck();ldcs()}else if(h==="hi")ldhi();else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="tg")ldtg();else if(h==="ts")ldts();else if(h==="rs"){ldres();ldsub();ldimp()}else if(h==="site")ldsite();else{loadst();lddb();lddash()}
+        if(h==="ck"){ldck();ldcs()}else if(h==="hi")ldhi();else if(h==="ct"){ldct();ldctmap()}else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="tg")ldtg();else if(h==="ts")ldts();else if(h==="rs"){ldres();ldsub();ldimp()}else if(h==="site")ldsite();else{loadst();lddb();lddash()}
       }
     });
 
@@ -1933,6 +2061,7 @@ cr({
       rsTab,rsQ,res,rsAddShow,rsEditId,rsAdd,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crRules,crRuleStats,crNew,crRuleNew,
       srcName,srcBadge,fmtT,ldres,rsadd,rsdel,rsedit,rsCancel,rsDiskCls,rsDiskName,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,
       kwItems,kwNew,kwEditId,ldKw,kwadd,kwEdit,kwCancel,kwhot,kwst,kwdel,
+      ctItems,ctNew,ctEditId,ctChannels,ctMap,ctAllNames,ldct,ctadd,ctedit,ctCancel,ctst,ctdel,ldctmap,ctmapsave,
       scItems,ldsc,scToggle,scDiskOpts,scDisk,
       tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,ldtg,tgSv,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
       tsItems,tsLogs,tsShow,tsAdvShow,tsLogShow,tsEditId,tsSaving,tsTypes,tsNew,fmtInt,ldts,ldtslogs,tstoggle,tsrun,tsNewShow,tsedit,tssave,tsdel,

@@ -245,7 +245,9 @@ CREATE TABLE IF NOT EXISTS categories (
   id          INT          PRIMARY KEY AUTO_INCREMENT,
   name        VARCHAR(64)  NOT NULL,
   sort_order  INT          DEFAULT 0,
+  status      TINYINT(1)   DEFAULT 1,
   created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uk_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

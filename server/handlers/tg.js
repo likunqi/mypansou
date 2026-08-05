@@ -49,6 +49,12 @@ function normalizeSettings(s) {
     interval_sec: parseInt(s.interval_sec, 10) || 3600,
   };
 }
+// 频道→分类映射配置（后台分类管理页可改）：site_config.tg_channel_cats = {频道: 分类名}
+function readCatMap(cfg) {
+  var raw = cfg && cfg.tg_channel_cats;
+  if (typeof raw === "string") { try { return JSON.parse(raw) || {}; } catch (e) { return {}; } }
+  return raw && typeof raw === "object" ? raw : {};
+}
 
 async function getSettings(req, res) {
   try {
@@ -80,6 +86,7 @@ async function batchAdd(req, res) {
     instance = instance.replace(/\/+$/, "");
     var limit = parseInt(b.limit, 10) || settings.limit || 50;
     var category = String(b.category || "").trim();
+    var catMap = readCatMap(cfg);
     var list = await store.crawlerSourceList(false);
     var created = [], existed = [], failed = [];
     for (var i = 0; i < channels.length; i++) {
@@ -98,7 +105,7 @@ async function batchAdd(req, res) {
         source_type: "rss",
         url_template: url,
         page_start: 1, page_end: 1, encoding: "utf-8",
-        category: category || CH_CAT[ch] || "",
+        category: category || catMap[ch] || CH_CAT[ch] || "",
         disk_type: "",
         status: 1,
       });
