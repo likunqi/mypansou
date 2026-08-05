@@ -265,7 +265,7 @@ async function aiGenerate(req, res) {
     var diskRegex = disks.length
       ? "^https:\\/\\/pan\\.(?:" + disks.map(function (d) { return DISK_HOST[d]; }).filter(Boolean).join("|") + ")\\/s\\/[A-Za-z0-9_-]+"
       : "^https:\\/\\/pan\\.(?:quark\\.cn|baidu\\.com)\\/s\\/[A-Za-z0-9_-]+";
-    var sys = ai.buildDomainPrompt();
+    var sys = await ai.getEffectiveDomainPrompt();
     var prompt = "目标采集源: Telegram 频道 @" + channel + "\nRSS URL: " + url +
       "\n采集网盘限制: " + diskNames + "\n分类: " + (category || "(未设置)") +
       "\nurl 字段必须匹配的网盘正则参考: " + diskRegex +

@@ -51,6 +51,7 @@ async function saveConfig(req, res) {
     if (b.ai_base !== undefined) cfg.ai_base = b.ai_base || DEFAULT_BASE;
     if (b.ai_key !== undefined) cfg.ai_key = b.ai_key;
     if (b.ai_model !== undefined) cfg.ai_model = b.ai_model || DEFAULT_MODEL;
+    if (b.domain_prompt !== undefined) cfg.ai_domain_prompt = b.domain_prompt;
     await store.saveConfig(cfg);
     json(res, 200, { ok: true });
   } catch (e) { json(res, 500, { error: e.message }); }
@@ -59,12 +60,22 @@ async function saveConfig(req, res) {
 // 读 AI 配置（key 脱敏回显）
 async function getConfig(req, res) {
   var ac = await getAiConfig();
+  var cfg = await store.getConfig();
   json(res, 200, {
     base: ac.base,
     keySet: !!ac.key,
     keyMask: ac.key ? "****" + ac.key.slice(-4) : "",
     model: ac.model,
+    domainPrompt: cfg.ai_domain_prompt || "",
   });
+}
+
+// 取最终生效的领域提示词（自定义优先，缺省内置默认）——genRules/aiGenerate 共用
+async function getEffectiveDomainPrompt() {
+  try {
+    var cfg = await store.getConfig();
+    return buildDomainPrompt(cfg && cfg.ai_domain_prompt);
+  } catch (e) { return buildDomainPrompt(); }
 }
 
 // 连通性测试
@@ -153,17 +164,27 @@ const PAN_URL_RE = /^https:\/\/pan\.(?:quark\.cn|baidu\.com)\/s\/[A-Za-z0-9_-]+/
 const PAN_HINT_RE = /pan\.(?:quark\.cn|baidu\.com)|pan\.quark|pan\.baidu/i;
 
 // 生成内置领域提示词（system prompt 主体）
-function buildDomainPrompt() {
-  return [
+// 支持自定义覆盖：site_config.ai_domain_prompt 非空时用自定义文本（保留默认的 {FIELD_WHITELIST}/{RULE_TYPE_WHITELIST}/{PAN_URL_RE} 占位符替换）
+function buildDomainPrompt(custom) {
+  var base = [
     "你是「云盘搜」网盘资源搜索引擎的采集规则工程师。本项目只收录网盘资源，遵循以下硬性领域约束：",
-    "1. 资源字段只能从白名单选：" + FIELD_WHITELIST.join("/") + "（含义：title=标题、url=网盘链接、password=提取码、desc=描述、category=分类、disk_type=网盘类型、thumbnail=封面图、extract_code=提取码备选字段）。",
+    "1. 资源字段只能从白名单选：" + FIELD_WHITELIST.join("/") + "（含义：title=标题、url=网盘分享链接、password=提取码、desc=描述、category=分类、disk_type=网盘类型、thumbnail=封面图、extract_code=提取码备选字段）。",
     "2. 规则类型只能从白名单选：" + RULE_TYPE_WHITELIST.join("/") + "（regex=正则提取第一个捕获组、jsonpath=JSON路径、fixed=固定值、concat=多个 jsonpath 拼接）。css 类型引擎暂不支持，禁止使用。",
-    "3. url 字段必须产出夸克/百度网盘分享链接，格式：" + PAN_URL_RE.source + "。严禁产出 t.me 消息链接、普通网页链接或残缺 URL；提取到相对路径时补全为 https://。",
+    "3. url 字段必须产出网盘分享链接，格式：" + PAN_URL_RE.source + "。严禁产出 t.me 消息链接、普通网页链接或残缺 URL；提取到相对路径时补全为 https://。",
     "4. title 和 url 两条规则必须存在且 required:true；其余字段可选。",
-    "5. category 只能从分类字典中取值；disk_type 只能取 quark/baidu。",
-    "6. 辅助定位规则：page 类型可加 field_name=__item__ 的条目分隔正则；api 类型可加 field_name=__list__ 的列表 jsonpath（如 $.data.list）。",
-    "7. 只输出 JSON 数组（元素结构 {field_name, rule_type, rule_value, required, default_value?, filter_regex?}），不要任何解释文字、markdown 代码围栏或多余键。",
+    "5. category 只能从分类字典中取值；disk_type 只能取 quark/baidu（配合规则值里出现的盘自动推断，不要用固定值覆盖实际盘）。",
+    "6. password（提取码）提取方法：从条目的描述/正文文本中找『提取码』字样后的字符（如 提取码[:：\\s]*([A-Za-z0-9]{4,8})）；只有当分享链接本身带 ?pwd=xxx 时才可从 url 提取。禁止把『百度网盘链接的 pwd 参数正则』套用到夸克链接上——url 是夸克盘时 password 应从文本提取。",
+    "7. disk_type 提取方法：看 url 链接的域名推断盘类型（quark.cn→quark、baidu.com→baidu），用 regex 从 url 捕获，如 https://pan\\.(quark|baidu)\\. 的捕获组；不要用 fixed 固定写死，除非频道只发一种盘。",
+    "8. 辅助定位规则：page 类型可加 field_name=__item__ 的条目分隔正则；api 类型可加 field_name=__list__ 的列表 jsonpath（如 $.data.list）。",
+    "9. 只输出 JSON 数组（元素结构 {field_name, rule_type, rule_value, required, default_value?, filter_regex?}），不要任何解释文字、markdown 代码围栏或多余键。",
   ].join("\n");
+  if (custom && String(custom).trim()) {
+    return String(custom)
+      .replace(/\{FIELD_WHITELIST\}/g, FIELD_WHITELIST.join("/"))
+      .replace(/\{RULE_TYPE_WHITELIST\}/g, RULE_TYPE_WHITELIST.join("/"))
+      .replace(/\{PAN_URL_RE\}/g, PAN_URL_RE.source);
+  }
+  return base;
 }
 
 // 校验/修正 AI 生成的规则数组 → {rules, accepted, rejected, fixed}
@@ -286,7 +307,7 @@ async function genRules(req, res) {
       } catch (e) {}
     }
 
-    var sys = buildDomainPrompt();
+    var sys = await getEffectiveDomainPrompt();
     var prompt = ctxDesc + "\n\n示例内容（供正则参考）:\n" + (sample || "(未提供)") + "\n\n请生成解析规则 JSON 数组。";
     var out = await chat(ac, prompt.slice(0, 12000), sys);
     var rules = extractJsonArray(out);
@@ -320,4 +341,4 @@ async function genScript(req, res) {
   } catch (e) { json(res, 502, { ok: false, error: e.message }); }
 }
 
-module.exports = { saveConfig, getConfig, test, summarize, list, genRules, genScript, validateRules, buildDomainPrompt, getAiConfig, chat, extractJsonArray };
+module.exports = { saveConfig, getConfig, test, summarize, list, genRules, genScript, validateRules, buildDomainPrompt, getAiConfig, chat, extractJsonArray, getEffectiveDomainPrompt };

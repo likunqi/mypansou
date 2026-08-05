@@ -1462,11 +1462,29 @@
                   <div class="card-header"><h3 class="card-title">AI 用途说明</h3></div>
                   <div class="card-body text-secondary">
                     <ul class="list-unstyled mb-0 small">
-                      <li class="mb-2">· <b>采集规则生成</b>：采集管理 → AI 助手，自动注入领域提示词生成解析规则（受控白名单）</li>
-                      <li class="mb-2">· <b>任务脚本生成</b>：描述需求 → AI 生成定时脚本（全局可用 store / mysql / crawlSource）</li>
+                      <li class="mb-2">· <b>采集规则生成</b>：TG 采集 → AI 自动生成，自动注入领域提示词生成解析规则（受控白名单）</li>
                       <li class="mb-2">· <b>内容提炼</b>：待审核/失效反馈/转存记录 智能摘要</li>
                       <li class="mb-2">· Key 只存服务端（site_config），前端不回显明文</li>
+                      <li class="mb-2">· <b>领域提示词</b>：下方编辑区可查看/修改 AI 生成规则时的内置约束，修改后立即对 TG 采集生效</li>
                     </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="row mt-3">
+              <div class="col-12">
+                <div class="card">
+                  <div class="card-header d-flex align-items-center">
+                    <h3 class="card-title mb-0">领域提示词（AI 生成规则时的内置约束，可编辑）</h3>
+                    <div class="ms-auto d-flex gap-2">
+                      <button class="btn btn-outline-secondary btn-sm" @click="aiPromptReset">恢复默认</button>
+                      <button class="btn btn-primary btn-sm" @click="aiPromptSave" :disabled="aiPromptSaving">{{aiPromptSaving?'保存中…':'保存提示词'}}</button>
+                    </div>
+                  </div>
+                  <div class="card-body">
+                    <p class="form-hint">修改后立即对「TG 采集 → AI 自动生成」生效。支持占位符：<code>{FIELD_WHITELIST}</code>（字段白名单）、<code>{RULE_TYPE_WHITELIST}</code>（规则类型）、<code>{PAN_URL_RE}</code>（网盘链接正则）。留空 = 用内置默认。</p>
+                    <textarea class="form-control font-monospace" v-model="aiCfg.domainPrompt" rows="14" style="font-size:12px;white-space:pre-wrap"></textarea>
+                    <div class="form-hint mt-2">默认提示词要点：字段只能从白名单选 · 类型只能 4 种 · url 必须网盘链接 · title/url 必填 · <b>password 从描述文本提取「提取码」而非从 url 解析 pwd</b> · disk_type 从 url 域名推断不要写死。</div>
                   </div>
                 </div>
               </div>
@@ -2201,7 +2219,8 @@ cr({
     }
 
     // ---- AI 助手（规则/脚本）+ 内容提炼 ----
-    var aiCfg=rct({base:"https://api.deepseek.com",key:"",keySet:false,keyMask:"",model:"deepseek-chat"});
+    var aiCfg=rct({base:"https://api.deepseek.com",key:"",keySet:false,keyMask:"",model:"deepseek-chat",domainPrompt:""});
+    var aiPromptSaving=rf(false);
     var aiTst=rf(false),aiTestMsg=rf(""),aiTestOk=rf(false);
     var aiItems=rf([]);
     var aiScope=rf("submissions"),aiText=rf("");
@@ -2292,6 +2311,20 @@ cr({
       ap("POST","ai/config",{ai_base:aiCfg.base,ai_key:aiCfg.key,ai_model:aiCfg.model}).then(function(r){
         if(r.ok){msg("AI 配置已保存");aiCfg.key="";ldai()}else msg(r.error||"保存失败","e");
       });
+    }
+    // 领域提示词：保存（写 site_config.ai_domain_prompt，留空=用内置默认）
+    function aiPromptSave(){
+      aiPromptSaving.value=true;
+      ap("POST","ai/config",{domain_prompt:aiCfg.domainPrompt}).then(function(r){
+        aiPromptSaving.value=false;
+        if(r.ok){msg("领域提示词已保存，下次 AI 生成时生效")}else msg(r.error||"保存失败","e");
+      }).catch(function(){aiPromptSaving.value=false;msg("保存失败：网络错误","e")});
+    }
+    // 领域提示词：恢复默认（清空配置）
+    function aiPromptReset(){
+      if(!confirm("恢复内置默认提示词？当前自定义内容将被清空。"))return;
+      aiCfg.domainPrompt="";
+      aiPromptSave();
     }
     function tstai(){
       aiTst.value=true;aiTestMsg.value="";aiTestOk.value=false;
@@ -2500,7 +2533,7 @@ cr({
       tgTab,setTab,dsTab,tkTab,tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,tgTesting,ldtg,ldtgSet,tgSv,tgAddIns,tgDelIns,tgSetDefault,tgTestOne,tgTestIns,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
       tgDiskOpts,tgDiskSel,ldtgDisks,tgSvDisks,tgGen,tgGenRun,tgGenRes,tgGenPick,tgGenRunFn,tgRunGen,
       tsItems,tsLogs,tsShow,tsAdvShow,tsLogShow,tsEditId,tsSaving,tsTypes,tsNew,fmtInt,ldts,ldtslogs,tstoggle,tsrun,tsNewShow,tsedit,tssave,tsdel,
-      aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,ldai,svai,tstai,runai,aiOpen,aiCopy};
+      aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,aiPromptSaving,aiPromptSave,aiPromptReset,ldai,svai,tstai,runai,aiOpen,aiCopy};
   }
 }).mount("#aapp");
 </script>
