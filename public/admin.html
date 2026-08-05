@@ -1146,37 +1146,67 @@
               <li class="nav-item"><a class="nav-link" :class="{active:aiTab==='sum'}" href="javascript:void(0)" @click="aiTab='sum'">内容提炼</a></li>
             </ul>
 
-            <!-- AI 助手：生成采集规则 / 生成任务脚本 -->
+            <!-- AI 助手：生成采集规则（受控生成）/ 生成任务（关联采集） -->
             <div v-if="aiTab==='assist'" class="row g-3">
               <div class="col-lg-6">
                 <div class="card h-100">
-                  <div class="card-header"><h3 class="card-title">生成采集解析规则</h3></div>
+                  <div class="card-header"><h3 class="card-title">生成采集解析规则（受控生成）</h3></div>
                   <div class="card-body">
+                    <div class="alert alert-info py-2 small mb-3">内置领域提示词自动注入：字段/规则类型白名单 · 网盘链接正则 · 分类字典。AI 只能生成系统已有字段与类型的组合，无法新增。</div>
                     <div class="mb-2">
-                      <label class="form-label">源类型</label>
-                      <select class="form-select" v-model="arFm.source_type"><option value="rss">RSS</option><option value="page">网页（page）</option><option value="api">JSON API</option></select>
+                      <label class="form-label">① 选择目标采集源（只能选已有源）</label>
+                      <select class="form-select" v-model="arFm.source_id" @change="arPick">
+                        <option value="">— 选择已有采集源 —</option>
+                        <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}（{{s.source_type}}）</option>
+                      </select>
+                    </div>
+                    <div v-if="arFm.ctx" class="alert alert-success py-2 small mb-2">
+                      已载入源 #{{arFm.ctx.source.id}} {{arFm.ctx.source.name}} · {{arFm.ctx.source.source_type}} · 分类 {{arFm.ctx.source.category||'未设置'}} · 现有规则 {{arFm.ctx.rules.length}} 条
                     </div>
                     <div class="mb-2">
-                      <label class="form-label">URL 模板</label>
+                      <label class="form-label">② URL 模板（已带出，可改）</label>
                       <input class="form-control" v-model="arFm.url_template" placeholder="https://example.com/feed?page={page}">
                     </div>
                     <div class="mb-2">
-                      <label class="form-label">示例内容 <span class="text-secondary fw-normal">（网页/API 粘贴一段原始 HTML 或 JSON）</span></label>
-                      <textarea class="form-control font-monospace" v-model="arFm.sample" rows="5" placeholder="粘贴抓取到的示例内容，AI 据此生成正则/jsonpath…"></textarea>
+                      <label class="form-label">示例内容 <span class="text-secondary fw-normal">（粘贴一段原文，可选）</span></label>
+                      <textarea class="form-control font-monospace" v-model="arFm.sample" rows="4" placeholder="粘贴抓取到的 HTML/JSON 片段，AI 据此生成正则…"></textarea>
                     </div>
-                    <button class="btn btn-success w-100" :disabled="arRun||!arFm.url_template" @click="airules">{{arRun?'生成中…':'生成规则'}}</button>
-                    <div v-if="arRules.rules" class="mt-3">
-                      <label class="form-label">规则 JSON（可手动调整）</label>
-                      <textarea class="form-control font-monospace" v-model="arRules.raw" rows="8" style="font-size:12px"></textarea>
-                      <div class="row g-2 mt-2">
+                    <button class="btn btn-success w-100" :disabled="arRun||!arFm.source_id" @click="airules">{{arRun?'生成中…':'③ 生成规则（AI + 内置提示词）'}}</button>
+                    <div v-if="arRules.rules.length" class="mt-3">
+                      <label class="form-label">④ 规则确认（字段/类型只能从白名单选）</label>
+                      <div v-if="arRules.report&&(arRules.report.rejected.length||arRules.report.fixed.length)" class="alert alert-warning py-2 small mb-2">
+                        <div v-for="(rd,i) in arRules.report.rejected" :key="'r'+i">✕ 已剔除：{{rd.field}} — {{rd.reason}}</div>
+                        <div v-for="(fx,i) in arRules.report.fixed" :key="'f'+i">⇄ 已修正：{{fx.field}} → {{fx.to}}（{{fx.reason}}）</div>
+                      </div>
+                      <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-2">
+                          <thead><tr><th style="width:120px">字段</th><th style="width:110px">类型</th><th>规则值</th><th style="width:46px;text-align:center">必填</th><th style="width:34px"></th></tr></thead>
+                          <tbody>
+                            <tr v-for="(rl,i) in arRules.rules" :key="i">
+                              <td><select class="form-select form-select-sm" v-model="rl.field_name"><option v-for="f in arFm.fieldWhitelist" :key="f" :value="f">{{f}}</option></select></td>
+                              <td><select class="form-select form-select-sm" v-model="rl.rule_type"><option v-for="t in arFm.ruleTypeWhitelist" :key="t" :value="t">{{t}}</option></select></td>
+                              <td><input class="form-control form-control-sm font-monospace" v-model="rl.rule_value" placeholder="正则 / jsonpath / 固定值"></td>
+                              <td style="text-align:center"><input type="checkbox" class="form-check-input" v-model="rl.required"></td>
+                              <td><button class="btn btn-link btn-sm text-danger p-0" @click="arDel(i)">✕</button></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <button class="btn btn-outline-secondary btn-sm mb-2" @click="arAdd">＋ 添加规则行</button>
+                      <div class="row g-2 mt-1">
+                        <div class="col-12"><label class="form-label">⑤ 保存 + 关联任务</label></div>
                         <div class="col-8">
-                          <select class="form-select" v-model="arSrc">
-                            <option value="">— 选择目标采集源 —</option>
-                            <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}</option>
-                          </select>
+                          <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="arMakeTask" v-model="arFm.make_task">
+                            <label class="form-check-label" for="arMakeTask">同时创建定时采集任务（crawl_source）</label>
+                          </div>
+                          <div v-if="arFm.make_task" class="row g-2">
+                            <div class="col-6"><input class="form-control form-control-sm" v-model="arFm.task_name" placeholder="任务名（如：采集 okpojie 每小时）"></div>
+                            <div class="col-6"><input class="form-control form-control-sm" type="number" v-model="arFm.task_interval" placeholder="间隔秒（默认3600）"></div>
+                          </div>
                         </div>
                         <div class="col-4">
-                          <button class="btn btn-primary w-100" :disabled="arSaving||!arSrc" @click="arsave">{{arSaving?'保存中…':'保存到该源'}}</button>
+                          <button class="btn btn-primary w-100" :disabled="arSaving" @click="arsave">{{arSaving?'保存中…':'保存到该源'}}</button>
                         </div>
                       </div>
                     </div>
@@ -1185,24 +1215,52 @@
               </div>
               <div class="col-lg-6">
                 <div class="card h-100">
-                  <div class="card-header"><h3 class="card-title">生成任务脚本</h3></div>
+                  <div class="card-header"><h3 class="card-title">生成任务（与采集规则关联）</h3></div>
                   <div class="card-body">
-                    <div class="mb-2">
-                      <label class="form-label">任务需求描述</label>
-                      <textarea class="form-control" v-model="asFm.task_desc" rows="3" placeholder="如：每天清理 30 天前的转存历史和过期缓存"></textarea>
+                    <div class="btn-group w-100 mb-3" role="group">
+                      <button type="button" class="btn btn-sm" :class="asMode==='A'?'btn-primary':'btn-outline-secondary'" @click="asMode='A'">模式 A：采集任务（零代码）</button>
+                      <button type="button" class="btn btn-sm" :class="asMode==='B'?'btn-primary':'btn-outline-secondary'" @click="asMode='B'">模式 B：自定义脚本</button>
                     </div>
-                    <button class="btn btn-success w-100" :disabled="asRun||!asFm.task_desc.trim()" @click="asscript">{{asRun?'生成中…':'生成脚本'}}</button>
-                    <div v-if="asCode.code" class="mt-3">
-                      <label class="form-label">脚本代码（async function run(ctx)，可手动调整）</label>
-                      <textarea class="form-control font-monospace" v-model="asCode.code" rows="10" style="font-size:12px"></textarea>
-                      <div class="row g-2 mt-2">
-                        <div class="col-5"><input class="form-control" v-model="asFm.name" placeholder="任务名称"></div>
-                        <div class="col-3"><input class="form-control" type="number" v-model="asFm.interval" title="间隔秒" placeholder="3600"></div>
-                        <div class="col-4">
-                          <button class="btn btn-primary w-100" :disabled="asSaving" @click="assave">{{asSaving?'保存中…':'保存为任务'}}</button>
-                        </div>
+                    <div v-if="asMode==='A'">
+                      <div class="mb-2">
+                        <label class="form-label">选择要定时采集的源</label>
+                        <select class="form-select" v-model="asFm.source_id">
+                          <option value="">— 选择已有采集源 —</option>
+                          <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}（{{s.source_type}}）</option>
+                        </select>
                       </div>
-                      <div class="form-hint mt-2">保存后到「任务中心」启停 / 立即执行；脚本在 vm 沙箱运行，可用 ctx.store / ctx.mysql / fetch / console。</div>
+                      <div class="row g-2">
+                        <div class="col-6"><div class="mb-2"><label class="form-label">任务名</label><input class="form-control" v-model="asFm.name" placeholder="采集 okpojie 每小时"></div></div>
+                        <div class="col-6"><div class="mb-2"><label class="form-label">间隔（秒）</label><input class="form-control" type="number" v-model="asFm.interval" placeholder="3600"></div></div>
+                      </div>
+                      <button class="btn btn-success w-100" :disabled="asSaving||!asFm.source_id" @click="asTaskA">{{asSaving?'创建中…':'创建采集任务（自动跑该源全部规则）'}}</button>
+                      <div class="form-hint mt-2">生成任务类型 crawl_source，调度器定时调用采集引擎跑该源全部解析规则入库。</div>
+                    </div>
+                    <div v-if="asMode==='B'">
+                      <div class="mb-2">
+                        <label class="form-label">任务需求描述</label>
+                        <textarea class="form-control" v-model="asFm.task_desc" rows="3" placeholder="如：每天 08:00 采集 #10 源新资源，然后清理 30 天前的转存历史"></textarea>
+                      </div>
+                      <div class="mb-2">
+                        <label class="form-label">关联采集源（可选，脚本内可用 crawlSource(id)）</label>
+                        <select class="form-select" v-model="asFm.source_id">
+                          <option value="">— 不关联（纯脚本）—</option>
+                          <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}（{{s.source_type}}）</option>
+                        </select>
+                      </div>
+                      <button class="btn btn-success w-100" :disabled="asRun||!asFm.task_desc.trim()" @click="asscript">{{asRun?'生成中…':'生成脚本'}}</button>
+                      <div v-if="asCode.code" class="mt-3">
+                        <label class="form-label">脚本代码（async function run(ctx)，可手动调整）</label>
+                        <textarea class="form-control font-monospace" v-model="asCode.code" rows="8" style="font-size:12px"></textarea>
+                        <div class="row g-2 mt-2">
+                          <div class="col-5"><input class="form-control" v-model="asFm.name" placeholder="任务名称"></div>
+                          <div class="col-3"><input class="form-control" type="number" v-model="asFm.interval" title="间隔秒" placeholder="3600"></div>
+                          <div class="col-4">
+                            <button class="btn btn-primary w-100" :disabled="asSaving" @click="assave">{{asSaving?'保存中…':'保存为任务'}}</button>
+                          </div>
+                        </div>
+                        <div class="form-hint mt-2">保存后到「任务中心」启停 / 立即执行；脚本内全局可用 store / mysql / fetch / crawlSource(id)。</div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1998,33 +2056,69 @@ cr({
     var aiScope=rf("submissions"),aiText=rf("");
     var aiRun=rf(false),aiErr=rf(""),aiOut=rf("");
     var aiTab=rf("assist");
-    var arFm=rct({source_type:"rss",url_template:"",sample:""});
-    var arRun=rf(false),arRules=rct({rules:null,raw:""}),arSrc=rf(""),arSaving=rf(false);
-    var asFm=rct({task_desc:"",name:"",interval:3600});
+    var arFm=rct({source_id:"",url_template:"",sample:"",ctx:null,fieldWhitelist:["title","url","password","desc","category","disk_type","thumbnail","extract_code"],ruleTypeWhitelist:["regex","jsonpath","fixed","concat"],make_task:false,task_name:"",task_interval:3600});
+    var arRun=rf(false),arRules=rct({rules:[],report:null}),arSaving=rf(false);
+    var asFm=rct({source_id:"",task_desc:"",name:"",interval:3600});
+    var asMode=rf("A");
     var asRun=rf(false),asCode=rct({code:"",raw:""}),asSaving=rf(false);
+    // 选择采集源后拉取源上下文（URL/分类/现有规则/白名单），自动带出 URL 模板
+    function arPick(){
+      arFm.url_template="";arFm.sample="";arFm.ctx=null;arRules.rules=[];arRules.report=null;
+      var id=arFm.source_id;
+      if(!id){return}
+      ap("GET","sources/"+id+"/context").then(function(r){
+        if(r.source){
+          arFm.ctx=r;
+          arFm.url_template=r.source.url_template||"";
+          if(r.field_whitelist)arFm.fieldWhitelist=r.field_whitelist;
+          if(r.rule_type_whitelist)arFm.ruleTypeWhitelist=r.rule_type_whitelist;
+          if(r.categories&&r.categories.length)arFm.cats=r.categories;
+          msg("已载入源 #"+id+" 上下文（现有规则 "+r.rules.length+" 条）");
+        }else msg(r.error||"源上下文加载失败","e");
+      });
+    }
     function airules(){
-      if(!arFm.url_template){msg("URL 模板必填","e");return}
+      if(!arFm.source_id){msg("请先选择目标采集源","e");return}
+      if(!arFm.url_template.trim()){msg("URL 模板必填","e");return}
       arRun.value=true;
-      ap("POST","ai/rules",arFm).then(function(r){
+      ap("POST","ai/rules",{source_id:parseInt(arFm.source_id,10),url_template:arFm.url_template,sample_text:arFm.sample}).then(function(r){
         arRun.value=false;
-        if(r.ok&&r.rules){arRules.rules=r.rules;arRules.raw=JSON.stringify(r.rules,null,2);msg("规则已生成，选择目标采集源后保存")}
+        if(r.ok&&r.rules){arRules.rules=r.rules.map(function(x){return {field_name:x.field_name,rule_type:x.rule_type,rule_value:x.rule_value,required:!!x.required}});arRules.report=r.report||null;msg("规则已生成，确认后保存到源")}
         else msg(r.error||"生成失败","e");
       }).catch(function(){arRun.value=false;msg("生成失败：网络错误","e")});
     }
+    function arAdd(){arRules.rules.push({field_name:"title",rule_type:"regex",rule_value:"",required:false})}
+    function arDel(i){arRules.rules.splice(i,1)}
     function arsave(){
-      if(!arSrc.value){msg("请选择目标采集源","e");return}
-      var rules;
-      try{rules=JSON.parse(arRules.raw)}catch(e){msg("规则 JSON 解析失败","e");return}
+      if(!arFm.source_id){msg("请选择目标采集源","e");return}
+      if(!arRules.rules.length){msg("没有规则可保存","e");return}
       arSaving.value=true;
-      ap("POST","crawler/rules/replace",{source_id:parseInt(arSrc.value,10),rules:rules}).then(function(r){
-        arSaving.value=false;
-        if(r.ok){msg("已保存 "+r.count+" 条规则到采集源 #"+arSrc.value);ldsrc();ldrule()}else msg(r.error||"保存失败","e");
+      ap("POST","crawler/rules/replace",{source_id:parseInt(arFm.source_id,10),rules:arRules.rules}).then(function(r){
+        if(!r.ok){arSaving.value=false;msg(r.error||"保存失败","e");return}
+        if(arFm.make_task){
+          var name=arFm.task_name.trim()||("采集源 #"+arFm.source_id+" 定时采集");
+          ap("POST","tasks",{task_name:name,task_type:"crawl_source",interval_sec:parseInt(arFm.task_interval,10)||3600,task_config:{source_id:parseInt(arFm.source_id,10)}}).then(function(r2){
+            arSaving.value=false;
+            if(r2.ok){msg("已保存 "+r.rules.length+" 条规则到源 #"+arFm.source_id+"，并创建采集任务 #"+r2.id+"（任务中心可启停）");ldsrc();ldrule()}else msg("规则已保存，但创建任务失败："+(r2.error||""),"e");
+          }).catch(function(){arSaving.value=false;msg("规则已保存，但创建任务失败：网络错误","e")});
+        }else{
+          arSaving.value=false;msg("已保存 "+r.rules.length+" 条规则到采集源 #"+arFm.source_id);ldsrc();ldrule();
+        }
       }).catch(function(){arSaving.value=false;msg("保存失败：网络错误","e")});
+    }
+    // 模式 A：创建 crawl_source 采集任务（零代码，与源规则关联）
+    function asTaskA(){
+      if(!asFm.source_id){msg("请选择采集源","e");return}
+      asSaving.value=true;
+      ap("POST","tasks",{task_name:asFm.name.trim()||("采集源 #"+asFm.source_id+" 定时采集"),task_type:"crawl_source",interval_sec:parseInt(asFm.interval,10)||3600,task_config:{source_id:parseInt(asFm.source_id,10)}}).then(function(r){
+        asSaving.value=false;
+        if(r.ok){msg("采集任务已创建 #"+r.id+"（任务中心可启停/立即执行）");asFm.source_id="";asFm.name="";asFm.interval=3600}else msg(r.error||"创建失败","e");
+      }).catch(function(){asSaving.value=false;msg("创建失败：网络错误","e")});
     }
     function asscript(){
       if(!asFm.task_desc.trim()){msg("任务需求必填","e");return}
       asRun.value=true;
-      ap("POST","ai/script",{task_desc:asFm.task_desc}).then(function(r){
+      ap("POST","ai/script",{task_desc:asFm.task_desc,source_id:asFm.source_id?parseInt(asFm.source_id,10):0}).then(function(r){
         asRun.value=false;
         if(r.ok&&r.code){asCode.code=r.code;msg("脚本已生成，可编辑后保存为任务")}
         else msg(r.error||"生成失败","e");
@@ -2033,7 +2127,7 @@ cr({
     function assave(){
       if(!asCode.code||!/function run/.test(asCode.code)){msg("脚本无效（需含 async function run）","e");return}
       asSaving.value=true;
-      ap("POST","tasks",{task_name:asFm.name||"AI 生成任务",task_type:"script",interval_sec:parseInt(asFm.interval,10)||3600,script_code:asCode.code}).then(function(r){
+      ap("POST","tasks",{task_name:asFm.name.trim()||"AI 生成任务",task_type:"script",interval_sec:parseInt(asFm.interval,10)||3600,script_code:asCode.code}).then(function(r){
         asSaving.value=false;
         if(r.ok){msg("任务已创建（任务中心可启停/执行）");asFm.name="";asCode.code="";asFm.task_desc=""}else msg(r.error||"保存失败","e");
       }).catch(function(){asSaving.value=false;msg("保存失败：网络错误","e")});
@@ -2255,7 +2349,7 @@ cr({
       scItems,ldsc,scToggle,scDiskOpts,scDisk,scEditId,scNameDraft,scEditName,scSaveName,
       tgTab,setTab,tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,ldtg,tgSv,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
       tsItems,tsLogs,tsShow,tsAdvShow,tsLogShow,tsEditId,tsSaving,tsTypes,tsNew,fmtInt,ldts,ldtslogs,tstoggle,tsrun,tsNewShow,tsedit,tssave,tsdel,
-      aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,aiTab,arFm,arRun,arRules,arSrc,arSaving,airules,arsave,asFm,asRun,asCode,asSaving,asscript,assave,ldai,svai,tstai,runai,aiOpen,aiCopy};
+      aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,aiTab,arFm,arRun,arRules,arSaving,airules,arsave,arPick,arAdd,arDel,asFm,asMode,asRun,asCode,asSaving,asscript,assave,asTaskA,ldai,svai,tstai,runai,aiOpen,aiCopy};
   }
 }).mount("#aapp");
 </script>

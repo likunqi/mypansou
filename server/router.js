@@ -88,6 +88,7 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/ai/script" && method === "POST") return await ai.genScript(req, res);
       if (urlPath === "/api/admin/sources" && method === "GET") return await sources.list(req, res);
       if (urlPath === "/api/admin/sources/update" && method === "POST") return await sources.update(req, res);
+      if (/^\/api\/admin\/sources\/\d+\/context$/.test(urlPath) && method === "GET") return await sources.context(req, res);
 
       // 任务中心
       if (urlPath === "/api/admin/tasks" && method === "GET") return await tasks.list(req, res);
