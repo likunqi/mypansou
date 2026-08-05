@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS resources (
   category        VARCHAR(64)  DEFAULT "",
   tags            VARCHAR(256) DEFAULT "",
   description     TEXT         DEFAULT NULL,
+  thumbnail       VARCHAR(512) DEFAULT "",
   file_name       VARCHAR(256) DEFAULT "",
   file_size       VARCHAR(32)  DEFAULT "",
   source          VARCHAR(16)  NOT NULL DEFAULT "manual",

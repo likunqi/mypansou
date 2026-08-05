@@ -15,6 +15,8 @@ const TG_RULES = [
   { field_name: "url", rule_type: "regex", rule_value: "https://pan\\.(?:quark\\.cn|baidu\\.com)/s/[A-Za-z0-9_-]+", required: true },
   { field_name: "disk_type", rule_type: "regex", rule_value: "https://pan\\.(quark|baidu)\\.", required: false },
   { field_name: "description", rule_type: "regex", rule_value: "<description>(.*?)</description>", required: false },
+  // 封面图：按优先级提取 enclosure（RSSHub TG 源常见）→ img → media:thumbnail；引擎取第一个非空捕获组
+  { field_name: "thumbnail", rule_type: "regex", rule_value: "<(?:enclosure|media:thumbnail)[^>]*?url=\"([^\"]+\\.(?:jpe?g|png|webp|gif|avif|bmp))\"|<img[^>]+src=\"([^\"]+\\.(?:jpe?g|png|webp|gif|avif|bmp))\"", required: false },
 ];
 
 const DEFAULT_INSTANCES = [

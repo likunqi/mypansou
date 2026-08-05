@@ -14,6 +14,7 @@ function clean(b) {
     category: String(b.category || "").trim().slice(0, 64),
     tags: String(b.tags || "").trim().slice(0, 256),
     description: String(b.description || "").trim(),
+    thumbnail: String(b.thumbnail || "").trim().slice(0, 512),
     file_name: String(b.file_name || "").trim().slice(0, 256),
     file_size: String(b.file_size || "").trim().slice(0, 32),
     source: String(b.source || "manual").slice(0, 16),
@@ -103,12 +104,14 @@ async function adminAdd(req, res) {
 async function adminUpdate(req, res) {
   try {
     var id = req.url.split("/")[4];
-    var rec = clean(JSON.parse(await readBody(req)));
+    var raw = JSON.parse(await readBody(req));           // 原始 body：判断哪些字段被提交
+    var rec = clean(raw);                                // 规范化后的值
     var cur = await store.resourceGet(id);
     if (!cur) return json(res, 404, { error: "resource_not_found" });
     var fields = {};
-    ["title","url","password","disk_type","category","tags","description","file_name","file_size","status"].forEach(function (k) {
-      if (rec[k] !== undefined && rec[k] !== cur[k]) fields[k] = rec[k];
+    ["title","url","password","disk_type","category","tags","description","thumbnail","file_name","file_size","status"].forEach(function (k) {
+      // 只更新 body 里实际出现的字段，避免单字段提交清空其他字段
+      if (raw[k] !== undefined && String(rec[k] || "") !== String(cur[k] || "")) fields[k] = rec[k];
     });
     await store.resourceUpdate(id, fields);
     json(res, 200, { ok: true });

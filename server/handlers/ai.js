@@ -191,8 +191,9 @@ function buildDomainPromptBase() {
     "5. category 只能从分类字典中取值；disk_type 只能取 quark/baidu（配合规则值里出现的盘自动推断，不要用固定值覆盖实际盘）。",
     "6. password（提取码）提取方法：从条目的描述/正文文本中找『提取码』字样后的字符（如 提取码[:：\\s]*([A-Za-z0-9]{4,8})）；只有当分享链接本身带 ?pwd=xxx 时才可从 url 提取。禁止把『百度网盘链接的 pwd 参数正则』套用到夸克链接上——url 是夸克盘时 password 应从文本提取。",
     "7. disk_type 提取方法：看 url 链接的域名推断盘类型（quark.cn→quark、baidu.com→baidu），用 regex 从 url 捕获，如 https://pan\\.(quark|baidu)\\. 的捕获组；不要用 fixed 固定写死，除非频道只发一种盘。",
-    "8. 辅助定位规则：page 类型可加 field_name=__item__ 的条目分隔正则；api 类型可加 field_name=__list__ 的列表 jsonpath（如 $.data.list）。",
-    "9. 只输出 JSON 数组（元素结构 {field_name, rule_type, rule_value, required, default_value?, filter_regex?}），不要任何解释文字、markdown 代码围栏或多余键。",
+    "8. thumbnail（封面图）提取方法：从条目的 XML/HTML 里按优先级找图片 URL——① <enclosure url=\"...\" type=\"image/...\"> ② <img src=\"...\"> ③ <media:thumbnail url=\"...\">。正则写法示例：<(?:enclosure|media:thumbnail)[^>]*?url=\"([^\"]+\\.(?:jpe?g|png|webp|gif))\"|<img[^>]+src=\"([^\"]+\\.(?:jpe?g|png|webp|gif))\";无图时该字段可省略，不要用 fixed 填死。",
+    "9. 辅助定位规则：page 类型可加 field_name=__item__ 的条目分隔正则；api 类型可加 field_name=__list__ 的列表 jsonpath（如 $.data.list）。",
+    "10. 只输出 JSON 数组（元素结构 {field_name, rule_type, rule_value, required, default_value?, filter_regex?}），不要任何解释文字、markdown 代码围栏或多余键。",
   ].join("\n");
 }
 
@@ -318,7 +319,18 @@ function validateRules(input) {
         fixed.push({ field: "url", to: "url", reason: "regex 模式不含网盘域名特征，已提醒（确保提取到 pan.quark.cn / pan.baidu.com 链接）" });
       }
     }
-    // 4) category / disk_type 取值约束
+    // 4) thumbnail 图片 URL 校验（fixed/jsonpath 预检值；regex 检查模式特征）
+    if (field === "thumbnail") {
+      if (type === "fixed" || type === "jsonpath") {
+        if (ruleVal && !/^https?:\/\/.+/i.test(ruleVal)) {
+          fixed.push({ field: "thumbnail", to: "thumbnail", reason: "值不是 http(s) 图片链接，已置空" });
+          ruleVal = "";
+        }
+      } else if (type === "regex" && ruleVal && !/(?:enclosure|media:thumbnail|<img\b|\.(?:jpe?g|png|webp|gif))/i.test(ruleVal)) {
+        fixed.push({ field: "thumbnail", to: "thumbnail", reason: "regex 模式不含图片标签/后缀特征（应匹配 enclosure/img/media:thumbnail）" });
+      }
+    }
+    // 5) category / disk_type 取值约束
     if (field === "disk_type" && ruleVal && ["quark", "baidu"].indexOf(ruleVal.toLowerCase()) === -1 && type === "fixed") {
       fixed.push({ field: "disk_type", to: "disk_type", reason: "fixed 值 " + ruleVal + " 不在 quark/baidu 内，已置空（由源兜底）" });
       ruleVal = "";
@@ -332,7 +344,7 @@ function validateRules(input) {
       filter_regex: r.filter_regex ? String(r.filter_regex) : "",
     });
   });
-  // 5) 强制 title/url 必填存在（校验器兜底：AI 漏了也补上）
+  // 6) 强制 title/url 必填存在（校验器兜底：AI 漏了也补上）
   var has = {};
   out.forEach(function (r) { has[r.field_name] = true; });
   if (!has.title) {
