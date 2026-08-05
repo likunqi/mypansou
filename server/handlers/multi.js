@@ -3,12 +3,7 @@ const { json } = require("../middleware");
 const store = require("../../lib/store");
 const registry = require("../../lib/sources/registry");
 
-// 源 id → 前端展示标签
-const SOURCE_LABEL = {
-  pansou: "自建",
-  v451024: "451024",
-  hunhepan: "混合盘",
-};
+// 展示名统一走 registry.getSourceLabels(cfg)：配置 name 优先，缺省 registry.short
 
 function mergeByType(items) {
   var byType = {};
@@ -84,11 +79,21 @@ async function multiSearch(req, res) {
       total: dedup.length,
       merged_by_type: mergeByType(dedup),
       per_source: perSource,
-      source_labels: SOURCE_LABEL,
+      source_labels: registry.getSourceLabels(cfg),
       errors: errors,
     },
   };
   json(res, 200, resp);
 }
 
-module.exports = { multiSearch };
+// GET /api/multi/sources — 公开：搜索源 id + 展示名（搜索页源 tab / 来源徽标用）
+async function sourceList(req, res) {
+  try {
+    var cfg = await store.getConfig();
+    var labels = registry.getSourceLabels(cfg);
+    var items = Object.keys(registry.REGISTRY).map(function (id) { return { id: id, name: labels[id] }; });
+    json(res, 200, { items: items });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+
+module.exports = { multiSearch, sourceList };

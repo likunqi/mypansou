@@ -43,6 +43,7 @@ async function handleRequest(req, res) {
 
     // Multi-source aggregate search
     if (urlPath === "/api/multi/search" && method === "GET") return await multi.multiSearch(req, res);
+    if (urlPath === "/api/multi/sources" && method === "GET") return await multi.sourceList(req, res);
 
     // Transfer (Quark save)
     if (urlPath === "/api/transfer/save" && method === "POST") return await transfer.handler(req, res);

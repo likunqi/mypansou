@@ -12,8 +12,8 @@ async function list(req, res) {
   } catch (e) { json(res, 500, { error: e.message }); }
 }
 
-// POST /api/admin/sources/update — {id, enabled?, disks?} 写回 site_config.multi_sources
-// disks 为空数组 = 不限制；仅更新传入字段
+// POST /api/admin/sources/update — {id, enabled?, disks?, name?} 写回 site_config.multi_sources
+// disks 为空数组 = 不限制；name 非空字符串才更新；仅更新传入字段
 async function update(req, res) {
   try {
     var b = JSON.parse(await readBody(req));
@@ -25,6 +25,7 @@ async function update(req, res) {
     var cur = registry.parseSourceCfg(ms[id], registry.REGISTRY[id].defaultEnabled !== false);
     if (b.enabled !== undefined) cur.enabled = !!b.enabled;
     if (Array.isArray(b.disks)) cur.disks = b.disks.filter(function (d) { return typeof d === "string" && d; });
+    if (typeof b.name === "string" && b.name.trim()) cur.name = b.name.trim();
     ms[id] = cur;
     await store.saveConfig({ multi_sources: JSON.stringify(ms) });
     json(res, 200, { ok: true });

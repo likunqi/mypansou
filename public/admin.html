@@ -832,7 +832,10 @@
                     <tbody>
                       <tr v-for="s in scItems" :key="s.id">
                         <td class="text-secondary">{{s.id}}</td>
-                        <td class="fw-bold">{{s.name}}</td>
+                        <td class="fw-bold">
+                          <input v-if="scEditId===s.id" class="form-control form-control-sm" v-model="scNameDraft" @keyup.enter="scSaveName(s)" @blur="scSaveName(s)" style="min-width:130px" :placeholder="s.name">
+                          <a v-else href="javascript:void(0)" @click="scEditName(s)" class="text-decoration-none" title="点击修改名称">{{s.name}} <span class="text-secondary" style="font-size:.72rem">✎</span></a>
+                        </td>
                         <td><span class="badge bg-secondary-lt text-secondary">{{s.type==='browser'?'浏览器':'API'}}</span></td>
                         <td class="text-secondary">{{s.desc}}</td>
                         <td style="min-width:280px">
@@ -1780,6 +1783,19 @@ cr({
         if(r.ok){msg("「"+s.name+"」网盘限制已更新");ldsc()}else msg(r.error||"操作失败","e");
       });
     }
+    var scEditId=rf("");
+    var scNameDraft=rf("");
+    function scEditName(s){scEditId.value=s.id;scNameDraft.value=s.name}
+    function scSaveName(s){
+      if(scEditId.value!==s.id)return;
+      var n=scNameDraft.value.trim();
+      scEditId.value="";
+      if(!n){msg("名称不能为空","e");return}
+      if(n===s.name)return;
+      ap("POST","sources/update",{id:s.id,name:n}).then(function(r){
+        if(r.ok){s.name=n;msg("「"+n+"」名称已保存，搜索页同步生效")}else msg(r.error||"操作失败","e");
+      });
+    }
 
     // ---- 分类管理 ----
     var ctItems=rf([]);
@@ -2189,7 +2205,7 @@ cr({
       srcName,srcBadge,fmtT,ldres,rsadd,rsdel,rsedit,rsCancel,rsDiskCls,rsDiskName,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,
       kwItems,kwNew,kwEditId,ldKw,kwadd,kwEdit,kwCancel,kwhot,kwst,kwdel,
       ctItems,ctNew,ctEditId,ctChannels,ctMap,ctAllNames,ldct,ctadd,ctedit,ctCancel,ctst,ctdel,ldctmap,ctmapsave,
-      scItems,ldsc,scToggle,scDiskOpts,scDisk,
+      scItems,ldsc,scToggle,scDiskOpts,scDisk,scEditId,scNameDraft,scEditName,scSaveName,
       tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,ldtg,tgSv,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
       tsItems,tsLogs,tsShow,tsAdvShow,tsLogShow,tsEditId,tsSaving,tsTypes,tsNew,fmtInt,ldts,ldtslogs,tstoggle,tsrun,tsNewShow,tsedit,tssave,tsdel,
       aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,aiTab,arFm,arRun,arRules,arSrc,arSaving,airules,arsave,asFm,asRun,asCode,asSaving,asscript,assave,ldai,svai,tstai,runai,aiOpen,aiCopy};
