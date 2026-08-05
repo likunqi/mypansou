@@ -51,31 +51,38 @@ async function saveConfig(req, res) {
     if (b.ai_base !== undefined) cfg.ai_base = b.ai_base || DEFAULT_BASE;
     if (b.ai_key !== undefined) cfg.ai_key = b.ai_key;
     if (b.ai_model !== undefined) cfg.ai_model = b.ai_model || DEFAULT_MODEL;
-    if (b.domain_prompt !== undefined) cfg.ai_domain_prompt = b.domain_prompt;
+    // 提示词：prompts = { key: "自定义文本" }（空串 = 恢复该场景默认）
+    if (b.prompts !== undefined && typeof b.prompts === "object") {
+      var cur = readPromptCfg(cfg);
+      PROMPT_KEYS.forEach(function (k) {
+        if (b.prompts[k] !== undefined) cur[k] = String(b.prompts[k]);
+      });
+      cfg.ai_prompts = JSON.stringify(cur);
+      // 兼容：清旧字段（tg_collect 已并入 ai_prompts）
+      delete cfg.ai_domain_prompt;
+    }
+    // 兼容旧接口（K 补时代）：domain_prompt → tg_collect
+    if (b.domain_prompt !== undefined) {
+      var cur2 = readPromptCfg(cfg);
+      cur2.tg_collect = String(b.domain_prompt);
+      cfg.ai_prompts = JSON.stringify(cur2);
+      delete cfg.ai_domain_prompt;
+    }
     await store.saveConfig(cfg);
     json(res, 200, { ok: true });
   } catch (e) { json(res, 500, { error: e.message }); }
 }
 
-// 读 AI 配置（key 脱敏回显）
+// 读 AI 配置（key 脱敏回显 + 全部提示词场景回显）
 async function getConfig(req, res) {
   var ac = await getAiConfig();
-  var cfg = await store.getConfig();
   json(res, 200, {
     base: ac.base,
     keySet: !!ac.key,
     keyMask: ac.key ? "****" + ac.key.slice(-4) : "",
     model: ac.model,
-    domainPrompt: cfg.ai_domain_prompt || "",
+    prompts: await getAllEffectivePrompts(),
   });
-}
-
-// 取最终生效的领域提示词（自定义优先，缺省内置默认）——genRules/aiGenerate 共用
-async function getEffectiveDomainPrompt() {
-  try {
-    var cfg = await store.getConfig();
-    return buildDomainPrompt(cfg && cfg.ai_domain_prompt);
-  } catch (e) { return buildDomainPrompt(); }
 }
 
 // 连通性测试
@@ -118,6 +125,8 @@ var SCOPE_PROMPTS = {
   history: "以下是最近的夸克/百度转存记录。请提炼：1) 转存概况（总量、成功/失败比例）2) 转存最多的资源倾向 3) 失败原因分析 4) 建议。用中文输出，简洁分点。",
   custom: "以下是用户提供的文本，请提炼要点、结构与结论。用中文输出，简洁分点。",
 };
+// {SCOPE} 占位符 → 各范围名（自定义 summarize 提示词里用）
+const SCOPE_LABELS = { submissions: "待审核资源提交", reports: "失效链接反馈", history: "转存记录", custom: "自定义文本" };
 
 async function summarize(req, res) {
   try {
@@ -129,7 +138,14 @@ async function summarize(req, res) {
       return;
     }
     var ac = await getAiConfig();
-    var sys = SCOPE_PROMPTS[scope] || SCOPE_PROMPTS.custom;
+    // 自定义 summarize 提示词优先（{SCOPE} 替换为范围名）；未自定义用内置 SCOPE_PROMPTS
+    var customSum = (await getAllEffectivePrompts()).summarize.custom;
+    var sys;
+    if (customSum && customSum.trim()) {
+      sys = customSum.replace(/\{SCOPE\}/g, SCOPE_LABELS[scope] || scope);
+    } else {
+      sys = SCOPE_PROMPTS[scope] || SCOPE_PROMPTS.custom;
+    }
     var out = await chat(ac, input.slice(0, 12000), sys);
     await store.aiSummaryAdd({ scope: scope, input_text: input.slice(0, 3000), output_text: out, model: ac.model });
     json(res, 200, { ok: true, output: out });
@@ -163,10 +179,10 @@ const PAN_URL_RE = /^https:\/\/pan\.(?:quark\.cn|baidu\.com)\/s\/[A-Za-z0-9_-]+/
 // 网盘域名特征（regex 模式用：含 pan/quark/baidu 域名即视为网盘提取）
 const PAN_HINT_RE = /pan\.(?:quark\.cn|baidu\.com)|pan\.quark|pan\.baidu/i;
 
-// 生成内置领域提示词（system prompt 主体）
-// 支持自定义覆盖：site_config.ai_domain_prompt 非空时用自定义文本（保留默认的 {FIELD_WHITELIST}/{RULE_TYPE_WHITELIST}/{PAN_URL_RE} 占位符替换）
-function buildDomainPrompt(custom) {
-  var base = [
+// 各场景默认提示词（内置，用户可覆盖）
+// 占位符：{FIELD_WHITELIST}/{RULE_TYPE_WHITELIST}/{PAN_URL_RE} 自动替换为实际值；summarize 额外支持 {SCOPE}
+function buildDomainPromptBase() {
+  return [
     "你是「云盘搜」网盘资源搜索引擎的采集规则工程师。本项目只收录网盘资源，遵循以下硬性领域约束：",
     "1. 资源字段只能从白名单选：" + FIELD_WHITELIST.join("/") + "（含义：title=标题、url=网盘分享链接、password=提取码、desc=描述、category=分类、disk_type=网盘类型、thumbnail=封面图、extract_code=提取码备选字段）。",
     "2. 规则类型只能从白名单选：" + RULE_TYPE_WHITELIST.join("/") + "（regex=正则提取第一个捕获组、jsonpath=JSON路径、fixed=固定值、concat=多个 jsonpath 拼接）。css 类型引擎暂不支持，禁止使用。",
@@ -178,13 +194,90 @@ function buildDomainPrompt(custom) {
     "8. 辅助定位规则：page 类型可加 field_name=__item__ 的条目分隔正则；api 类型可加 field_name=__list__ 的列表 jsonpath（如 $.data.list）。",
     "9. 只输出 JSON 数组（元素结构 {field_name, rule_type, rule_value, required, default_value?, filter_regex?}），不要任何解释文字、markdown 代码围栏或多余键。",
   ].join("\n");
-  if (custom && String(custom).trim()) {
-    return String(custom)
-      .replace(/\{FIELD_WHITELIST\}/g, FIELD_WHITELIST.join("/"))
-      .replace(/\{RULE_TYPE_WHITELIST\}/g, RULE_TYPE_WHITELIST.join("/"))
-      .replace(/\{PAN_URL_RE\}/g, PAN_URL_RE.source);
+}
+
+// 提示词场景注册表：key → { label（前端展示名）, desc, default（默认提示词模板） }
+const PROMPT_DEFS = {
+  tg_collect: {
+    label: "TG 采集（AI 自动生成规则）",
+    desc: "TG 采集 → AI 自动生成解析规则时使用的领域提示词",
+    default: buildDomainPromptBase(),
+  },
+  gen_rules: {
+    label: "手动规则生成（解析规则 AI）",
+    desc: "采集管理 → 解析规则 AI 生成时的领域提示词",
+    default: buildDomainPromptBase(),
+  },
+  summarize: {
+    label: "内容提炼（AI 摘要）",
+    desc: "任务中心 → AI 提炼。用 {SCOPE} 占位符区分四种范围（submissions/reports/history/custom），例：『{SCOPE}：以下是…请提炼…』",
+    default: "以下是 {SCOPE} 数据。请用中文提炼要点、结构与结论，简洁分点输出。",
+  },
+};
+const PROMPT_KEYS = Object.keys(PROMPT_DEFS);
+// 兼容旧字段名
+const LEGACY_PROMPT_MAP = { ai_domain_prompt: "tg_collect" };
+
+// 展开提示词中的占位符
+function expandPrompt(text) {
+  return String(text || "")
+    .replace(/\{FIELD_WHITELIST\}/g, FIELD_WHITELIST.join("/"))
+    .replace(/\{RULE_TYPE_WHITELIST\}/g, RULE_TYPE_WHITELIST.join("/"))
+    .replace(/\{PAN_URL_RE\}/g, PAN_URL_RE.source);
+}
+
+// 读取用户自定义提示词（site_config.ai_prompts = { key: "..." }；兼容旧 ai_domain_prompt）
+function readPromptCfg(cfg) {
+  var out = {};
+  try {
+    var raw = cfg && cfg.ai_prompts;
+    var obj = typeof raw === "string" ? JSON.parse(raw) : (raw && typeof raw === "object" ? raw : {});
+    PROMPT_KEYS.forEach(function (k) { out[k] = obj && typeof obj[k] === "string" ? obj[k] : ""; });
+  } catch (e) {
+    PROMPT_KEYS.forEach(function (k) { out[k] = ""; });
   }
-  return base;
+  // 旧字段迁移：ai_domain_prompt → tg_collect（仅当 tg_collect 未自定义时）
+  if (!out.tg_collect && cfg && cfg.ai_domain_prompt) out.tg_collect = cfg.ai_domain_prompt;
+  return out;
+}
+
+// 取某场景当前生效的提示词（自定义 || 内置默认，已展开占位符）——回显与调用共用
+async function getEffectivePrompt(key) {
+  if (!PROMPT_DEFS[key]) key = "tg_collect";
+  try {
+    var cfg = await store.getConfig();
+    var custom = readPromptCfg(cfg)[key];
+    return custom && custom.trim() ? expandPrompt(custom) : expandPrompt(PROMPT_DEFS[key].default);
+  } catch (e) { return expandPrompt(PROMPT_DEFS[key].default); }
+}
+
+// 后端生成提示词（已展开占位符）——genRules/aiGenerate 共用（兼容旧名）
+async function getEffectiveDomainPrompt() {
+  return await getEffectivePrompt("tg_collect");
+}
+
+// 取全部场景的当前生效提示词 + 是否自定义（前端回显用）
+async function getAllEffectivePrompts() {
+  var cfg = await store.getConfig();
+  var custom = readPromptCfg(cfg);
+  var out = {};
+  PROMPT_KEYS.forEach(function (k) {
+    var cu = custom[k] || "";
+    out[k] = {
+      label: PROMPT_DEFS[k].label,
+      desc: PROMPT_DEFS[k].desc,
+      custom: cu,
+      effective: cu && cu.trim() ? expandPrompt(cu) : expandPrompt(PROMPT_DEFS[k].default),
+      isCustom: !!cu && !!cu.trim(),
+    };
+  });
+  return out;
+}
+
+// 兼容旧名：buildDomainPrompt（旧 K 补代码可能引用）
+function buildDomainPrompt(custom) {
+  if (custom && String(custom).trim()) return expandPrompt(custom);
+  return buildDomainPromptBase();
 }
 
 // 校验/修正 AI 生成的规则数组 → {rules, accepted, rejected, fixed}
@@ -307,7 +400,7 @@ async function genRules(req, res) {
       } catch (e) {}
     }
 
-    var sys = await getEffectiveDomainPrompt();
+    var sys = await getEffectivePrompt("gen_rules");
     var prompt = ctxDesc + "\n\n示例内容（供正则参考）:\n" + (sample || "(未提供)") + "\n\n请生成解析规则 JSON 数组。";
     var out = await chat(ac, prompt.slice(0, 12000), sys);
     var rules = extractJsonArray(out);
@@ -341,4 +434,4 @@ async function genScript(req, res) {
   } catch (e) { json(res, 502, { ok: false, error: e.message }); }
 }
 
-module.exports = { saveConfig, getConfig, test, summarize, list, genRules, genScript, validateRules, buildDomainPrompt, getAiConfig, chat, extractJsonArray, getEffectiveDomainPrompt };
+module.exports = { saveConfig, getConfig, test, summarize, list, genRules, genScript, validateRules, buildDomainPrompt, getAiConfig, chat, extractJsonArray, getEffectivePrompt, getAllEffectivePrompts, getEffectiveDomainPrompt };
