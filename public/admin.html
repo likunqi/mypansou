@@ -231,10 +231,12 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
                 <el-table-column label="采集源" width="90"><template #default="s"><el-tag size="small">{{s.row.src_count||0}}</el-tag></template></el-table-column>
                 <el-table-column prop="sort_order" label="排序" width="70"></el-table-column>
                 <el-table-column label="状态" width="80"><template #default="s"><el-tag size="small" :type="String(s.row.status)==='1'||s.row.status===1?'success':'info'">{{String(s.row.status)==='1'||s.row.status===1?'启用':'停用'}}</el-tag></template></el-table-column>
-                <el-table-column label="操作" width="170" fixed="right"><template #default="s">
-                  <el-button size="small" type="primary" plain @click="ctedit(s.row)">编辑</el-button>
-                  <el-button size="small" @click="ctst(s.row)">{{String(s.row.status)==='1'||s.row.status===1?'停用':'启用'}}</el-button>
-                  <el-button size="small" type="danger" plain @click="ctdel(s.row)">删除</el-button>
+                <el-table-column label="操作" width="168" fixed="right"><template #default="s">
+                  <el-button-group>
+                    <el-button size="small" type="primary" plain @click="ctedit(s.row)">编辑</el-button>
+                    <el-button size="small" @click="ctst(s.row)">{{String(s.row.status)==='1'||s.row.status===1?'停用':'启用'}}</el-button>
+                    <el-button size="small" type="danger" plain @click="ctdel(s.row)">删除</el-button>
+                  </el-button-group>
                 </template></el-table-column>
               </el-table>
               <div class="hint" style="margin-top:10px">sort_order=0 的分类排在最后；已有分类会在服务启动时从资源数据自动补入。</div>
@@ -272,7 +274,6 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
               </div>
               <el-table :data="res.items" size="small" @selection-change="rsSelChange" :row-class-name="rowCls">
                 <el-table-column type="selection" width="40"></el-table-column>
-                <el-table-column prop="id" label="ID" width="60"></el-table-column>
                 <el-table-column label="封面" width="56"><template #default="s">
                   <a v-if="s.row.thumbnail" :href="s.row.thumbnail" target="_blank"><img :src="s.row.thumbnail" class="cover" loading="lazy" @error="$event.target.style.display='none'"></a>
                   <div v-else class="cover">无图</div>
@@ -285,9 +286,11 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
                 <el-table-column label="来源" width="84"><template #default="s"><el-tag size="small" type="info" effect="plain">{{srcName(s.row.source)}}</el-tag></template></el-table-column>
                 <el-table-column label="状态" width="76"><template #default="s"><el-tag size="small" :type="s.row.status==1?'success':'danger'">{{s.row.status==1?'启用':'停用'}}</el-tag></template></el-table-column>
                 <el-table-column label="入库时间" width="130"><template #default="s"><span style="color:#909399;font-size:12px">{{fmtT(s.row.created_at)}}</span></template></el-table-column>
-                <el-table-column label="操作" width="120" fixed="right"><template #default="s">
-                  <el-button size="small" type="primary" plain @click="rsOpenDlg(s.row)">编辑</el-button>
-                  <el-button size="small" type="danger" plain @click="rsdel(s.row)">删除</el-button>
+                <el-table-column label="操作" width="130" fixed="right"><template #default="s">
+                  <el-button-group>
+                    <el-button size="small" type="primary" plain @click="rsOpenDlg(s.row)">编辑</el-button>
+                    <el-button size="small" type="danger" plain @click="rsdel(s.row)">删除</el-button>
+                  </el-button-group>
                 </template></el-table-column>
               </el-table>
               <div style="display:flex;align-items:center;margin-top:12px">
@@ -411,7 +414,7 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
                   <el-table-column prop="task_name" label="名称" min-width="150" show-overflow-tooltip></el-table-column>
                   <el-table-column label="类型" width="96"><template #default="s"><el-tag size="small" type="info" effect="plain">{{s.row.type_label}}</el-tag></template></el-table-column>
                   <el-table-column label="间隔" width="70"><template #default="s">{{fmtInt(s.row.interval_sec)}}</template></el-table-column>
-                  <el-table-column label="状态" width="58"><template #default="s"><el-switch v-model="s.row.status" size="small" :active-value="1" :inactive-value="0" @change="tstoggle(s.row)"></el-switch></template></el-table-column>
+                  <el-table-column label="状态" width="58"><template #default="s"><el-switch v-model="s.row.status" size="small" :active-value="1" :inactive-value="0" @change="(v)=>tstoggle(s.row,v)"></el-switch></template></el-table-column>
                   <el-table-column label="上次" width="124"><template #default="s"><span style="color:#909399;font-size:12px">{{fmtT(s.row.last_run_at)}}</span></template></el-table-column>
                   <el-table-column label="操作" width="130" fixed="right"><template #default="s">
                     <el-button size="small" type="primary" plain :loading="s.row.running" @click="tsrun(s.row)">{{s.row.running?'运行中':'运行'}}</el-button>
@@ -513,7 +516,7 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
                 <el-table-column prop="name" label="名称" min-width="140" show-overflow-tooltip></el-table-column>
                 <el-table-column label="实例" width="150"><template #default="s"><span class="link-cell" :title="s.row.url_template">{{(s.row.url_template||'').split('/')[2]}}</span></template></el-table-column>
                 <el-table-column prop="category" label="分类" width="90"><template #default="s">{{s.row.category||'-'}}</template></el-table-column>
-                <el-table-column label="状态" width="60"><template #default="s"><el-switch v-model="s.row.status" size="small" :active-value="1" :inactive-value="0" @change="tgToggle(s.row)"></el-switch></template></el-table-column>
+                <el-table-column label="状态" width="60"><template #default="s"><el-switch v-model="s.row.status" size="small" :active-value="1" :inactive-value="0" @change="(v)=>tgToggle(s.row,v)"></el-switch></template></el-table-column>
                 <el-table-column label="最后采集" width="130"><template #default="s"><span style="color:#909399;font-size:12px">{{s.row.last_crawled_at?fmtTime(s.row.last_crawled_at):'-'}}</span></template></el-table-column>
                 <el-table-column label="入库" width="70"><template #default="s"><el-tag size="small" type="success">{{s.row.count}}</el-tag></template></el-table-column>
                 <el-table-column label="操作" width="140" fixed="right"><template #default="s">
@@ -719,7 +722,7 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
                   <span v-if="!(s.row.disks||[]).length" class="hint">全部</span>
                 </template></el-table-column>
                 <el-table-column label="状态" width="70"><template #default="s"><el-tag size="small" :type="s.row.enabled?'success':'info'">{{s.row.enabled?'启用':'停用'}}</el-tag></template></el-table-column>
-                <el-table-column label="启停" width="70"><template #default="s"><el-switch v-model="s.row.enabled" size="small" @change="scToggle(s.row)"></el-switch></template></el-table-column>
+                <el-table-column label="启停" width="70"><template #default="s"><el-switch v-model="s.row.enabled" size="small" :active-value="1" :inactive-value="0" @change="(v)=>scToggle(s.row,v)"></el-switch></template></el-table-column>
               </el-table>
               <div class="hint" style="margin-top:10px">「网盘限制」点击切换（选中=只保留该网盘结果，空=全部）；新增搜索源需在代码里注册（lib/sources/registry.js）。</div>
             </div>
@@ -772,7 +775,7 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
                   <el-table-column label="类型" width="80"><template #default="s"><el-tag size="small" :type="s.row.provider==='baidu'?'warning':'primary'">{{s.row.provider==='baidu'?'百度':'夸克'}}</el-tag></template></el-table-column>
                   <el-table-column prop="name" label="名称" min-width="110"><template #default="s">{{s.row.name||'未命名账号'}}</template></el-table-column>
                   <el-table-column label="有效" width="100"><template #default="s"><el-tag size="small" :type="s.row.is_valid?'success':'danger'">{{s.row.is_valid?'有效':'未知/失效'}}</el-tag></template></el-table-column>
-                  <el-table-column label="启用" width="60"><template #default="s"><el-switch v-model="s.row.enabled" size="small" @change="ckToggle(s.row)"></el-switch></template></el-table-column>
+                  <el-table-column label="启用" width="60"><template #default="s"><el-switch v-model="s.row.enabled" size="small" :active-value="1" :inactive-value="0" @change="(v)=>ckToggle(s.row,v)"></el-switch></template></el-table-column>
                   <el-table-column label="操作" width="180" fixed="right"><template #default="s">
                     <el-button size="small" :loading="s.row.testing" @click="ckTestRow(s.row)">{{s.row.testing?'测试中…':'测试'}}</el-button>
                     <el-button size="small" type="primary" plain @click="ckEdit(s.row)">编辑</el-button>
@@ -941,7 +944,7 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
       <div class="foot-note">云盘搜 · 后台管理（Element Plus）</div>
 
       <!-- ============ 资源新增/编辑弹框 ============ -->
-      <el-dialog v-model="rsDlgShow" :title="rsEditId?'编辑资源 #'+rsEditId:'新增资源'" width="580px">
+      <el-dialog v-model="rsDlgShow" :title="rsEditId?'编辑资源':'新增资源'" width="580px">
         <el-form label-width="86px">
           <el-form-item label="标题" required><el-input v-model="rsAdd.title" placeholder="资源标题"></el-input></el-form-item>
           <el-form-item label="链接" required><el-input v-model="rsAdd.url" placeholder="https://pan.quark.cn/s/..."></el-input></el-form-item>
@@ -1106,7 +1109,7 @@ Vue.createApp({
     function rowCls(){return""}
     function rsOpenDlg(r){
       if(r){rsEditId.value=r.id;rsAdd.title=r.title||"";rsAdd.url=r.url||"";rsAdd.password=r.password||"";rsAdd.disk_type=r.disk_type||"quark";rsAdd.category=r.category||"";rsAdd.description=r.description||"";rsAdd.thumbnail=r.thumbnail||"";rsAdd.status=r.status===0?0:1;}
-      else{rsEditId.value=0;rsAdd={title:"",url:"",password:"",disk_type:"quark",category:"",description:"",thumbnail:"",status:1};}
+      else{rsEditId.value=0;Object.assign(rsAdd,{title:"",url:"",password:"",disk_type:"quark",category:"",description:"",thumbnail:"",status:1});}
       rsDlgShow.value=true;
     }
     function rsadd(){
@@ -1340,8 +1343,9 @@ Vue.createApp({
         if(r.status==="ok"){msg("@"+s.channel+" 采集完成，新增 "+r.inserted+" 条");ldtg()}else msg("@"+s.channel+" 采集失败："+(r.error||""),"e")
       }).catch(function(){s.running=false;msg("采集请求失败","e")});
     }
-    function tgToggle(s){
-      ap("POST","crawler/sources/"+s.id,{status:String(s.status)==="1"?"0":"1"}).then(function(r){if(r.ok){msg("已"+(String(s.status)==="1"?"停用":"启用"));ldtg()}else msg(r.error||"操作失败","e")});
+    function tgToggle(s,val){
+      var on=val?1:0;
+      ap("POST","crawler/sources/"+s.id,{status:on}).then(function(r){if(r.ok){msg(on?"已启用":"已停用");ldtg()}else msg(r.error||"操作失败","e")});
     }
     function tgdel(s){
       cfm("删除采集源 #"+s.id+"（@"+s.channel+"，含其规则）？").then(function(){
@@ -1389,8 +1393,8 @@ Vue.createApp({
     var scItems=rf([]);
     var scDiskOpts={quark:"夸克",baidu:"百度",aliyun:"阿里",tianyi:"天翼",uc:"UC",xunlei:"迅雷"};
     function ldsc(){ap("GET","sources").then(function(r){scItems.value=r.items||[]})}
-    function scToggle(s){
-      var on=!s.enabled;
+    function scToggle(s,val){
+      var on=val?1:0;
       ap("POST","sources/update",{id:s.id,enabled:on}).then(function(r){
         if(r.ok){msg((on?"已启用":"已停用")+"「"+s.name+"」");ldsc()}else msg(r.error||"操作失败","e");
       });
@@ -1492,9 +1496,9 @@ Vue.createApp({
       ap("GET","task-logs?limit=30").then(function(r){tsLogs.value=r.items||[]});
     }
     function tsSelChange(rows){tsSel.value=rows.map(function(r){return r.id})}
-    function tstoggle(t){
-      var on=!t.status;
-      ap("POST","tasks/"+t.id,{status:on?1:0}).then(function(r){
+    function tstoggle(t,val){
+      var on=val?1:0;
+      ap("POST","tasks/"+t.id,{status:on}).then(function(r){
         if(r.ok){msg((on?"已启用":"已停用")+"「"+t.task_name+"」");ldts()}else msg(r.error||"操作失败","e");
       });
     }
@@ -1742,8 +1746,8 @@ Vue.createApp({
         ap("POST","cookies/"+a.id+"/delete",{}).then(function(r){if(r.ok){msg("已删除");ldck()}else msg(r.error||"删除失败","e")});
       }).catch(function(){});
     }
-    function ckToggle(a){
-      var on=!a.enabled;
+    function ckToggle(a,val){
+      var on=val?1:0;
       ap("POST","cookies/"+a.id,{enabled:on}).then(function(r){
         if(r.ok){a.enabled=on;msg(on?"已启用":"已停用")}else msg(r.error||"操作失败","e");
       });
