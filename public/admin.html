@@ -13,6 +13,8 @@
 .toast-wrap{position:fixed;bottom:1.5rem;right:1.5rem;z-index:1050}
 .page-body{min-height:calc(100vh - 4.5rem)}
 .page-body .container-xl{max-width:1200px}
+.nav-group-title{font-size:.72rem;color:#6c7a91;letter-spacing:.05em;text-transform:uppercase;padding:.75rem .5rem .25rem}
+[data-bs-theme="dark"] .nav-group-title,[data-bs-theme="dark"] .navbar-vertical .nav-group-title{color:#8b98a9}
 .side-logo{width:2rem;height:2rem;border-radius:.5rem;background:linear-gradient(135deg,#2fb344,#4299e1);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;margin-right:.5rem}
 @media(max-width:991px){.page-wrapper{padding-top:3.5rem}}
 </style>
@@ -57,8 +59,9 @@
       </h1>
       <div class="navbar-collapse" :class="{'collapse':!sb}">
         <ul class="navbar-nav pt-lg-3">
-          <li class="nav-item" v-for="m in menus" :key="m.id">
-            <a class="nav-link" :class="{active:pg===m.id}" href="javascript:void(0)" @click="gp(m.id)">
+          <li class="nav-item" v-for="g in menus" :key="g.g">
+            <div class="nav-group-title">{{g.g}}</div>
+            <a class="nav-link" v-for="m in g.items" :key="m.id" :class="{active:pg===m.id}" href="javascript:void(0)" @click="gp(m.id)">
               <span class="nav-link-icon" v-html="m.icon"></span>
               <span class="nav-link-title">{{m.title}}</span>
             </a>
@@ -108,6 +111,10 @@
         <div class="page-header d-print-none mb-4">
           <div class="row align-items-center">
             <div class="col">
+              <ol class="breadcrumb mb-2">
+                <li class="breadcrumb-item"><a href="/" target="_blank" class="text-secondary text-decoration-none">首页</a></li>
+                <li class="breadcrumb-item active">{{curMenu.title}}</li>
+              </ol>
               <h2 class="page-title mb-0">{{curMenu.title}}</h2>
             </div>
           </div>
@@ -215,6 +222,40 @@
                       <span class="text-secondary ms-2 small">{{fmtTime(r.createdAt)}}</span>
                     </div>
                     <div v-if="!dash.recent.length" class="text-secondary">暂无转存记录</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="row g-3 mt-3">
+              <div class="col-lg-7">
+                <div class="card">
+                  <div class="card-header d-flex align-items-center">
+                    <h3 class="card-title mb-0">热搜运营</h3>
+                    <div class="ms-auto d-flex gap-2">
+                      <input class="form-control form-control-sm" v-model="kwNew.keyword" placeholder="新增热搜词" @keydown.enter="kwadd" style="width:160px">
+                      <button class="btn btn-outline-secondary btn-sm" @click="ldKw">刷新</button>
+                    </div>
+                  </div>
+                  <div class="card-body py-2">
+                    <span v-for="k in kwItems.slice(0,12)" :key="k.id" class="badge me-2 mb-2" :class="k.is_hot?'bg-warning-lt text-warning':'bg-secondary-lt text-secondary'" style="cursor:pointer" @click="kwhot(k,k.is_hot?0:1)" :title="k.is_hot?'取消置顶':'置顶'">{{k.keyword}}<span v-if="k.is_hot">🔥</span></span>
+                    <div v-if="!kwItems.length" class="text-secondary py-2">暂无热搜词，在右上角输入回车添加</div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-5">
+                <div class="card">
+                  <div class="card-header d-flex align-items-center">
+                    <h3 class="card-title mb-0">任务状态</h3>
+                    <div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldts">刷新</button></div>
+                  </div>
+                  <div class="card-body py-2">
+                    <div v-for="t in tsItems.slice(0,5)" :key="t.id" class="d-flex align-items-center mb-2">
+                      <span class="badge bg-secondary-lt text-secondary me-2">#{{t.id}}</span>
+                      <span class="text-truncate flex-grow-1">{{t.task_name}}</span>
+                      <span class="badge" :class="t.status?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{t.status?'启用':'停用'}}</span>
+                      <span class="text-secondary ms-2 small">{{fmtT(t.last_run_at)}}</span>
+                    </div>
+                    <div v-if="!tsItems.length" class="text-secondary py-2">暂无任务</div>
                   </div>
                 </div>
               </div>
@@ -345,7 +386,6 @@
             <li class="nav-item"><a class="nav-link" :class="{active:rsTab==='list'}" href="javascript:void(0)" @click="rsTab='list'">资源列表</a></li>
             <li class="nav-item"><a class="nav-link" :class="{active:rsTab==='sub'}" href="javascript:void(0)" @click="rsTab='sub';ldsub()">提交审核<span v-if="subPending" class="badge bg-danger ms-1">{{subPending}}</span></a></li>
             <li class="nav-item"><a class="nav-link" :class="{active:rsTab==='imp'}" href="javascript:void(0)" @click="rsTab='imp'">批量导入</a></li>
-            <li class="nav-item"><a class="nav-link" :class="{active:rsTab==='crw'}" href="javascript:void(0)" @click="rsTab='crw';ldsrc()">采集管理</a></li>
           </ul>
 
           <!-- 资源列表 -->
@@ -639,186 +679,9 @@
             </div>
           </div>
 
-          <!-- 采集管理 -->
-          <div v-if="rsTab==='crw'">
-            <div class="row">
-              <div class="col-lg-7">
-                <div class="card">
-                  <div class="card-header"><h3 class="card-title">采集源</h3></div>
-                  <div class="table-responsive">
-                    <table class="table table-vcenter card-table">
-                      <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>URL 模板</th><th>分类</th><th>状态</th><th class="w-1">操作</th></tr></thead>
-                      <tbody>
-                        <tr v-for="s in crSrcs" :key="s.id">
-                          <td class="text-secondary">{{s.id}}</td>
-                          <td>{{s.name}}</td>
-                          <td><span class="badge bg-secondary-lt">{{s.source_type}}</span></td>
-                          <td class="text-truncate" style="max-width:150px" :title="s.url_template">{{s.url_template}}</td>
-                          <td>{{s.category||'-'}}</td>
-                          <td><span class="badge" :class="String(s.status)==='1'?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{String(s.status)==='1'?'启用':'停用'}}</span></td>
-                          <td class="text-nowrap">
-                            <button class="btn btn-sm btn-outline-primary me-1" @click="crrun(s)" title="采集一次">运行</button>
-                            <button class="btn btn-sm btn-outline-danger" @click="crdel(s)">删除</button>
-                          </td>
-                        </tr>
-                        <tr v-if="!crSrcs.length"><td colspan="7" class="text-center text-secondary py-3">暂无采集源</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-              <div class="col-lg-5">
-                <div class="card mb-3">
-                  <div class="card-header"><h3 class="card-title">新增采集源</h3></div>
-                  <div class="card-body">
-                    <div class="mb-2"><label class="form-label">名称 *</label><input class="form-control" v-model="crNew.name"></div>
-                    <div class="mb-2"><label class="form-label">类型 *</label>
-                      <select class="form-select" v-model="crNew.source_type"><option value="rss">RSS</option><option value="page">网页</option><option value="api">JSON API</option></select>
-                    </div>
-                    <div class="mb-2"><label class="form-label">URL 模板 *（支持 {page}）</label><input class="form-control" v-model="crNew.url_template" placeholder="https://example.com/feed"></div>
-                    <div class="row g-2 mb-2">
-                      <div class="col-6"><label class="form-label">起始页</label><input type="number" class="form-control" v-model="crNew.page_start"></div>
-                      <div class="col-6"><label class="form-label">结束页</label><input type="number" class="form-control" v-model="crNew.page_end"></div>
-                    </div>
-                    <div class="row g-2 mb-2">
-                      <div class="col-6"><label class="form-label">编码</label>
-                        <select class="form-select" v-model="crNew.encoding"><option value="utf-8">utf-8</option><option value="gbk">gbk</option><option value="big5">big5</option></select>
-                      </div>
-                      <div class="col-6"><label class="form-label">分类</label><input class="form-control" v-model="crNew.category"></div>
-                    </div>
-                    <button class="btn btn-primary w-100" @click="crAdd()">新增采集源</button>
-                    <div class="form-hint mt-2">新增后需配置解析规则（字段提取方式），然后点「运行」测试。</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="card mt-3">
-              <div class="card-header"><h3 class="card-title">解析规则（选择采集源查看）</h3></div>
-              <div class="card-body">
-                <div class="row g-2 mb-3">
-                  <div class="col-md-4">
-                    <select class="form-select" v-model="crSel" @change="ldrule()">
-                      <option value="">— 选择采集源 —</option>
-                      <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}</option>
-                    </select>
-                  </div>
-                  <div class="col-md-8 text-end">
-                    <span v-if="crRuleStats" class="text-secondary small">{{crRuleStats.msg}}</span>
-                  </div>
-                </div>
-                <table class="table table-sm table-vcenter" v-if="crRules.length">
-                  <thead><tr><th>字段</th><th>规则类型</th><th>规则值</th><th>必填</th><th></th></tr></thead>
-                  <tbody>
-                    <tr v-for="(rl,i) in crRules" :key="rl.id">
-                      <td><span class="badge bg-primary-lt text-primary">{{rl.field_name}}</span></td>
-                      <td>{{rl.rule_type}}</td>
-                      <td class="font-monospace small text-truncate" style="max-width:300px" :title="rl.rule_value">{{rl.rule_value}}</td>
-                      <td>{{rl.required==1?'是':'否'}}</td>
-                      <td><button class="btn btn-sm btn-outline-danger" @click="cruledel(rl)">删</button></td>
-                    </tr>
-                  </tbody>
-                </table>
-                <div v-else class="text-secondary py-2">暂无规则（RSS 常用：title=&lt;title&gt;([^&lt;]+)&lt;/title&gt;、url=&lt;link&gt;([^&lt;]+)&lt;/link&gt;，regex 类型）</div>
-                <hr>
-                <div class="row g-2 align-items-end">
-                  <div class="col-2"><label class="form-label">字段</label>
-                    <select class="form-select" v-model="crRuleNew.field_name"><option value="title">title</option><option value="url">url</option><option value="password">password</option><option value="disk_type">disk_type</option><option value="category">category</option><option value="description">description</option></select>
-                  </div>
-                  <div class="col-2"><label class="form-label">类型</label>
-                    <select class="form-select" v-model="crRuleNew.rule_type"><option value="regex">regex</option><option value="jsonpath">jsonpath</option><option value="fixed">fixed</option></select>
-                  </div>
-                  <div class="col-5"><label class="form-label">规则值</label><input class="form-control font-monospace" v-model="crRuleNew.rule_value" placeholder="<title>([^<]+)</title>"></div>
-                  <div class="col-1"><label class="form-label">必填</label><input type="checkbox" class="form-check-input m-2" v-model="crRuleNew.required"></div>
-                  <div class="col-2"><button class="btn btn-outline-primary w-100" :disabled="!crSel" @click="crruleadd()">添加规则</button></div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
-        <!-- ========== API 配置 ========== -->
-        <div v-if="pg==='api'" class="row">
-          <div class="col-lg-6">
-            <div class="card">
-              <div class="card-header"><h3 class="card-title">API 配置</h3></div>
-              <div class="card-body">
-                <div class="mb-3">
-                  <label class="form-label">盘搜 API 列表（多 Host 随机轮询，故障自动切换）</label>
-                  <div v-for="(pb,i) in cfg.pansouBases" :key="i" class="row g-2 mb-2 align-items-center">
-                    <div class="col-2"><input class="form-control form-control-sm" v-model="pb.name" placeholder="名称"></div>
-                    <div class="col-6"><input class="form-control form-control-sm" v-model="pb.host" placeholder="pansou.makepic.online:8001"></div>
-                    <div class="col-auto"><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" v-model="pb.enabled" :id="'pben'+i"><label class="form-check-label" :for="'pben'+i">启用</label></div></div>
-                    <div class="col-auto"><input class="form-control form-control-sm" type="number" min="1" v-model="pb.weight" style="width:80px" title="权重（越大越优先）"></div>
-                    <div class="col-auto"><button class="btn btn-outline-danger btn-sm" @click="pbDel(i)">删除</button></div>
-                  </div>
-                  <button class="btn btn-outline-secondary btn-sm" @click="pbAdd">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    添加 Host
-                  </button>
-                  <div class="form-hint mt-2">格式：host 或 host:port 或 http(s)://host[:port]；请求时按权重随机选启用 Host，失败自动切换下一个</div>
-                </div>
-                <button class="btn btn-primary" @click="svcfg">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                  保存
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <!-- ========== 热搜管理 ========== -->
-        <div v-if="pg==='kw'" class="row">
-          <div class="col-12">
-            <div class="card">
-              <div class="card-header"><h3 class="card-title">热搜关键词管理</h3><div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldKw">刷新</button></div></div>
-              <div class="card-body">
-                <div class="row g-2 mb-3 align-items-end">
-                  <div class="col-auto" style="min-width:220px">
-                    <label class="form-label">{{kwEditId?'编辑关键词':'新增 / 置顶关键词'}}</label>
-                    <input class="form-control" v-model="kwNew.keyword" placeholder="如：狂飙" @keydown.enter="kwadd">
-                  </div>
-                  <div class="col-auto">
-                    <label class="form-label">排序权重</label>
-                    <input class="form-control" type="number" v-model="kwNew.sort_order" style="width:110px">
-                  </div>
-                  <div class="col-auto">
-                    <div class="form-check form-switch mt-4">
-                      <input class="form-check-input" type="checkbox" v-model="kwNew.is_hot" id="kwHotNew">
-                      <label class="form-check-label" for="kwHotNew">置顶（🔥 热词）</label>
-                    </div>
-                  </div>
-                  <div class="col-auto"><button class="btn btn-primary" @click="kwadd">{{kwEditId?'保存':'添加'}}</button></div>
-                  <div class="col-auto" v-if="kwEditId"><button class="btn btn-outline-secondary" @click="kwCancel">取消编辑</button></div>
-                </div>
-                <div class="table-responsive">
-                  <table class="table table-vcenter card-table">
-                    <thead><tr><th>#</th><th>关键词</th><th>搜索次数</th><th>来源</th><th>热词</th><th>排序</th><th>状态</th><th>操作</th></tr></thead>
-                    <tbody>
-                      <tr v-for="k in kwItems" :key="k.id">
-                        <td class="text-secondary">{{k.id}}</td>
-                        <td class="fw-bold">{{k.keyword}}</td>
-                        <td><span class="badge bg-primary-lt text-primary">{{k.search_count||0}}</span></td>
-                        <td><span class="badge" :class="k.source==='douban'?'bg-warning-lt text-warning':(k.is_hot?'bg-info-lt text-info':'bg-secondary-lt text-secondary')">{{k.source==='douban'?'豆瓣采集':(k.is_hot?'手动置顶':'用户搜索')}}</span></td>
-                        <td><span class="badge" :class="k.is_hot?'bg-warning-lt text-warning':'bg-secondary-lt text-secondary'">{{k.is_hot?'🔥 热词':'普通'}}</span></td>
-                        <td class="text-secondary">{{k.sort_order||0}}</td>
-                        <td><span class="badge" :class="String(k.status)==='1'||k.status===1?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{String(k.status)==='1'||k.status===1?'启用':'停用'}}</span></td>
-                        <td class="text-nowrap">
-                          <button class="btn btn-outline-primary btn-sm" @click="kwEdit(k)">编辑</button>
-                          <button class="btn btn-outline-warning btn-sm" v-if="!k.is_hot" @click="kwhot(k,1)">置顶</button>
-                          <button class="btn btn-outline-secondary btn-sm" v-else @click="kwhot(k,0)">取消置顶</button>
-                          <button class="btn btn-outline-secondary btn-sm" @click="kwst(k)">{{String(k.status)==='1'||k.status===1?'停用':'启用'}}</button>
-                          <button class="btn btn-outline-danger btn-sm" @click="kwdel(k)">删除</button>
-                        </td>
-                      </tr>
-                      <tr v-if="!kwItems.length"><td colspan="8" class="text-center text-secondary py-4">暂无关键词，新增一个试试</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="form-hint mt-2">置顶词优先展示；用户搜索自动累加「搜索次数」；「豆瓣采集」词由每日 08:00 定时任务从豆瓣热榜自动入库（可在本页停用/删除）。</div>
-              </div>
-            </div>
-          </div>
-        </div>
 
         <!-- ========== 搜索源管理 ========== -->
         <div v-if="pg==='sc'" class="row">
@@ -931,9 +794,17 @@
           </div>
         </div>
 
-        <!-- ========== TG 采集（主力） ========== -->
-        <div v-if="pg==='tg'" class="row">
+        <!-- ========== 采集管理（TG 频道 / 采集源 / 任务） ========== -->
+        <div v-if="pg==='cg'" class="row">
           <div class="col-12">
+            <div class="d-flex align-items-center mb-3">
+              <ul class="nav nav-pills nav-scrollable">
+                <li class="nav-item"><a class="nav-link" :class="{active:tgTab==='tg'}" href="javascript:void(0)" @click="tgTab='tg'">TG 频道</a></li>
+                <li class="nav-item"><a class="nav-link" :class="{active:tgTab==='cr'}" href="javascript:void(0)" @click="tgTab='cr';ldsrc()">采集源 / 解析规则</a></li>
+                <li class="nav-item"><a class="nav-link" :class="{active:tgTab==='ts'}" href="javascript:void(0)" @click="tgTab='ts';ldts();ldtslogs()">任务与日志</a></li>
+              </ul>
+            </div>
+            <div v-if="tgTab==='tg'">
             <div class="alert alert-info py-2 mb-3">
               <span>TG 频道是主力采集方式：批量添加频道 → 自动套通用解析规则（title / 夸克百度链接 url / disk_type / description）→ 统一任务「TG 批量采集」按全局间隔跑全部启用源（加新频道无需再建任务）。</span>
             </div>
@@ -1020,12 +891,102 @@
                 </table>
               </div>
             </div>
-          </div>
-        </div>
-
-        <!-- ========== 任务中心 ========== -->
-        <div v-if="pg==='ts'" class="row">
-          <div class="col-12">
+            </div>
+            <div v-if="tgTab==='cr'">
+            <div class="row">
+              <div class="col-lg-7">
+                <div class="card">
+                  <div class="card-header"><h3 class="card-title">采集源</h3></div>
+                  <div class="table-responsive">
+                    <table class="table table-vcenter card-table">
+                      <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>URL 模板</th><th>分类</th><th>状态</th><th class="w-1">操作</th></tr></thead>
+                      <tbody>
+                        <tr v-for="s in crSrcs" :key="s.id">
+                          <td class="text-secondary">{{s.id}}</td>
+                          <td>{{s.name}}</td>
+                          <td><span class="badge bg-secondary-lt">{{s.source_type}}</span></td>
+                          <td class="text-truncate" style="max-width:150px" :title="s.url_template">{{s.url_template}}</td>
+                          <td>{{s.category||'-'}}</td>
+                          <td><span class="badge" :class="String(s.status)==='1'?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{String(s.status)==='1'?'启用':'停用'}}</span></td>
+                          <td class="text-nowrap">
+                            <button class="btn btn-sm btn-outline-primary me-1" @click="crrun(s)" title="采集一次">运行</button>
+                            <button class="btn btn-sm btn-outline-danger" @click="crdel(s)">删除</button>
+                          </td>
+                        </tr>
+                        <tr v-if="!crSrcs.length"><td colspan="7" class="text-center text-secondary py-3">暂无采集源</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-5">
+                <div class="card mb-3">
+                  <div class="card-header"><h3 class="card-title">新增采集源</h3></div>
+                  <div class="card-body">
+                    <div class="mb-2"><label class="form-label">名称 *</label><input class="form-control" v-model="crNew.name"></div>
+                    <div class="mb-2"><label class="form-label">类型 *</label>
+                      <select class="form-select" v-model="crNew.source_type"><option value="rss">RSS</option><option value="page">网页</option><option value="api">JSON API</option></select>
+                    </div>
+                    <div class="mb-2"><label class="form-label">URL 模板 *（支持 {page}）</label><input class="form-control" v-model="crNew.url_template" placeholder="https://example.com/feed"></div>
+                    <div class="row g-2 mb-2">
+                      <div class="col-6"><label class="form-label">起始页</label><input type="number" class="form-control" v-model="crNew.page_start"></div>
+                      <div class="col-6"><label class="form-label">结束页</label><input type="number" class="form-control" v-model="crNew.page_end"></div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                      <div class="col-6"><label class="form-label">编码</label>
+                        <select class="form-select" v-model="crNew.encoding"><option value="utf-8">utf-8</option><option value="gbk">gbk</option><option value="big5">big5</option></select>
+                      </div>
+                      <div class="col-6"><label class="form-label">分类</label><input class="form-control" v-model="crNew.category"></div>
+                    </div>
+                    <button class="btn btn-primary w-100" @click="crAdd()">新增采集源</button>
+                    <div class="form-hint mt-2">新增后需配置解析规则（字段提取方式），然后点「运行」测试。</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card mt-3">
+              <div class="card-header"><h3 class="card-title">解析规则（选择采集源查看）</h3></div>
+              <div class="card-body">
+                <div class="row g-2 mb-3">
+                  <div class="col-md-4">
+                    <select class="form-select" v-model="crSel" @change="ldrule()">
+                      <option value="">— 选择采集源 —</option>
+                      <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}</option>
+                    </select>
+                  </div>
+                  <div class="col-md-8 text-end">
+                    <span v-if="crRuleStats" class="text-secondary small">{{crRuleStats.msg}}</span>
+                  </div>
+                </div>
+                <table class="table table-sm table-vcenter" v-if="crRules.length">
+                  <thead><tr><th>字段</th><th>规则类型</th><th>规则值</th><th>必填</th><th></th></tr></thead>
+                  <tbody>
+                    <tr v-for="(rl,i) in crRules" :key="rl.id">
+                      <td><span class="badge bg-primary-lt text-primary">{{rl.field_name}}</span></td>
+                      <td>{{rl.rule_type}}</td>
+                      <td class="font-monospace small text-truncate" style="max-width:300px" :title="rl.rule_value">{{rl.rule_value}}</td>
+                      <td>{{rl.required==1?'是':'否'}}</td>
+                      <td><button class="btn btn-sm btn-outline-danger" @click="cruledel(rl)">删</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div v-else class="text-secondary py-2">暂无规则（RSS 常用：title=&lt;title&gt;([^&lt;]+)&lt;/title&gt;、url=&lt;link&gt;([^&lt;]+)&lt;/link&gt;，regex 类型）</div>
+                <hr>
+                <div class="row g-2 align-items-end">
+                  <div class="col-2"><label class="form-label">字段</label>
+                    <select class="form-select" v-model="crRuleNew.field_name"><option value="title">title</option><option value="url">url</option><option value="password">password</option><option value="disk_type">disk_type</option><option value="category">category</option><option value="description">description</option></select>
+                  </div>
+                  <div class="col-2"><label class="form-label">类型</label>
+                    <select class="form-select" v-model="crRuleNew.rule_type"><option value="regex">regex</option><option value="jsonpath">jsonpath</option><option value="fixed">fixed</option></select>
+                  </div>
+                  <div class="col-5"><label class="form-label">规则值</label><input class="form-control font-monospace" v-model="crRuleNew.rule_value" placeholder="<title>([^<]+)</title>"></div>
+                  <div class="col-1"><label class="form-label">必填</label><input type="checkbox" class="form-check-input m-2" v-model="crRuleNew.required"></div>
+                  <div class="col-2"><button class="btn btn-outline-primary w-100" :disabled="!crSel" @click="crruleadd()">添加规则</button></div>
+                </div>
+              </div>
+            </div>
+            </div>
+            <div v-if="tgTab==='ts'">
             <div class="alert alert-info py-2 mb-3 d-flex align-items-center">
               <span>内置任务已自动注册：<b>资源清理</b>（每日 03:00）· <b>豆瓣热词采集</b>（每日 08:00）· <b>热门推荐预热</b>（每 30 分钟）。点「▶」立即执行，开关启停。</span>
               <div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="tsAdvShow=!tsAdvShow">{{tsAdvShow?'收起高级功能':'高级功能'}}</button></div>
@@ -1090,6 +1051,7 @@
                   </table>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </div>
@@ -1281,71 +1243,22 @@
           </div>
         </div>
 
-        <!-- ========== 缓存管理 ========== -->
-        <div v-if="pg==='ca'" class="row">
-          <div class="col-lg-6">
-            <div class="card">
-              <div class="card-header"><h3 class="card-title">转存缓存</h3></div>
-              <div class="card-body">
-                <div class="row g-3 mb-4">
-                  <div class="col-4">
-                    <div class="border rounded p-3 text-center">
-                      <div class="h2 mb-0">{{cache.total||0}}</div>
-                      <div class="subheader">总量</div>
-                    </div>
-                  </div>
-                  <div class="col-4">
-                    <div class="border rounded p-3 text-center">
-                      <div class="h2 mb-0">{{cache.quark||0}}</div>
-                      <div class="subheader">夸克</div>
-                    </div>
-                  </div>
-                  <div class="col-4">
-                    <div class="border rounded p-3 text-center">
-                      <div class="h2 mb-0">{{cache.baidu||0}}</div>
-                      <div class="subheader">百度</div>
-                    </div>
-                  </div>
-                </div>
-                <button class="btn btn-danger" @click="clr">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                  清空缓存
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <!-- ========== 安全设置 ========== -->
-        <div v-if="pg==='se'" class="row">
-          <div class="col-lg-6">
-            <div class="card">
-              <div class="card-header"><h3 class="card-title">修改密码</h3></div>
-              <div class="card-body">
-                <div class="mb-3">
-                  <label class="form-label">当前密码</label>
-                  <input type="password" class="form-control" v-model="pw.old">
-                </div>
-                <div class="mb-3">
-                  <label class="form-label">新密码</label>
-                  <input type="password" class="form-control" v-model="pw.n1" placeholder="至少 6 位">
-                </div>
-                <div class="mb-3">
-                  <label class="form-label">确认新密码</label>
-                  <input type="password" class="form-control" v-model="pw.n2">
-                </div>
-                <button class="btn btn-primary" @click="chpw">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-                  保存
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
 
         <!-- ========== 站点配置 ========== -->
-        <div v-if="pg==='site'" class="row">
-          <div class="col-lg-8">
+        <div v-if="pg==='set'" class="row">
+          <div class="col-12">
+            <div class="d-flex align-items-center mb-3">
+              <ul class="nav nav-pills nav-scrollable">
+                <li class="nav-item"><a class="nav-link" :class="{active:setTab==='site'}" href="javascript:void(0)" @click="setTab='site'">站点</a></li>
+                <li class="nav-item"><a class="nav-link" :class="{active:setTab==='api'}" href="javascript:void(0)" @click="setTab='api'">API 源</a></li>
+                <li class="nav-item"><a class="nav-link" :class="{active:setTab==='cache'}" href="javascript:void(0)" @click="setTab='cache'">缓存</a></li>
+                <li class="nav-item"><a class="nav-link" :class="{active:setTab==='sec'}" href="javascript:void(0)" @click="setTab='sec'">安全</a></li>
+              </ul>
+            </div>
+            <div v-if="setTab==='site'">
+            <div class="row">
+              <div class="col-lg-8">
             <div class="card">
               <div class="card-header"><h3 class="card-title">站点配置（TDK / Favicon / 自定义代码）</h3>
                 <div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldsite">刷新</button></div>
@@ -1397,6 +1310,101 @@
               </div>
             </div>
           </div>
+            </div>
+            </div>
+            <div v-if="setTab==='api'">
+            <div class="row">
+              <div class="col-lg-6">
+                <div class="card">
+                  <div class="card-header"><h3 class="card-title">API 配置</h3></div>
+                  <div class="card-body">
+                    <div class="mb-3">
+                      <label class="form-label">盘搜 API 列表（多 Host 随机轮询，故障自动切换）</label>
+                      <div v-for="(pb,i) in cfg.pansouBases" :key="i" class="row g-2 mb-2 align-items-center">
+                        <div class="col-2"><input class="form-control form-control-sm" v-model="pb.name" placeholder="名称"></div>
+                        <div class="col-6"><input class="form-control form-control-sm" v-model="pb.host" placeholder="pansou.makepic.online:8001"></div>
+                        <div class="col-auto"><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" v-model="pb.enabled" :id="'pben'+i"><label class="form-check-label" :for="'pben'+i">启用</label></div></div>
+                        <div class="col-auto"><input class="form-control form-control-sm" type="number" min="1" v-model="pb.weight" style="width:80px" title="权重（越大越优先）"></div>
+                        <div class="col-auto"><button class="btn btn-outline-danger btn-sm" @click="pbDel(i)">删除</button></div>
+                      </div>
+                      <button class="btn btn-outline-secondary btn-sm" @click="pbAdd">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        添加 Host
+                      </button>
+                      <div class="form-hint mt-2">格式：host 或 host:port 或 http(s)://host[:port]；请求时按权重随机选启用 Host，失败自动切换下一个</div>
+                    </div>
+                    <button class="btn btn-primary" @click="svcfg">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                      保存
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </div>
+            <div v-if="setTab==='cache'">
+            <div class="row">
+              <div class="col-lg-6">
+                <div class="card">
+                  <div class="card-header"><h3 class="card-title">转存缓存</h3></div>
+                  <div class="card-body">
+                    <div class="row g-3 mb-4">
+                      <div class="col-4">
+                        <div class="border rounded p-3 text-center">
+                          <div class="h2 mb-0">{{cache.total||0}}</div>
+                          <div class="subheader">总量</div>
+                        </div>
+                      </div>
+                      <div class="col-4">
+                        <div class="border rounded p-3 text-center">
+                          <div class="h2 mb-0">{{cache.quark||0}}</div>
+                          <div class="subheader">夸克</div>
+                        </div>
+                      </div>
+                      <div class="col-4">
+                        <div class="border rounded p-3 text-center">
+                          <div class="h2 mb-0">{{cache.baidu||0}}</div>
+                          <div class="subheader">百度</div>
+                        </div>
+                      </div>
+                    </div>
+                    <button class="btn btn-danger" @click="clr">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      清空缓存
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </div>
+            <div v-if="setTab==='sec'">
+            <div class="row">
+              <div class="col-lg-6">
+                <div class="card">
+                  <div class="card-header"><h3 class="card-title">修改密码</h3></div>
+                  <div class="card-body">
+                    <div class="mb-3">
+                      <label class="form-label">当前密码</label>
+                      <input type="password" class="form-control" v-model="pw.old">
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">新密码</label>
+                      <input type="password" class="form-control" v-model="pw.n1" placeholder="至少 6 位">
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">确认新密码</label>
+                      <input type="password" class="form-control" v-model="pw.n2">
+                    </div>
+                    <button class="btn btn-primary" @click="chpw">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                      保存
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -1442,20 +1450,21 @@ var IC={
   tag:'<svg xmlns="'+SV+'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.42 0l8.58-8.58a1 1 0 0 0 0-1.42z"/><circle cx="7" cy="7" r="1.5"/></svg>'
 };
 var menus=[
-  {id:"st",title:"仪表盘",icon:IC.home},
-  {id:"ck",title:"Cookie 管理",icon:IC.cookie},
-  {id:"rs",title:"资源管理",icon:IC.book},
-  {id:"hi",title:"转存历史",icon:IC.history},
-  {id:"ct",title:"分类管理",icon:IC.tag},
-  {id:"kw",title:"热搜管理",icon:IC.fire},
-  {id:"ai",title:"AI 提炼",icon:IC.brain},
-  {id:"sc",title:"搜索源",icon:IC.settings},
-  {id:"tg",title:"TG 采集",icon:IC.send},
-  {id:"ts",title:"任务中心",icon:IC.clock},
-  {id:"api",title:"API 配置",icon:IC.settings},
-  {id:"site",title:"站点配置",icon:IC.settings},
-  {id:"ca",title:"缓存管理",icon:IC.database},
-  {id:"se",title:"安全设置",icon:IC.shield}
+  {g:"运营",items:[
+    {id:"st",title:"仪表盘",icon:IC.home},
+    {id:"rs",title:"资源管理",icon:IC.book},
+    {id:"hi",title:"转存历史",icon:IC.history},
+    {id:"ct",title:"分类管理",icon:IC.tag}
+  ]},
+  {g:"数据源",items:[
+    {id:"sc",title:"搜索源",icon:IC.settings},
+    {id:"cg",title:"采集管理",icon:IC.send},
+    {id:"ck",title:"Cookie 管理",icon:IC.cookie}
+  ]},
+  {g:"系统",items:[
+    {id:"ai",title:"AI 助手",icon:IC.brain},
+    {id:"set",title:"系统设置",icon:IC.shield}
+  ]}
 ];
 cr({
   setup:function(){
@@ -1492,7 +1501,7 @@ cr({
     var pw=rct({old:"",n1:"",n2:""});
     var to=rct({sh:false,msg:"",tp:"s"});
     var tt;
-    var curMenu=Vue.computed(function(){return menus.find(function(m){return m.id===pg.value})||menus[0]});
+    var curMenu=Vue.computed(function(){var all=[];menus.forEach(function(g){all=all.concat(g.items)});return all.find(function(m){return m.id===pg.value})||all[0]});
 
     // ---- 资源管理（三管道）----
     var rsTab=rf("list");
@@ -1658,7 +1667,9 @@ cr({
         else{crRuleStats.value={msg:"采集失败："+(r.error||"")};msg("采集失败："+(r.error||""),"e")}
       });
     }
-    // ---- TG 采集（主力） ----
+    // ---- 采集管理（TG 频道 / 采集源 / 任务） ----
+    var tgTab=rf("tg");
+    var setTab=rf("site");
     var tgSet=rct({instances_text:"",default_instance:"",limit:50,interval_sec:3600});
     var tgItems=rf([]);
     var tgChannels=rf("");
@@ -2176,26 +2187,22 @@ cr({
     }
 
     Vue.watch(pg,function(p){
-      if(p==="st"){loadst();lddb();lddash()}
+      if(p==="st"){loadst();lddb();lddash();ldKw();ldts()}
       if(p==="ck"){ldck();ldcs()};
       if(p==="rs"){rsTab.value="list";ldres();ldsub();ldimp();ldrsCats()}
       if(p==="hi")ldhi();
       if(p==="ct"){ldct();ldctmap()}
-      if(p==="kw")ldKw();
       if(p==="ai")ldai();
       if(p==="sc")ldsc();
-      if(p==="tg")ldtg();
-      if(p==="ts")ldts();
-      if(p==="api")ldcfg();
-      if(p==="site")ldsite();
-      if(p==="ca")ldca();
+      if(p==="cg"){ldtg();ldsrc();ldts();ldtslogs()}
+      if(p==="set"){ldsite();ldcfg();ldca()}
     });
     Vue.onMounted(function(){
       applyTheme(th.value);
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="ck"){ldck();ldcs()}else if(h==="hi")ldhi();else if(h==="ct"){ldct();ldctmap()}else if(h==="kw")ldKw();else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="tg")ldtg();else if(h==="ts")ldts();else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats()}else if(h==="site")ldsite();else{loadst();lddb();lddash()}
+        if(h==="ck"){ldck();ldcs()}else if(h==="hi")ldhi();else if(h==="ct"){ldct();ldctmap()}else if(h==="ai")ldai();else if(h==="sc")ldsc();else if(h==="cg"){ldtg();ldsrc();ldts();ldtslogs()}else if(h==="set"){ldsite();ldcfg();ldca()}else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats()}else{loadst();lddb();lddash();ldKw();ldts()}
       }
     });
 
@@ -2206,7 +2213,7 @@ cr({
       kwItems,kwNew,kwEditId,ldKw,kwadd,kwEdit,kwCancel,kwhot,kwst,kwdel,
       ctItems,ctNew,ctEditId,ctChannels,ctMap,ctAllNames,ldct,ctadd,ctedit,ctCancel,ctst,ctdel,ldctmap,ctmapsave,
       scItems,ldsc,scToggle,scDiskOpts,scDisk,scEditId,scNameDraft,scEditName,scSaveName,
-      tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,ldtg,tgSv,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
+      tgTab,setTab,tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,ldtg,tgSv,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
       tsItems,tsLogs,tsShow,tsAdvShow,tsLogShow,tsEditId,tsSaving,tsTypes,tsNew,fmtInt,ldts,ldtslogs,tstoggle,tsrun,tsNewShow,tsedit,tssave,tsdel,
       aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,aiTab,arFm,arRun,arRules,arSrc,arSaving,airules,arsave,asFm,asRun,asCode,asSaving,asscript,assave,ldai,svai,tstai,runai,aiOpen,aiCopy};
   }
