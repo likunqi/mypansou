@@ -139,6 +139,10 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/tg/settings" && method === "POST") return await tg.saveSettings(req, res);
       if (urlPath === "/api/admin/tg/batch-add" && method === "POST") return await tg.batchAdd(req, res);
       if (urlPath === "/api/admin/tg/sources" && method === "GET") return await tg.sourceList(req, res);
+      if (urlPath === "/api/admin/tg/disks" && method === "GET") return await tg.getDisks(req, res);
+      if (urlPath === "/api/admin/tg/disks" && method === "POST") return await tg.saveDisks(req, res);
+      if (urlPath === "/api/admin/tg/instances/test" && method === "POST") return await tg.testInstances(req, res);
+      if (urlPath === "/api/admin/tg/ai-generate" && method === "POST") return await tg.aiGenerate(req, res);
 
       // 分类管理
       if (urlPath === "/api/admin/categories" && method === "GET") return await categories.list(req, res);

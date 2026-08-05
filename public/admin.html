@@ -846,43 +846,21 @@
         </div>
 
         <!-- ========== 采集管理（TG 频道 / 采集源 / 任务 / AI 助手） ========== -->
-        <div v-if="pg==='cg'" class="row">
+                <!-- ========== TG 采集（频道 / RSSHub 实例 / 采集网盘 / AI 生成） ========== -->
+        <div v-if="pg==='tg'" class="row">
           <div class="col-12">
             <div class="d-flex align-items-center mb-3">
               <ul class="nav nav-pills nav-scrollable">
-                <li class="nav-item"><a class="nav-link" :class="{active:tgTab==='tg'}" href="javascript:void(0)" @click="tgTab='tg'">TG 频道</a></li>
-                <li class="nav-item"><a class="nav-link" :class="{active:tgTab==='cr'}" href="javascript:void(0)" @click="tgTab='cr';ldsrc()">采集源 / 解析规则</a></li>
-                <li class="nav-item"><a class="nav-link" :class="{active:tgTab==='ts'}" href="javascript:void(0)" @click="tgTab='ts';ldts();ldtslogs()">任务与日志</a></li>
-                <li class="nav-item"><a class="nav-link" :class="{active:tgTab==='ai'}" href="javascript:void(0)" @click="tgTab='ai';ldai()">AI 助手<span v-if="tgTab==='ai'" class="badge bg-purple-lt text-purple ms-1">规则/脚本</span></a></li>
+                <li class="nav-item"><a class="nav-link" :class="{active:tgTab==='ch'}" href="javascript:void(0)" @click="tgTab='ch';ldtg()">TG 频道管理</a></li>
+                <li class="nav-item"><a class="nav-link" :class="{active:tgTab==='ins'}" href="javascript:void(0)" @click="tgTab='ins';ldtgSet()">RSSHub 实例</a></li>
+                <li class="nav-item"><a class="nav-link" :class="{active:tgTab==='dk'}" href="javascript:void(0)" @click="tgTab='dk';ldtgDisks()">采集网盘管理</a></li>
+                <li class="nav-item"><a class="nav-link" :class="{active:tgTab==='gen'}" href="javascript:void(0)" @click="tgTab='gen';ldtg()">AI 自动生成</a></li>
               </ul>
             </div>
-            <div v-if="tgTab==='tg'">
+
+            <div v-if="tgTab==='ch'">
             <div class="alert alert-info py-2 mb-3">
-              <span>TG 频道是主力采集方式：批量添加频道 → 自动套通用解析规则（title / 夸克百度链接 url / disk_type / description）→ 统一任务「TG 批量采集」按全局间隔跑全部启用源（加新频道无需再建任务）。</span>
-            </div>
-            <div class="card mb-3">
-              <div class="card-header"><h3 class="card-title">全局设置</h3></div>
-              <div class="card-body">
-                <div class="row g-3 align-items-end">
-                  <div class="col-md-6">
-                    <label class="form-label">RSSHub 实例（逗号分隔多配，第一个为默认）</label>
-                    <input class="form-control" v-model="tgSet.instances_text" placeholder="https://rsshub.woodland.cafe, https://rsshub.ktachibana.party">
-                    <div class="form-hint">woodland.cafe 211ms 稳 · ktachibana.party 261ms 备选 · 单实例失效可换</div>
-                  </div>
-                  <div class="col-md-2">
-                    <label class="form-label">抓取条数</label>
-                    <input type="number" class="form-control" v-model="tgSet.limit" min="1" max="100">
-                  </div>
-                  <div class="col-md-2">
-                    <label class="form-label">采集间隔（秒）</label>
-                    <input type="number" class="form-control" v-model="tgSet.interval_sec" min="300">
-                    <div class="form-hint">3600 = 每小时</div>
-                  </div>
-                  <div class="col-md-2">
-                    <button class="btn btn-primary w-100" @click="tgSv">保存设置</button>
-                  </div>
-                </div>
-              </div>
+              <span>TG 频道是主力采集方式：批量添加频道 → 自动套通用解析规则（title / 网盘链接 url / disk_type / description）。用「AI 自动生成」tab 可让 AI 按频道实际内容生成更精准的规则并自动建任务。</span>
             </div>
             <div class="card mb-3">
               <div class="card-header"><h3 class="card-title">批量添加频道</h3></div>
@@ -911,7 +889,6 @@
               <div class="card-header">
                 <h3 class="card-title">频道源列表（{{tgItems.length}}）</h3>
                 <div class="ms-auto d-flex align-items-center">
-                  <span v-if="tgTask" class="text-secondary small me-2">统一任务 #{{tgTask.id}} · {{String(tgTask.status)==='1'?'启用':'停用'}} · 间隔 {{fmtInt(tgTask.interval_sec)}}s</span>
                   <button class="btn btn-outline-primary btn-sm me-2" :disabled="tgRunning" @click="tgRunAll">{{tgRunning?'采集中…':'立即批量采集'}}</button>
                   <button class="btn btn-outline-secondary btn-sm" @click="ldtg">刷新</button>
                 </div>
@@ -944,7 +921,351 @@
               </div>
             </div>
             </div>
-            <div v-if="tgTab==='cr'">
+
+            <div v-if="tgTab==='ins'">
+            <div class="alert alert-info py-2 mb-3">
+              <span>RSSHub 公共实例：多实例自动故障切换（首个为默认）。添加频道时用默认实例；实例失效可测速后换用。</span>
+            </div>
+            <div class="card mb-3">
+              <div class="card-header"><h3 class="card-title">实例列表</h3>
+                <div class="ms-auto d-flex gap-2">
+                  <button class="btn btn-outline-secondary btn-sm" @click="tgTestIns">{{tgTesting?'测速中…':'测速全部'}}</button>
+                  <button class="btn btn-outline-secondary btn-sm" @click="ldtgSet">刷新</button>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-vcenter card-table">
+                    <thead><tr><th>名称</th><th>URL</th><th>延迟</th><th>默认</th><th>启用</th><th class="w-1">操作</th></tr></thead>
+                    <tbody>
+                      <tr v-for="(ins,i) in tgSet.instances" :key="i">
+                        <td><input class="form-control form-control-sm" v-model="ins.name" style="min-width:120px" placeholder="名称"></td>
+                        <td><input class="form-control form-control-sm font-monospace" v-model="ins.host" style="min-width:220px" placeholder="https://rsshub.example.com"></td>
+                        <td class="text-secondary small">{{ins.ms?ins.ms+'ms':'-'}}</td>
+                        <td>
+                          <button class="btn btn-sm" :class="tgSet.default_instance===ins.host?'btn-success':'btn-outline-secondary'" @click="tgSetDefault(ins)" title="设为默认">{{tgSet.default_instance===ins.host?'默认 ✓':'设默认'}}</button>
+                        </td>
+                        <td><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" v-model="ins.enabled"></div></td>
+                        <td class="text-nowrap">
+                          <button class="btn btn-sm btn-outline-primary me-1" @click="tgTestOne(i)" title="测速">测速</button>
+                          <button class="btn btn-sm btn-outline-danger" @click="tgDelIns(i)" title="删除">删</button>
+                        </td>
+                      </tr>
+                      <tr v-if="!tgSet.instances.length"><td colspan="6" class="text-center text-secondary py-3">暂无实例</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="mt-2">
+                  <button class="btn btn-outline-secondary btn-sm" @click="tgAddIns">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    添加实例
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">全局采集设置</h3></div>
+              <div class="card-body">
+                <div class="row g-3 align-items-end">
+                  <div class="col-md-4">
+                    <label class="form-label">默认抓取条数</label>
+                    <input type="number" class="form-control" v-model="tgSet.limit" min="1" max="100">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">采集间隔（秒）</label>
+                    <input type="number" class="form-control" v-model="tgSet.interval_sec" min="300">
+                    <div class="form-hint">3600 = 每小时</div>
+                  </div>
+                  <div class="col-md-4">
+                    <button class="btn btn-primary w-100" @click="tgSv">保存设置</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </div>
+
+            <div v-if="tgTab==='dk'">
+            <div class="alert alert-info py-2 mb-3">
+              <span>勾选要采集的网盘：AI 自动生成规则时，url 正则只匹配这些盘的分享链接（不勾 = 匹配夸克/百度）。已生成源的规则不受影响。</span>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">采集网盘管理</h3><div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="ldtgDisks">刷新</button></div></div>
+              <div class="card-body">
+                <div class="row g-2">
+                  <div class="col-6 col-md-4 col-xl-3" v-for="d in tgDiskOpts" :key="d.id">
+                    <label class="form-check form-check-inline">
+                      <input class="form-check-input" type="checkbox" :value="d.id" v-model="tgDiskSel">
+                      <span class="form-check-label">{{d.name}} <span class="text-secondary" style="font-size:.75rem">({{d.id}})</span></span>
+                    </label>
+                  </div>
+                </div>
+                <div class="mt-3"><button class="btn btn-primary" @click="tgSvDisks">保存网盘设置</button></div>
+                <div class="form-hint mt-2">当前已选：{{tgDiskSel.length?tgDiskSel.join(' / '):'全部（不限制）'}}。AI 自动生成时会用此设置生成对应网盘正则。</div>
+              </div>
+            </div>
+            </div>
+
+            <div v-if="tgTab==='gen'">
+            <div class="alert alert-info py-2 mb-3">
+              <span>AI 自动生成：选频道 → 自动拉取该频道 RSS 原文 → AI（内置领域提示词 + 采集网盘限制）生成解析规则 → 自动建采集源 + 建定时任务（crawl_source）。一次完成，规则经白名单校验器兜底。</span>
+            </div>
+            <div class="row g-3">
+              <div class="col-lg-5">
+                <div class="card">
+                  <div class="card-header"><h3 class="card-title">生成配置</h3></div>
+                  <div class="card-body">
+                    <div class="mb-3">
+                      <label class="form-label">① 选择频道（从已有 TG 源或直接输入）</label>
+                      <select class="form-select" v-model="tgGen.channel" @change="tgGenPick">
+                        <option value="">— 选择已有频道 —</option>
+                        <option v-for="s in tgItems" :key="s.id" :value="s.channel">@{{s.channel}}（{{s.name}}）</option>
+                      </select>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">② RSSHub 实例</label>
+                      <select class="form-select" v-model="tgGen.instance">
+                        <option v-for="ins in tgSet.instances" :key="ins.host" :value="ins.host">{{ins.name}}（{{ins.host}}）{{tgSet.default_instance===ins.host?'· 默认':''}}</option>
+                      </select>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">③ 抓取条数（AI 分析用）</label>
+                      <input type="number" class="form-control" v-model="tgGen.limit" min="1" max="100">
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">④ 采集网盘（取「采集网盘管理」勾选）</label>
+                      <div class="text-secondary small">{{tgDiskSel.length?tgDiskSel.join(' / '):'全部（不限制）'}}</div>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">分类（可改，默认自动识别）</label>
+                      <input class="form-control" v-model="tgGen.category" placeholder="留空自动识别">
+                    </div>
+                    <button class="btn btn-success w-100" :disabled="tgGenRun||!tgGen.channel" @click="tgGenRunFn">
+                      {{tgGenRun?'AI 分析中（约 10~30 秒）…':'⚙ AI 自动生成规则 + 任务'}}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-7">
+                <div class="card">
+                  <div class="card-header"><h3 class="card-title">生成结果</h3></div>
+                  <div class="card-body">
+                    <div v-if="!tgGenRes" class="text-center text-secondary py-5">选择频道后点「AI 自动生成」→ 结果展示在这里</div>
+                    <div v-else>
+                      <div v-if="tgGenRes.ok" class="alert alert-success py-2">
+                        ✓ 已生成：源 #{{tgGenRes.source_id}} {{tgGenRes.name}}（@{{tgGenRes.channel}}）· 规则 {{tgGenRes.rules_count}} 条 · 任务 #{{tgGenRes.task_id}}（crawl_source）
+                      </div>
+                      <div v-else class="alert alert-danger py-2">✕ {{tgGenRes.error||'生成失败'}}</div>
+                      <div v-if="tgGenRes.rejected&&tgGenRes.rejected.length" class="alert alert-warning py-2 small mb-2">
+                        <div v-for="(rd,i) in tgGenRes.rejected" :key="'r'+i">✕ 已剔除：{{rd.field}} — {{rd.reason}}</div>
+                      </div>
+                      <div v-if="tgGenRes.fixed&&tgGenRes.fixed.length" class="alert alert-warning py-2 small mb-2">
+                        <div v-for="(fx,i) in tgGenRes.fixed" :key="'f'+i">⇄ 已修正：{{fx.field}} → {{fx.to}}（{{fx.reason}}）</div>
+                      </div>
+                      <div class="form-hint mb-2">生成的规则（可直接到「采集管理 → 采集源/解析规则」里查看/调整）：</div>
+                      <table class="table table-sm table-vcenter" v-if="tgGenRes.report&&tgGenRes.report.rules">
+                        <thead><tr><th>字段</th><th>类型</th><th>规则值</th><th>必填</th></tr></thead>
+                        <tbody>
+                          <tr v-for="(rl,i) in tgGenRes.report.rules" :key="i">
+                            <td><span class="badge bg-primary-lt text-primary">{{rl.field_name}}</span></td>
+                            <td>{{rl.rule_type}}</td>
+                            <td class="font-monospace small text-truncate" style="max-width:300px" :title="rl.rule_value">{{rl.rule_value}}</td>
+                            <td>{{rl.required?'是':'否'}}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <div class="mt-2 d-flex gap-2">
+                        <button class="btn btn-outline-primary btn-sm" @click="tgRunGen('now')">立即采集一次</button>
+                        <button class="btn btn-outline-secondary btn-sm" @click="ldtg()">刷新频道列表</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== 任务中心（任务 / AI 提炼） ========== -->
+        <div v-if="pg==='tk'" class="row">
+          <div class="col-12">
+            <div class="d-flex align-items-center mb-3">
+              <ul class="nav nav-pills nav-scrollable">
+                <li class="nav-item"><a class="nav-link" :class="{active:tkTab==='ts'}" href="javascript:void(0)" @click="tkTab='ts';ldts();ldtslogs()">任务中心</a></li>
+                <li class="nav-item"><a class="nav-link" :class="{active:tkTab==='sum'}" href="javascript:void(0)" @click="tkTab='sum';ldai()">AI 提炼</a></li>
+              </ul>
+            </div>
+            <div v-if="tkTab==='ts'">
+            <div class="alert alert-info py-2 mb-3 d-flex align-items-center">
+              <span>内置任务已自动注册：<b>资源清理</b>（每日 03:00）· <b>豆瓣热词采集</b>（每日 08:00）· <b>热门推荐预热</b>（每 30 分钟）。点「▶」立即执行，开关启停。</span>
+              <div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="tsAdvShow=!tsAdvShow">{{tsAdvShow?'收起高级功能':'高级功能'}}</button></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">任务列表</h3><div class="ms-auto d-flex gap-2">
+                <button class="btn btn-outline-secondary btn-sm" @click="ldts">刷新</button>
+                <button class="btn btn-primary btn-sm" v-if="tsAdvShow" @click="tsNewShow">新建任务</button>
+              </div></div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-vcenter card-table">
+                    <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>间隔</th><th>状态</th><th>上次运行</th><th>下次运行</th><th>操作</th></tr></thead>
+                    <tbody>
+                      <tr v-for="t in tsItems" :key="t.id">
+                        <td class="text-secondary">{{t.id}}</td>
+                        <td class="fw-bold">{{t.task_name}}</td>
+                        <td><span class="badge bg-secondary-lt text-secondary">{{t.type_label}}</span></td>
+                        <td class="text-secondary">{{fmtInt(t.interval_sec)}}</td>
+                        <td><span class="badge" :class="t.status?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{t.status?'启用':'停用'}}</span></td>
+                        <td class="text-secondary">{{fmtT(t.last_run_at)}}</td>
+                        <td class="text-secondary">{{fmtT(t.next_run_at)}}</td>
+                        <td style="white-space:nowrap">
+                          <button class="btn btn-sm btn-outline-primary me-1" @click="tsrun(t)" title="立即执行一次">▶</button>
+                          <template v-if="tsAdvShow">
+                            <button class="btn btn-sm btn-outline-secondary me-1" @click="tsedit(t)" title="编辑">✎</button>
+                            <button class="btn btn-sm btn-outline-danger me-1" @click="tsdel(t)" title="删除">🗑</button>
+                          </template>
+                          <div class="form-check form-switch d-inline-block ms-2">
+                            <input class="form-check-input" type="checkbox" :checked="t.status" @change="tstoggle(t)">
+                          </div>
+                        </td>
+                      </tr>
+                      <tr v-if="!tsItems.length"><td colspan="8" class="text-center text-secondary py-4">暂无任务</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="form-hint mt-2" v-if="!tsAdvShow">「▶」立即执行（不改变排期）；「高级功能」里可新建/编辑/删除任务。</div>
+              </div>
+            </div>
+
+            <div class="card mt-3">
+              <div class="card-header"><h3 class="card-title">执行日志 <span class="text-secondary fs-6 fw-normal" v-if="tsLogTask">· {{tsLogTask}}</span></h3>
+                <div class="ms-auto d-flex gap-2"><button class="btn btn-outline-secondary btn-sm" @click="ldtslogs">刷新日志</button>
+                <button class="btn btn-outline-secondary btn-sm" @click="tsLogShow=!tsLogShow">{{tsLogShow?'收起':'展开'}}</button></div>
+              </div>
+              <div v-if="tsLogShow" class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-vcenter card-table">
+                    <thead><tr><th>#</th><th>任务</th><th>状态</th><th>耗时</th><th>结果 / 错误</th><th>时间</th></tr></thead>
+                    <tbody>
+                      <tr v-for="(l,i) in tsLogs" :key="l.id">
+                        <td class="text-secondary">{{l.id}}</td>
+                        <td class="text-secondary">{{l.task_type}}</td>
+                        <td><span class="badge" :class="l.status==='ok'?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{l.status}}</span></td>
+                        <td class="text-secondary">{{l.duration_ms}}ms</td>
+                        <td class="text-secondary" style="max-width:420px">{{l.result_msg||l.error_msg||'-'}}</td>
+                        <td class="text-secondary">{{fmtT(l.finished_at)}}</td>
+                      </tr>
+                      <tr v-if="!tsLogs.length"><td colspan="6" class="text-center text-secondary py-4">暂无日志</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            </div>
+
+        <!-- 新建/编辑任务模态框 -->
+        <div v-if="tsShow" class="modal show d-block" tabindex="-1" style="background:rgba(0,0,0,.45)">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header"><h5 class="modal-title">{{tsEditId?'编辑任务':'新建任务'}}</h5><button type="button" class="btn-close" @click="tsShow=false"></button></div>
+              <div class="modal-body">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">任务名称</label>
+                    <input class="form-control" v-model="tsNew.task_name" placeholder="如：采集 TG 频道每小时">
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">间隔（秒）</label>
+                    <input class="form-control" type="number" v-model="tsNew.interval_sec" placeholder="3600">
+                  </div>
+                  <div class="col-md-3" v-if="!tsEditId">
+                    <label class="form-label">任务类型</label>
+                    <select class="form-select" v-model="tsNew.task_type">
+                      <option value="script">自定义脚本</option>
+                      <option v-for="t in tsTypes.filter(function(x){return x.type!=='script'})" :key="t.type" :value="t.type">{{t.label}}</option>
+                    </select>
+                  </div>
+                  <div class="col-12" v-if="tsNew.task_type==='script'">
+                    <label class="form-label">脚本代码 <span class="text-secondary fw-normal">（async function run(ctx){...} 返回 {status,resultMsg}；全局可用 store / mysql / fetch / crawlSource(id)）</span></label>
+                    <textarea class="form-control font-monospace" v-model="tsNew.script_code" rows="10" placeholder="async function run(ctx){&#10;  // 你的逻辑&#10;  return { status:'ok', resultMsg:'完成' };&#10;}"></textarea>
+                  </div>
+                  <div class="col-12" v-if="tsNew.task_type!=='script'">
+                    <label class="form-label">配置 JSON <span class="text-secondary fw-normal">（可选，如 {"time":"03:00","top":10}）</span></label>
+                    <textarea class="form-control font-monospace" v-model="tsNew.config_json" rows="4" placeholder='{"time":"03:00"}'></textarea>
+                  </div>
+                  <div class="col-12 text-secondary" v-if="tsNew.task_type!=='script'">{{(tsTypes.find(function(x){return x.type===tsNew.task_type})||{}).desc||''}}</div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" @click="tsShow=false">取消</button>
+                <button type="button" class="btn btn-primary" @click="tssave" :disabled="tsSaving">{{tsSaving?'保存中...':'保存'}}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+            <div v-if="tkTab==='sum'">              <div class="row g-3">
+                <div class="col-lg-5">
+                  <div class="card">
+                    <div class="card-header"><h3 class="card-title">历史记录</h3></div>
+                    <div class="card-body p-0">
+                      <div class="list-group list-group-flush">
+                        <div v-for="s in aiItems" :key="s.id" class="list-group-item">
+                          <div class="d-flex align-items-center mb-1">
+                            <span class="badge bg-primary-lt text-primary me-2">{{s.scope}}</span>
+                            <span class="text-secondary small">{{fmtT(s.created_at)}}</span>
+                            <span class="ms-auto text-secondary small">{{s.model}}</span>
+                          </div>
+                          <div class="text-truncate small">{{(s.output_text||'').slice(0,80)}}</div>
+                          <button class="btn btn-link btn-sm p-0" @click="aiOpen(s)">查看全文</button>
+                        </div>
+                        <div v-if="!aiItems.length" class="list-group-item text-center text-secondary py-4">暂无记录</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-7">
+                  <div class="card">
+                    <div class="card-header"><h3 class="card-title">AI 提炼</h3></div>
+                    <div class="card-body">
+                      <div class="mb-3">
+                        <label class="form-label">提炼范围</label>
+                        <select class="form-select" v-model="aiScope">
+                          <option value="submissions">待审核资源提交</option>
+                          <option value="reports">失效链接反馈</option>
+                          <option value="history">转存记录</option>
+                          <option value="custom">自定义文本</option>
+                        </select>
+                      </div>
+                      <div class="mb-3" v-if="aiScope==='custom'">
+                        <label class="form-label">输入文本</label>
+                        <textarea class="form-control" v-model="aiText" rows="8" placeholder="粘贴需要提炼的内容…"></textarea>
+                      </div>
+                      <button class="btn btn-success" :disabled="aiRun" @click="runai">{{aiRun?'提炼中…':'开始提炼'}}</button>
+                      <div v-if="aiRun" class="mt-2 small text-secondary">正在调用 DeepSeek，约需 5~30 秒…</div>
+                      <div v-if="aiErr" class="alert alert-danger py-2 mt-3 mb-0">{{aiErr}}</div>
+                      <div v-if="aiOut" class="mt-3">
+                        <div class="d-flex align-items-center mb-2">
+                          <h4 class="card-title mb-0">提炼结果</h4>
+                          <button class="btn btn-outline-secondary btn-sm ms-auto" @click="aiCopy">复制</button>
+                        </div>
+                        <div class="border rounded p-3 bg-body-tertiary" style="white-space:pre-wrap;max-height:520px;overflow:auto">{{aiOut}}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== 采集管理（采集源 / 解析规则） ========== -->
+        <div v-if="pg==='cg'" class="row">
+          <div class="col-12">
+            <div class="d-flex align-items-center mb-3">
+              <ul class="nav nav-pills nav-scrollable">
+                <li class="nav-item"><a class="nav-link active">采集源 / 解析规则</a></li>
+              </ul>
+            </div>
             <div class="row">
               <div class="col-lg-7">
                 <div class="card">
@@ -1037,303 +1358,13 @@
                 </div>
               </div>
             </div>
-            </div>
-            <div v-if="tgTab==='ts'">
-            <div class="alert alert-info py-2 mb-3 d-flex align-items-center">
-              <span>内置任务已自动注册：<b>资源清理</b>（每日 03:00）· <b>豆瓣热词采集</b>（每日 08:00）· <b>热门推荐预热</b>（每 30 分钟）。点「▶」立即执行，开关启停。</span>
-              <div class="ms-auto"><button class="btn btn-outline-secondary btn-sm" @click="tsAdvShow=!tsAdvShow">{{tsAdvShow?'收起高级功能':'高级功能'}}</button></div>
-            </div>
-            <div class="card">
-              <div class="card-header"><h3 class="card-title">任务中心</h3><div class="ms-auto d-flex gap-2">
-                <button class="btn btn-outline-secondary btn-sm" @click="ldts">刷新</button>
-                <button class="btn btn-primary btn-sm" v-if="tsAdvShow" @click="tsNewShow">新建任务</button>
-              </div></div>
-              <div class="card-body">
-                <div class="table-responsive">
-                  <table class="table table-vcenter card-table">
-                    <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>间隔</th><th>状态</th><th>上次运行</th><th>下次运行</th><th>操作</th></tr></thead>
-                    <tbody>
-                      <tr v-for="t in tsItems" :key="t.id">
-                        <td class="text-secondary">{{t.id}}</td>
-                        <td class="fw-bold">{{t.task_name}}</td>
-                        <td><span class="badge bg-secondary-lt text-secondary">{{t.type_label}}</span></td>
-                        <td class="text-secondary">{{fmtInt(t.interval_sec)}}</td>
-                        <td><span class="badge" :class="t.status?'bg-success-lt text-success':'bg-secondary-lt text-secondary'">{{t.status?'启用':'停用'}}</span></td>
-                        <td class="text-secondary">{{fmtT(t.last_run_at)}}</td>
-                        <td class="text-secondary">{{fmtT(t.next_run_at)}}</td>
-                        <td style="white-space:nowrap">
-                          <button class="btn btn-sm btn-outline-primary me-1" @click="tsrun(t)" title="立即执行一次">▶</button>
-                          <template v-if="tsAdvShow">
-                            <button class="btn btn-sm btn-outline-secondary me-1" @click="tsedit(t)" title="编辑">✎</button>
-                            <button class="btn btn-sm btn-outline-danger me-1" @click="tsdel(t)" title="删除">🗑</button>
-                          </template>
-                          <div class="form-check form-switch d-inline-block ms-2">
-                            <input class="form-check-input" type="checkbox" :checked="t.status" @change="tstoggle(t)">
-                          </div>
-                        </td>
-                      </tr>
-                      <tr v-if="!tsItems.length"><td colspan="8" class="text-center text-secondary py-4">暂无任务</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="form-hint mt-2" v-if="!tsAdvShow">「▶」立即执行（不改变排期）；「高级功能」里可新建/编辑/删除任务，自定义任务选「自定义脚本」直接写 JS（async function run(ctx)，vm 沙箱执行）。</div>
-              </div>
-            </div>
-
-            <div class="card mt-3">
-              <div class="card-header"><h3 class="card-title">执行日志 <span class="text-secondary fs-6 fw-normal" v-if="tsLogTask">· {{tsLogTask}}</span></h3>
-                <div class="ms-auto d-flex gap-2"><button class="btn btn-outline-secondary btn-sm" @click="ldtslogs">刷新日志</button>
-                <button class="btn btn-outline-secondary btn-sm" @click="tsLogShow=!tsLogShow">{{tsLogShow?'收起':'展开'}}</button></div>
-              </div>
-              <div v-if="tsLogShow" class="card-body">
-                <div class="table-responsive">
-                  <table class="table table-vcenter card-table">
-                    <thead><tr><th>#</th><th>任务</th><th>状态</th><th>耗时</th><th>结果 / 错误</th><th>时间</th></tr></thead>
-                    <tbody>
-                      <tr v-for="(l,i) in tsLogs" :key="l.id">
-                        <td class="text-secondary">{{l.id}}</td>
-                        <td class="text-secondary">{{l.task_type}}</td>
-                        <td><span class="badge" :class="l.status==='ok'?'bg-success-lt text-success':'bg-danger-lt text-danger'">{{l.status}}</span></td>
-                        <td class="text-secondary">{{l.duration_ms}}ms</td>
-                        <td class="text-secondary" style="max-width:420px">{{l.result_msg||l.error_msg||'-'}}</td>
-                        <td class="text-secondary">{{fmtT(l.finished_at)}}</td>
-                      </tr>
-                      <tr v-if="!tsLogs.length"><td colspan="6" class="text-center text-secondary py-4">暂无日志</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- AI 助手（规则/脚本 + 内容提炼，原独立页迁入） -->
-        <div v-if="tgTab==='ai'">
-          <div class="row g-3">
-            <div class="col-lg-5">
-              <div class="card">
-                <div class="card-header"><h3 class="card-title">历史记录</h3></div>
-                <div class="card-body p-0">
-                  <div class="list-group list-group-flush">
-                    <div v-for="s in aiItems" :key="s.id" class="list-group-item">
-                      <div class="d-flex align-items-center mb-1">
-                        <span class="badge bg-primary-lt text-primary me-2">{{s.scope}}</span>
-                        <span class="text-secondary small">{{fmtT(s.created_at)}}</span>
-                        <span class="ms-auto text-secondary small">{{s.model}}</span>
-                      </div>
-                      <div class="text-truncate small">{{(s.output_text||'').slice(0,80)}}</div>
-                      <button class="btn btn-link btn-sm p-0" @click="aiOpen(s)">查看全文</button>
-                    </div>
-                    <div v-if="!aiItems.length" class="list-group-item text-center text-secondary py-4">暂无记录</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-lg-7">
-              <ul class="nav nav-tabs nav-fill mb-3">
-                <li class="nav-item"><a class="nav-link" :class="{active:aiTab==='assist'}" href="javascript:void(0)" @click="aiTab='assist'">AI 助手（规则 / 脚本）</a></li>
-                <li class="nav-item"><a class="nav-link" :class="{active:aiTab==='sum'}" href="javascript:void(0)" @click="aiTab='sum'">内容提炼</a></li>
-              </ul>
-
-              <!-- AI 助手：生成采集规则（受控生成）/ 生成任务（关联采集） -->
-              <div v-if="aiTab==='assist'" class="row g-3">
-                <div class="col-lg-6">
-                  <div class="card h-100">
-                    <div class="card-header"><h3 class="card-title">生成采集解析规则（受控生成）</h3></div>
-                    <div class="card-body">
-                      <div class="alert alert-info py-2 small mb-3">内置领域提示词自动注入：字段/规则类型白名单 · 网盘链接正则 · 分类字典。AI 只能生成系统已有字段与类型的组合，无法新增。</div>
-                      <div class="mb-2">
-                        <label class="form-label">① 选择目标采集源（只能选已有源）</label>
-                        <select class="form-select" v-model="arFm.source_id" @change="arPick">
-                          <option value="">— 选择已有采集源 —</option>
-                          <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}（{{s.source_type}}）</option>
-                        </select>
-                      </div>
-                      <div v-if="arFm.ctx" class="alert alert-success py-2 small mb-2">
-                        已载入源 #{{arFm.ctx.source.id}} {{arFm.ctx.source.name}} · {{arFm.ctx.source.source_type}} · 分类 {{arFm.ctx.source.category||'未设置'}} · 现有规则 {{arFm.ctx.rules.length}} 条
-                      </div>
-                      <div class="mb-2">
-                        <label class="form-label">② URL 模板（已带出，可改）</label>
-                        <input class="form-control" v-model="arFm.url_template" placeholder="https://example.com/feed?page={page}">
-                      </div>
-                      <div class="mb-2">
-                        <label class="form-label">示例内容 <span class="text-secondary fw-normal">（粘贴一段原文，可选）</span></label>
-                        <textarea class="form-control font-monospace" v-model="arFm.sample" rows="4" placeholder="粘贴抓取到的 HTML/JSON 片段，AI 据此生成正则…"></textarea>
-                      </div>
-                      <button class="btn btn-success w-100" :disabled="arRun||!arFm.source_id" @click="airules">{{arRun?'生成中…':'③ 生成规则（AI + 内置提示词）'}}</button>
-                      <div v-if="arRules.rules.length" class="mt-3">
-                        <label class="form-label">④ 规则确认（字段/类型只能从白名单选）</label>
-                        <div v-if="arRules.report&&(arRules.report.rejected.length||arRules.report.fixed.length)" class="alert alert-warning py-2 small mb-2">
-                          <div v-for="(rd,i) in arRules.report.rejected" :key="'r'+i">✕ 已剔除：{{rd.field}} — {{rd.reason}}</div>
-                          <div v-for="(fx,i) in arRules.report.fixed" :key="'f'+i">⇄ 已修正：{{fx.field}} → {{fx.to}}（{{fx.reason}}）</div>
-                        </div>
-                        <div class="table-responsive">
-                          <table class="table table-sm align-middle mb-2">
-                            <thead><tr><th style="width:120px">字段</th><th style="width:110px">类型</th><th>规则值</th><th style="width:46px;text-align:center">必填</th><th style="width:34px"></th></tr></thead>
-                            <tbody>
-                              <tr v-for="(rl,i) in arRules.rules" :key="i">
-                                <td><select class="form-select form-select-sm" v-model="rl.field_name"><option v-for="f in arFm.fieldWhitelist" :key="f" :value="f">{{f}}</option></select></td>
-                                <td><select class="form-select form-select-sm" v-model="rl.rule_type"><option v-for="t in arFm.ruleTypeWhitelist" :key="t" :value="t">{{t}}</option></select></td>
-                                <td><input class="form-control form-control-sm font-monospace" v-model="rl.rule_value" placeholder="正则 / jsonpath / 固定值"></td>
-                                <td style="text-align:center"><input type="checkbox" class="form-check-input" v-model="rl.required"></td>
-                                <td><button class="btn btn-link btn-sm text-danger p-0" @click="arDel(i)">✕</button></td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                        <button class="btn btn-outline-secondary btn-sm mb-2" @click="arAdd">＋ 添加规则行</button>
-                        <div class="row g-2 mt-1">
-                          <div class="col-12"><label class="form-label">⑤ 保存 + 关联任务</label></div>
-                          <div class="col-8">
-                            <div class="form-check mb-2">
-                              <input class="form-check-input" type="checkbox" id="arMakeTask" v-model="arFm.make_task">
-                              <label class="form-check-label" for="arMakeTask">同时创建定时采集任务（crawl_source）</label>
-                            </div>
-                            <div v-if="arFm.make_task" class="row g-2">
-                              <div class="col-6"><input class="form-control form-control-sm" v-model="arFm.task_name" placeholder="任务名（如：采集 okpojie 每小时）"></div>
-                              <div class="col-6"><input class="form-control form-control-sm" type="number" v-model="arFm.task_interval" placeholder="间隔秒（默认3600）"></div>
-                            </div>
-                          </div>
-                          <div class="col-4">
-                            <button class="btn btn-primary w-100" :disabled="arSaving" @click="arsave">{{arSaving?'保存中…':'保存到该源'}}</button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-lg-6">
-                  <div class="card h-100">
-                    <div class="card-header"><h3 class="card-title">生成任务（与采集规则关联）</h3></div>
-                    <div class="card-body">
-                      <div class="btn-group w-100 mb-3" role="group">
-                        <button type="button" class="btn btn-sm" :class="asMode==='A'?'btn-primary':'btn-outline-secondary'" @click="asMode='A'">模式 A：采集任务（零代码）</button>
-                        <button type="button" class="btn btn-sm" :class="asMode==='B'?'btn-primary':'btn-outline-secondary'" @click="asMode='B'">模式 B：自定义脚本</button>
-                      </div>
-                      <div v-if="asMode==='A'">
-                        <div class="mb-2">
-                          <label class="form-label">选择要定时采集的源</label>
-                          <select class="form-select" v-model="asFm.source_id">
-                            <option value="">— 选择已有采集源 —</option>
-                            <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}（{{s.source_type}}）</option>
-                          </select>
-                        </div>
-                        <div class="row g-2">
-                          <div class="col-6"><div class="mb-2"><label class="form-label">任务名</label><input class="form-control" v-model="asFm.name" placeholder="采集 okpojie 每小时"></div></div>
-                          <div class="col-6"><div class="mb-2"><label class="form-label">间隔（秒）</label><input class="form-control" type="number" v-model="asFm.interval" placeholder="3600"></div></div>
-                        </div>
-                        <button class="btn btn-success w-100" :disabled="asSaving||!asFm.source_id" @click="asTaskA">{{asSaving?'创建中…':'创建采集任务（自动跑该源全部规则）'}}</button>
-                        <div class="form-hint mt-2">生成任务类型 crawl_source，调度器定时调用采集引擎跑该源全部解析规则入库。</div>
-                      </div>
-                      <div v-if="asMode==='B'">
-                        <div class="mb-2">
-                          <label class="form-label">任务需求描述</label>
-                          <textarea class="form-control" v-model="asFm.task_desc" rows="3" placeholder="如：每天 08:00 采集 #10 源新资源，然后清理 30 天前的转存历史"></textarea>
-                        </div>
-                        <div class="mb-2">
-                          <label class="form-label">关联采集源（可选，脚本内可用 crawlSource(id)）</label>
-                          <select class="form-select" v-model="asFm.source_id">
-                            <option value="">— 不关联（纯脚本）—</option>
-                            <option v-for="s in crSrcs" :key="s.id" :value="String(s.id)">#{{s.id}} {{s.name}}（{{s.source_type}}）</option>
-                          </select>
-                        </div>
-                        <button class="btn btn-success w-100" :disabled="asRun||!asFm.task_desc.trim()" @click="asscript">{{asRun?'生成中…':'生成脚本'}}</button>
-                        <div v-if="asCode.code" class="mt-3">
-                          <label class="form-label">脚本代码（async function run(ctx)，可手动调整）</label>
-                          <textarea class="form-control font-monospace" v-model="asCode.code" rows="8" style="font-size:12px"></textarea>
-                          <div class="row g-2 mt-2">
-                            <div class="col-5"><input class="form-control" v-model="asFm.name" placeholder="任务名称"></div>
-                            <div class="col-3"><input class="form-control" type="number" v-model="asFm.interval" title="间隔秒" placeholder="3600"></div>
-                            <div class="col-4">
-                              <button class="btn btn-primary w-100" :disabled="asSaving" @click="assave">{{asSaving?'保存中…':'保存为任务'}}</button>
-                            </div>
-                          </div>
-                          <div class="form-hint mt-2">保存后到「任务中心」启停 / 立即执行；脚本内全局可用 store / mysql / fetch / crawlSource(id)。</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 内容提炼（降级为次要） -->
-              <div v-if="aiTab==='sum'">
-                <div class="card">
-                  <div class="card-header"><h3 class="card-title">AI 提炼</h3></div>
-                  <div class="card-body">
-                    <div class="mb-3">
-                      <label class="form-label">提炼范围</label>
-                      <select class="form-select" v-model="aiScope">
-                        <option value="submissions">待审核资源提交</option>
-                        <option value="reports">失效链接反馈</option>
-                        <option value="history">转存记录</option>
-                        <option value="custom">自定义文本</option>
-                      </select>
-                    </div>
-                    <div class="mb-3" v-if="aiScope==='custom'">
-                      <label class="form-label">输入文本</label>
-                      <textarea class="form-control" v-model="aiText" rows="8" placeholder="粘贴需要提炼的内容…"></textarea>
-                    </div>
-                    <button class="btn btn-success" :disabled="aiRun" @click="runai">{{aiRun?'提炼中…':'开始提炼'}}</button>
-                    <div v-if="aiRun" class="mt-2 small text-secondary">正在调用 DeepSeek，约需 5~30 秒…</div>
-                    <div v-if="aiErr" class="alert alert-danger py-2 mt-3 mb-0">{{aiErr}}</div>
-                    <div v-if="aiOut" class="mt-3">
-                      <div class="d-flex align-items-center mb-2">
-                        <h4 class="card-title mb-0">提炼结果</h4>
-                        <button class="btn btn-outline-secondary btn-sm ms-auto" @click="aiCopy">复制</button>
-                      </div>
-                      <div class="border rounded p-3 bg-body-tertiary" style="white-space:pre-wrap;max-height:520px;overflow:auto">{{aiOut}}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
         <!-- 新建/编辑任务模态框 -->
-        <div v-if="tsShow" class="modal show d-block" tabindex="-1" style="background:rgba(0,0,0,.45)">
-          <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-              <div class="modal-header"><h5 class="modal-title">{{tsEditId?'编辑任务':'新建任务'}}</h5><button type="button" class="btn-close" @click="tsShow=false"></button></div>
-              <div class="modal-body">
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label class="form-label">任务名称</label>
-                    <input class="form-control" v-model="tsNew.task_name" placeholder="如：每日备份">
-                  </div>
-                  <div class="col-md-3">
-                    <label class="form-label">间隔（秒）</label>
-                    <input class="form-control" type="number" v-model="tsNew.interval_sec" placeholder="3600">
-                  </div>
-                  <div class="col-md-3" v-if="!tsEditId">
-                    <label class="form-label">任务类型</label>
-                    <select class="form-select" v-model="tsNew.task_type">
-                      <option value="script">自定义脚本</option>
-                      <option v-for="t in tsTypes.filter(function(x){return x.type!=='script'})" :key="t.type" :value="t.type">{{t.label}}</option>
-                    </select>
-                  </div>
-                  <div class="col-12" v-if="tsNew.task_type==='script'">
-                    <label class="form-label">脚本代码 <span class="text-secondary fw-normal">（async function run(ctx){...} 返回 {status,resultMsg}）</span></label>
-                    <textarea class="form-control font-monospace" v-model="tsNew.script_code" rows="10" placeholder="async function run(ctx){&#10;  // 你的逻辑&#10;  return { status:'ok', resultMsg:'完成' };&#10;}"></textarea>
-                  </div>
-                  <div class="col-12" v-if="tsNew.task_type!=='script'">
-                    <label class="form-label">配置 JSON <span class="text-secondary fw-normal">（可选，如 {"time":"03:00","top":10}）</span></label>
-                    <textarea class="form-control font-monospace" v-model="tsNew.config_json" rows="4" placeholder='{"time":"03:00"}'></textarea>
-                  </div>
-                  <div class="col-12 text-secondary" v-if="tsNew.task_type!=='script'">{{(tsTypes.find(function(x){return x.type===tsNew.task_type})||{}).desc||''}}</div>
-                </div>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" @click="tsShow=false">取消</button>
-                <button type="button" class="btn btn-primary" @click="tssave" :disabled="tsSaving">{{tsSaving?'保存中...':'保存'}}</button>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <!-- ========== 站点配置 ========== -->
+
+<!-- ========== 站点配置 ========== -->
         <div v-if="pg==='set'" class="row">
           <div class="col-12">
             <div class="d-flex align-items-center mb-3">
@@ -1578,10 +1609,12 @@ var menus=[
   {g:"运营",items:[
     {id:"st",title:"仪表盘",icon:IC.home},
     {id:"rs",title:"资源管理",icon:IC.book},
-    {id:"hi",title:"转存历史",icon:IC.history}
+    {id:"hi",title:"转存历史",icon:IC.history},
+    {id:"tk",title:"任务中心",icon:IC.clock}
   ]},
   {g:"数据源",items:[
-    {id:"cg",title:"采集管理",icon:IC.send}
+    {id:"tg",title:"TG 采集",icon:IC.send},
+    {id:"cg",title:"采集管理",icon:IC.tag}
   ]},
   {g:"系统",items:[
     {id:"ds",title:"数据源配置",icon:IC.settings},
@@ -1789,11 +1822,12 @@ cr({
         else{crRuleStats.value={msg:"采集失败："+(r.error||"")};msg("采集失败："+(r.error||""),"e")}
       });
     }
-    // ---- 采集管理（TG 频道 / 采集源 / 任务 / AI 助手） ----
-    var tgTab=rf("tg");
+    // ---- TG 采集（频道 / RSSHub 实例 / 采集网盘 / AI 生成） ----
+    var tgTab=rf("ch");
     var setTab=rf("site");
     var dsTab=rf("sc");
-    var tgSet=rct({instances_text:"",default_instance:"",limit:50,interval_sec:3600});
+    var tkTab=rf("ts");
+    var tgSet=rct({instances:[],default_instance:"",limit:50,interval_sec:3600});
     var tgItems=rf([]);
     var tgChannels=rf("");
     var tgInst=rf("");
@@ -1801,12 +1835,19 @@ cr({
     var tgAdding=rf(false);
     var tgRunning=rf(false);
     var tgTask=rf(null);
+    var tgTesting=rf(false);
+    var tgDiskOpts=rf([]);
+    var tgDiskSel=rf([]);
+    var tgGen=rct({channel:"",instance:"",limit:50,category:""});
+    var tgGenRun=rf(false);
+    var tgGenRes=rf(null);
     function ldtg(){
       ap("GET","tg/settings").then(function(r){
         tgSet.default_instance=r.default_instance||"";
         tgSet.limit=r.limit||50;
         tgSet.interval_sec=r.interval_sec||3600;
-        tgSet.instances_text=(r.instances||[]).map(function(i){return i.host}).join(", ");
+        tgSet.instances=(r.instances||[]).map(function(i){return {name:i.name||i.host.split('//')[1],host:i.host,enabled:!!i.enabled,ms:0}});
+        if(tgGen.instance===undefined||!tgGen.instance){tgGen.instance=tgSet.default_instance||""}
       });
       ap("GET","tg/sources").then(function(r){tgItems.value=r.items||[]});
       ap("GET","tasks").then(function(r){
@@ -1814,13 +1855,98 @@ cr({
         tgTask.value=t||null;
       });
     }
-    function tgSv(){
-      var hosts=tgSet.instances_text.split(/[,，]/).map(function(s){return s.trim()}).filter(Boolean);
-      if(!hosts.length){msg("至少填一个 RSSHub 实例","e");return}
-      var instances=hosts.map(function(h){return {host:h.replace(/\/+$/,""),enabled:true}});
-      ap("POST","tg/settings",{instances:instances,default_instance:instances[0].host,limit:parseInt(tgSet.limit,10)||50,interval_sec:parseInt(tgSet.interval_sec,10)||3600}).then(function(r){
-        if(r.ok){msg("设置已保存");ldtg()}else msg(r.error||"保存失败","e")
+    // 加载实例列表（RSSHub tab 专用，含测速结果）
+    function ldtgSet(){
+      ap("GET","tg/settings").then(function(r){
+        tgSet.default_instance=r.default_instance||"";
+        tgSet.limit=r.limit||50;
+        tgSet.interval_sec=r.interval_sec||3600;
+        tgSet.instances=(r.instances||[]).map(function(i){return {name:i.name||i.host.split('//')[1],host:i.host,enabled:!!i.enabled,ms:i.ms||0}});
+        if(!tgGen.instance)tgGen.instance=tgSet.default_instance||"";
       });
+    }
+    function tgSv(){
+      var list=tgSet.instances.filter(function(i){return i.host&&i.host.trim()});
+      if(!list.length){msg("至少保留一个 RSSHub 实例","e");return}
+      var instances=list.map(function(i){return {name:i.name||i.host.split('//')[1],host:i.host.replace(/\/+$/,""),enabled:!!i.enabled}});
+      ap("POST","tg/settings",{instances:instances,default_instance:tgSet.default_instance||instances[0].host,limit:parseInt(tgSet.limit,10)||50,interval_sec:parseInt(tgSet.interval_sec,10)||3600}).then(function(r){
+        if(r.ok){msg("设置已保存");ldtgSet()}else msg(r.error||"保存失败","e")
+      });
+    }
+    // 实例管理辅助
+    function tgAddIns(){tgSet.instances.push({name:"",host:"",enabled:true,ms:0})}
+    function tgDelIns(i){tgSet.instances.splice(i,1)}
+    function tgSetDefault(ins){tgSet.default_instance=ins.host}
+    function tgTestOne(i){
+      var ins=tgSet.instances[i];
+      if(!ins||!ins.host){msg("先填实例 URL","e");return}
+      ins.ms="…";
+      ap("POST","tg/instances/test",{hosts:[ins.host]}).then(function(r){
+        var res=(r.results||[])[0];
+        ins.ms=res?(res.ok?res.ms+"ms":"失败"):"-";
+        if(res&&!res.ok)msg(ins.host+" 测速失败："+(res.error||""),"e");
+      }).catch(function(){ins.ms="失败";msg("测速请求失败","e")});
+    }
+    function tgTestIns(){
+      if(!tgSet.instances.length){msg("无实例可测速","e");return}
+      tgTesting.value=true;
+      tgSet.instances.forEach(function(i){i.ms="…"});
+      ap("POST","tg/instances/test",{hosts:tgSet.instances.map(function(i){return i.host}).filter(Boolean)}).then(function(r){
+        (r.results||[]).forEach(function(res){
+          var ins=tgSet.instances.find(function(i){return i.host===res.host});
+          if(ins)ins.ms=res.ok?(res.ms+"ms"):"失败";
+        });
+        tgTesting.value=false;
+        msg("测速完成");
+      }).catch(function(){tgTesting.value=false;msg("测速请求失败","e")});
+    }
+    // 采集网盘管理
+    function ldtgDisks(){
+      ap("GET","tg/disks").then(function(r){
+        tgDiskOpts.value=r.options||[];
+        tgDiskSel.value=r.selected||[];
+      });
+    }
+    function tgSvDisks(){
+      ap("POST","tg/disks",{selected:tgDiskSel.value}).then(function(r){
+        if(r.ok){msg("网盘设置已保存");ldtgDisks()}else msg(r.error||"保存失败","e")
+      });
+    }
+    // AI 自动生成
+    function tgGenPick(){
+      var ch=tgGen.channel;
+      var s=tgItems.value.find(function(x){return x.channel===ch});
+      tgGen.category=s?s.category||"":"";
+    }
+    function tgRunGen(mode){
+      if(mode==="now"){
+        var srcId=tgGenRes.value&&tgGenRes.value.source_id;
+        if(!srcId){msg("无源可采集","e");return}
+        ap("POST","crawler/sources/"+srcId+"/run",{}).then(function(r){
+          if(r.status==="ok")msg("采集完成，新增 "+r.inserted+" 条");else msg("采集失败："+(r.error||""),"e");
+        });
+        return;
+      }
+      var tid=tgGenRes.value&&tgGenRes.value.task_id;
+      if(!tid){msg("无任务可执行","e");return}
+      ap("POST","tasks/"+tid+"/run",{}).then(function(r){
+        if(r.ok&&r.status==="ok")msg(r.result||"任务执行完成");else msg("任务执行失败："+(r.error||""),"e");
+      });
+    }
+    function tgGenRunFn(){
+      if(!tgGen.channel){msg("请选择频道","e");return}
+      tgGenRun.value=true;tgGenRes.value=null;
+      ap("POST","tg/ai-generate",{
+        channel:tgGen.channel,
+        instance:tgGen.instance||tgSet.default_instance||"",
+        limit:parseInt(tgGen.limit,10)||50,
+        category:tgGen.category,
+        disks:tgDiskSel.value,
+      }).then(function(r){
+        tgGenRun.value=false;
+        tgGenRes.value=r;
+        if(r.ok){msg("AI 生成完成：源 #"+r.source_id+" · 规则 "+r.rules_count+" 条 · 任务 #"+r.task_id);ldtg()}else msg(r.error||"生成失败","e");
+      }).catch(function(){tgGenRun.value=false;msg("生成失败：网络错误","e")});
     }
     function tgAdd(){
       var chs=tgChannels.value.split(/[\n,]/).map(function(s){return s.trim().replace(/^@/,"")}).filter(Boolean);
@@ -2349,8 +2475,10 @@ cr({
       if(p==="st"){loadst();lddb();lddash();ldKw();ldts()}
       if(p==="rs"){rsTab.value="list";ldres();ldsub();ldimp();ldrsCats()}
       if(p==="hi")ldhi();
+      if(p==="tk"){ldts();ldtslogs()}
+      if(p==="tg"){ldtg();ldtgDisks()}
+      if(p==="cg"){ldsrc()}
       if(p==="ds"){ldsc();ldcfg();ldck();ldcs()}
-      if(p==="cg"){ldtg();ldsrc();ldts();ldtslogs()}
       if(p==="set"){ldsite();ldca()}
     });
     Vue.onMounted(function(){
@@ -2358,7 +2486,7 @@ cr({
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="hi")ldhi();else if(h==="ds"){ldsc();ldcfg();ldck();ldcs()}else if(h==="cg"){ldtg();ldsrc();ldts();ldtslogs()}else if(h==="set"){ldsite();ldca()}else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats()}else{loadst();lddb();lddash();ldKw();ldts()}
+        if(h==="hi")ldhi();else if(h==="tk"){ldts();ldtslogs()}else if(h==="tg"){ldtg();ldtgDisks()}else if(h==="cg")ldsrc();else if(h==="ds"){ldsc();ldcfg();ldck();ldcs()}else if(h==="set"){ldsite();ldca()}else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats()}else{loadst();lddb();lddash();ldKw();ldts()}
       }
     });
 
@@ -2369,9 +2497,10 @@ cr({
       kwItems,kwNew,kwEditId,ldKw,kwadd,kwEdit,kwCancel,kwhot,kwst,kwdel,
       ctItems,ctNew,ctEditId,ctChannels,ctMap,ctAllNames,ldct,ctadd,ctedit,ctCancel,ctst,ctdel,ldctmap,ctmapsave,
       scItems,ldsc,scToggle,scDiskOpts,scDisk,scEditId,scNameDraft,scEditName,scSaveName,
-      tgTab,setTab,dsTab,tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,ldtg,tgSv,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
+      tgTab,setTab,dsTab,tkTab,tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,tgTesting,ldtg,ldtgSet,tgSv,tgAddIns,tgDelIns,tgSetDefault,tgTestOne,tgTestIns,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
+      tgDiskOpts,tgDiskSel,ldtgDisks,tgSvDisks,tgGen,tgGenRun,tgGenRes,tgGenPick,tgGenRunFn,tgRunGen,
       tsItems,tsLogs,tsShow,tsAdvShow,tsLogShow,tsEditId,tsSaving,tsTypes,tsNew,fmtInt,ldts,ldtslogs,tstoggle,tsrun,tsNewShow,tsedit,tssave,tsdel,
-      aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,aiTab,arFm,arRun,arRules,arSaving,airules,arsave,arPick,arAdd,arDel,asFm,asMode,asRun,asCode,asSaving,asscript,assave,asTaskA,ldai,svai,tstai,runai,aiOpen,aiCopy};
+      aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,ldai,svai,tstai,runai,aiOpen,aiCopy};
   }
 }).mount("#aapp");
 </script>

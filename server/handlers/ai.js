@@ -320,4 +320,4 @@ async function genScript(req, res) {
   } catch (e) { json(res, 502, { ok: false, error: e.message }); }
 }
 
-module.exports = { saveConfig, getConfig, test, summarize, list, genRules, genScript, validateRules, buildDomainPrompt };
+module.exports = { saveConfig, getConfig, test, summarize, list, genRules, genScript, validateRules, buildDomainPrompt, getAiConfig, chat, extractJsonArray };
