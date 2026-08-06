@@ -100,7 +100,8 @@ curl -s http://localhost:3090/api/admin/status   # 需带 token，或看日志�
 
 | 现象 | 原因 / 处理 |
 |------|------------|
-| 启动日志 `[mysql] 未连接` | .env 密码错 / NAS 3306 不通。`docker compose exec app sh` 里 `nc -zv 192.168.1.65 3306` 验证 |
+| 启动日志 `[mysql] 未连接: connect ETIMEDOUT` | **容器内访问宿主机 IP 被 1Panel 防火墙拦截**。`.env` 中 `PANSOU_MYSQL_HOST` 改用 `172.17.0.1`（docker0 网关，容器→宿主机服务的标准通道），再 `docker compose up -d` |
+| 启动日志 `[mysql] 未连接` | .env 密码错 / NAS 3306 不通。`docker compose exec app sh` 里 `nc -zv 172.17.0.1 3306` 验证 |
 | 构建时 npm 慢/失败 | `docker compose build --build-arg` 或先 `npm config set registry https://registry.npmmirror.com` 再 build |
 | 定时任务时间不对 | 检查容器内时区：`docker exec yunpansou date` 应为北京时间（Dockerfile 已配，若旧镜像需重建） |
 | hunhepan（混合盘）源不可用 | 正常现象，该源已在 registry 注销（2026-08-04），容器内无需 chromium |
