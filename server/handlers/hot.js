@@ -1,18 +1,14 @@
 ﻿const { json, readBody } = require("../middleware");
 const store = require("../../lib/store");
 
-// 热搜关键词榜：手动 is_hot 词优先（sort_order），再按 search_count 排真实采集词
+// 热搜关键词榜：纯热度排名（mysql.keywordList 已按 search_count 降序）
 async function getKeywords(req, res) {
   try {
-    var list = await store.keywordList(50, false);
+    var list = await store.keywordList(10, false);
     var items = (list || []).map(function (k) {
       return { keyword: k.keyword, search_count: k.search_count || 0, is_hot: k.is_hot ? 1 : 0, sort_order: k.sort_order || 0, source: k.source || "" };
     });
-    // 手动置顶词（is_hot）按 sort_order 在前，其余按 search_count
-    var manual = items.filter(function (i) { return i.is_hot === 1; }).sort(function (a, b) { return b.sort_order - a.sort_order || b.search_count - a.search_count; });
-    var auto = items.filter(function (i) { return i.is_hot !== 1; }).sort(function (a, b) { return b.search_count - a.search_count; });
-    var merged = manual.concat(auto).slice(0, 10);
-    json(res, 200, { items: merged, total: merged.length, source: "keywords" });
+    json(res, 200, { items: items, total: items.length, source: "keywords" });
   } catch (e) {
     json(res, 502, { error: "keywords_error", message: e.message });
   }

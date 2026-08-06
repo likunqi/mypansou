@@ -486,12 +486,10 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
                 <el-button type="primary" @click="kwmAdd">添加</el-button>
                 <el-button type="success" plain :loading="kwmCollecting" @click="kwmCollect">豆瓣 API 采集</el-button>
                 <el-button @click="ldKwm">刷新</el-button>
-                <div class="hint" style="margin-left:auto">拖动「⠿」手柄排序（自动置顶）；「豆瓣采集」拉取豆瓣热榜前 10 名入库</div>
+                <div class="hint" style="margin-left:auto">自动按热度排名（下拉刷新即重排）；「豆瓣采集」拉取豆瓣热榜前 10 名入库</div>
               </div>
               <div class="dl-list">
-                <div v-for="(k,i) in kwmItems" :key="k.id" class="dl-row" draggable="true"
-                  @dragstart="dlStart($event,kwmItems,i,'kw')" @dragover.prevent @drop="dlDrop($event,'kw')">
-                  <span class="dl-handle">⠿</span>
+                <div v-for="(k,i) in kwmItems" :key="k.id" class="dl-row">
                   <span class="dl-rank" :class="'rank-'+(i<3?i+1:0)">{{i+1}}</span>
                   <span class="dl-main">{{k.keyword}}</span>
                   <span class="dl-src"><el-tag size="small" :type="kwSrcType(k.source)">{{kwSrcName(k.source)}}</el-tag></span>
@@ -1790,15 +1788,9 @@ Vue.createApp({
       if(!list||from===idx||idx<0)return;
       var item=list.splice(from,1)[0];
       list.splice(idx,0,item); // 插入到 drop 目标行位置（拖到哪行就占哪行位置）
-      if(type==="kw"){
-        ap("POST","keywords/sort",{ids:list.map(function(x){return x.id})}).then(function(r){
-          if(r.ok){msg("热搜词顺序已保存");ldKwm();ldKw()}else msg(r.error||"保存失败","e");
-        });
-      }else if(type==="hot"){
-        ap("POST","hot/sort",{ids:list.map(function(x){return x.id})}).then(function(r){
-          if(r.ok){msg("热榜顺序已保存");ldHotm()}else msg(r.error||"保存失败","e");
-        });
-      }
+      ap("POST","hot/sort",{ids:list.map(function(x){return x.id})}).then(function(r){
+        if(r.ok){msg("热榜顺序已保存");ldHotm()}else msg(r.error||"保存失败","e");
+      });
     }
 
     // ---- 分类管理（含批量删除） ----
