@@ -1584,7 +1584,7 @@ Vue.createApp({
     // ---- 搜索源 ----
     var scItems=rf([]);
     var scDiskOpts={quark:"夸克",baidu:"百度",aliyun:"阿里",tianyi:"天翼",uc:"UC",xunlei:"迅雷"};
-    function ldsc(){ap("GET","sources").then(function(r){scItems.value=r.items||[]})}
+    function ldsc(){ap("GET","sources").then(function(r){scItems.value=(r.items||[]).map(function(x){x.enabled=x.enabled?1:0;return x})})}
     function scToggle(s,val){
       var on=val?1:0;
       ap("POST","sources/update",{id:s.id,enabled:on}).then(function(r){
