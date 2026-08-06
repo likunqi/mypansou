@@ -415,8 +415,9 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
                   <el-table-column label="间隔" width="70"><template #default="s">{{fmtInt(s.row.interval_sec)}}</template></el-table-column>
                   <el-table-column label="状态" width="58"><template #default="s"><el-switch v-model="s.row.status" size="small" :active-value="1" :inactive-value="0" @change="(v)=>tstoggle(s.row,v)"></el-switch></template></el-table-column>
                   <el-table-column label="上次" width="124"><template #default="s"><span style="color:#909399;font-size:12px">{{fmtT(s.row.last_run_at)}}</span></template></el-table-column>
-                  <el-table-column label="操作" width="130" fixed="right"><template #default="s">
+                  <el-table-column label="操作" width="196" fixed="right"><template #default="s">
                     <el-button size="small" type="primary" plain :loading="s.row.running" @click="tsrun(s.row)">{{s.row.running?'运行中':'运行'}}</el-button>
+                    <el-button size="small" @click="tsLog(s.row)">日志</el-button>
                     <template v-if="tsAdvShow">
                       <el-button size="small" @click="tsedit(s.row)">编辑</el-button>
                       <el-button size="small" type="danger" plain @click="tsdel(s.row)">删</el-button>
@@ -426,7 +427,7 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
                 <div class="hint" style="margin-top:10px" v-if="!tsAdvShow">「运行」立即执行（不改变排期）；「高级功能」里可新建/编辑/删除任务。</div>
               </div>
               <div class="panel log-panel" style="margin-bottom:0">
-                <div class="panel-head">执行日志
+                <div class="panel-head">全部日志
                   <el-button size="small" style="margin-left:auto;color:#8ba3d4" @click="ldtslogs">刷新日志</el-button>
                 </div>
                 <div class="log-list">
@@ -439,6 +440,16 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
                 </div>
               </div>
             </div>
+            <el-dialog v-model="tsLogShow" :title="'任务日志 · '+(tsLogTask&&tsLogTask.task_name||'')" width="640px">
+              <div class="log-list" style="max-height:420px;overflow:auto">
+                <div class="log-line" v-for="l in tsTaskLogs" :key="l.id">
+                  <span class="log-time">{{fmtT(l.finished_at)}}</span>
+                  <span class="log-st" :class="l.status==='ok'?'ok':'err'">{{l.status==='ok'?'OK':'ERR'}}</span>
+                  <span class="log-msg">{{l.result_msg||l.error_msg||'-'}}</span>
+                </div>
+                <div v-if="!tsTaskLogs.length" class="log-empty">暂无日志</div>
+              </div>
+            </el-dialog>
           </el-tab-pane>
 
           <el-tab-pane label="AI 提炼" name="sum">
@@ -1480,6 +1491,9 @@ Vue.createApp({
     var tsLogs=rf([]);
     var tsShow=rf(false);
     var tsAdvShow=rf(false);
+    var tsLogShow=rf(false);
+    var tsLogTask=rf(null);
+    var tsTaskLogs=rf([]);
     var tsEditId=rf(0);
     var tsSaving=rf(false);
     var tsTypes=rf([]);
@@ -1500,6 +1514,12 @@ Vue.createApp({
     function ldtslogs(){
       ap("GET","task-logs?limit=30").then(function(r){tsLogs.value=r.items||[]});
     }
+    function tsLog(t){
+      tsLogTask.value=t;
+      tsLogShow.value=true;
+      tsTaskLogs.value=[];
+      ap("GET","task-logs?task_id="+t.id+"&limit=50").then(function(r){tsTaskLogs.value=r.items||[]});
+    }
     function tsSelChange(rows){tsSel.value=rows.map(function(r){return r.id})}
     function tstoggle(t,val){
       var on=val?1:0;
@@ -1516,28 +1536,21 @@ Vue.createApp({
         ldts();
       }).catch(function(){t.running=false;msg("「"+t.task_name+"」执行请求失败","e")});
     }
-    function tsRunBatch(){
+    async function tsRunBatch(){
       if(!tsSel.value.length){msg("请先勾选要运行的任务","e");return}
       tsBatchRun.value=true;
       var ids=tsSel.value.slice();
-      var done=0,okN=0;
-      ids.forEach(function(id){
-        ap("POST","tasks/"+id+"/run",{}).then(function(r){
-          done++;if(r.ok)okN++;
-          if(done===ids.length){
-            tsBatchRun.value=false;
-            msg("批量运行完成：成功 "+okN+" 个，失败 "+(ids.length-okN)+" 个",okN===ids.length?"s":"w");
-            ldts();
-          }
-        }).catch(function(){
-          done++;
-          if(done===ids.length){
-            tsBatchRun.value=false;
-            msg("批量运行完成：成功 "+okN+" 个，失败 "+(ids.length-okN)+" 个","w");
-            ldts();
-          }
-        });
-      });
+      var okN=0;
+      // 串行逐个执行：避免并发触发采集源限流（HTTP 429）
+      for(var i=0;i<ids.length;i++){
+        try{
+          var r=await ap("POST","tasks/"+ids[i]+"/run",{});
+          if(r&&r.ok)okN++;
+        }catch(e){}
+      }
+      tsBatchRun.value=false;
+      msg("批量运行完成：成功 "+okN+" 个，失败 "+(ids.length-okN)+" 个",okN===ids.length?"s":"w");
+      ldts();
     }
     function tsNewShow(){
       tsEditId.value=0;
@@ -1833,7 +1846,7 @@ Vue.createApp({
       scItems,ldsc,scToggle,scDiskOpts,scDisk,scEditId,scNameDraft,scEditName,scSaveName,
       tgTab,setTab,dsTab,tkTab,tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,tgTesting,ldtg,ldtgSet,tgSv,tgAddIns,tgDelIns,tgSetDefault,tgTestOne,tgTestIns,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
       tgDiskOpts,tgDiskSel,ldtgDisks,tgSvDisks,tgGen,tgGenRun,tgGenRes,tgGenPick,tgGenRunFn,tgRunGen,
-      tsItems,tsLogs,tsShow,tsAdvShow,tsEditId,tsSaving,tsTypes,tsNew,tsSel,tsBatchRun,fmtInt,ldts,ldtslogs,tsSelChange,tstoggle,tsrun,tsRunBatch,tsNewShow,tsedit,tssave,tsdel,
+      tsItems,tsLogs,tsShow,tsAdvShow,tsEditId,tsSaving,tsTypes,tsNew,tsSel,tsBatchRun,fmtInt,ldts,ldtslogs,tsSelChange,tstoggle,tsrun,tsRunBatch,tsNewShow,tsedit,tssave,tsdel,tsLogShow,tsLogTask,tsTaskLogs,tsLog,
       aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,aiPrompts,aiPromptKeys,aiPromptKey,aiPromptSaving,aiPromptSave,aiPromptReset,ldai,svai,tstai,runai,aiOpen,aiCopy,
       rsTabChange,tgTabChange,dsTabChange,setTabChange,tkTabChange,escapeHtml
     };
