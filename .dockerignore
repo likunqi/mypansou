@@ -8,3 +8,8 @@ node_modules/
 *.bat
 _clean_plugins.py
 _priority.json
+
+# 敏感文件：含 NAS MySQL 明文密码，严禁打进镜像
+data/db.config.json
+data/*.log
+.env

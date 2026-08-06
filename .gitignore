@@ -8,6 +8,7 @@ _quark_ref/
 setup_schema.py
 test_supabase_db.py
 server.js.bak
+.env
 
 # 本机诊断/临时文件
 _diag*.txt

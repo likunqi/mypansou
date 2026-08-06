@@ -84,15 +84,18 @@ node scripts/db_setup.js    # 在目标库执行 002_schema_v2.sql，建 16 张表
 
 ### Docker 部署
 
+> 完整指南见 `docs/DOCKER_DEPLOY.md`（含远程服务器 + 远程 NAS MySQL 直连方案）。
+
 ```bash
-docker compose up -d            # 初次构建并启动
+cp .env.example .env            # 填写 PANSOU_MYSQL_*（远程 MySQL 连接，密码勿提交）
+docker compose up -d --build    # 初次构建并启动
 docker compose logs -f          # 查看日志
 docker compose down             # 停止
 docker compose up -d --build    # 更新代码后重新构建
 ```
 
 - 数据目录 `data/` 通过 volume 挂载到容器外，删容器不丢数据
-- 接入 MySQL：取消 docker-compose.yml 中 mysql 服务与 app 服务 `DB_*` 环境变量的注释，再 `docker compose up -d --build`
+- **MySQL 不进 Docker**：通过 `PANSOU_MYSQL_HOST/PORT/USER/PASSWORD/DATABASE` 环境变量直连远程库（默认 NAS 192.168.1.65:3306/pansou），值在 `.env` 中配置
 
 ## ? 项目结构
 
