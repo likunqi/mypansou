@@ -214,6 +214,11 @@ const PROMPT_DEFS = {
     desc: "任务中心 → AI 提炼。用 {SCOPE} 占位符区分四种范围（submissions/reports/history/custom），例：『{SCOPE}：以下是…请提炼…』",
     default: "以下是 {SCOPE} 数据。请用中文提炼要点、结构与结论，简洁分点输出。",
   },
+  optimize: {
+    label: "资源优化（AI 清洗标题/分类/标签）",
+    desc: "资源列表 → 优化：AI 清洗标题、归类、打标签。用 {CATEGORY_DICT} 占位符注入当前分类字典",
+    default: "你是网盘资源库的元数据优化助手。给定一条资源的原始信息（标题/描述/链接/现有分类），只输出一个 JSON 对象（不要解释文字、不要代码围栏）：\n{title: 清洗后的规范标题——去掉 🖼/📁/🎬 等 emoji 与『名称：』『描述：』等前缀，保留核心片名/剧名/资源名与关键版本信息（如 4K/1080P/全24集），30 字以内、不杜撰、不改原意、category: 从分类字典中选最贴近的一项（{CATEGORY_DICT}），没有匹配就用『综合』、tags: 2-5 个逗号分隔的中文标签（概括类型/格式/来源，如 短剧,4K,夸克）}\n只输出 JSON，不要其他内容。",
+  },
 };
 const PROMPT_KEYS = Object.keys(PROMPT_DEFS);
 // 兼容旧字段名
@@ -225,6 +230,14 @@ function expandPrompt(text) {
     .replace(/\{FIELD_WHITELIST\}/g, FIELD_WHITELIST.join("/"))
     .replace(/\{RULE_TYPE_WHITELIST\}/g, RULE_TYPE_WHITELIST.join("/"))
     .replace(/\{PAN_URL_RE\}/g, PAN_URL_RE.source);
+}
+
+// 读分类字典（{CATEGORY_DICT} 占位符用）
+async function readCategoryDict() {
+  try {
+    var cats = await store.categoryList(100, false);
+    return (cats || []).map(function (c) { return c.name; }).filter(Boolean).join("、");
+  } catch (e) { return ""; }
 }
 
 // 读取用户自定义提示词（site_config.ai_prompts = { key: "..." }；兼容旧 ai_domain_prompt）
@@ -248,7 +261,10 @@ async function getEffectivePrompt(key) {
   try {
     var cfg = await store.getConfig();
     var custom = readPromptCfg(cfg)[key];
-    return custom && custom.trim() ? expandPrompt(custom) : expandPrompt(PROMPT_DEFS[key].default);
+    var text = custom && custom.trim() ? custom : PROMPT_DEFS[key].default;
+    var out = expandPrompt(text);
+    if (out.indexOf("{CATEGORY_DICT}") >= 0) out = out.replace(/\{CATEGORY_DICT\}/g, await readCategoryDict());
+    return out;
   } catch (e) { return expandPrompt(PROMPT_DEFS[key].default); }
 }
 
@@ -261,14 +277,17 @@ async function getEffectiveDomainPrompt() {
 async function getAllEffectivePrompts() {
   var cfg = await store.getConfig();
   var custom = readPromptCfg(cfg);
+  var dict = await readCategoryDict();
   var out = {};
   PROMPT_KEYS.forEach(function (k) {
     var cu = custom[k] || "";
+    var text = cu && cu.trim() ? expandPrompt(cu) : expandPrompt(PROMPT_DEFS[k].default);
+    if (text.indexOf("{CATEGORY_DICT}") >= 0) text = text.replace(/\{CATEGORY_DICT\}/g, dict);
     out[k] = {
       label: PROMPT_DEFS[k].label,
       desc: PROMPT_DEFS[k].desc,
       custom: cu,
-      effective: cu && cu.trim() ? expandPrompt(cu) : expandPrompt(PROMPT_DEFS[k].default),
+      effective: text,
       isCustom: !!cu && !!cu.trim(),
     };
   });

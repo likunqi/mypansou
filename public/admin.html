@@ -246,28 +246,31 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
           <el-tab-pane label="资源列表" name="list">
             <div class="panel">
               <div class="toolbar">
-                <el-input v-model="rsQ.kw" placeholder="搜索标题/描述/分类" style="width:220px" clearable @keyup.enter="rsSearch"></el-input>
-                <el-select v-model="rsQ.source" placeholder="来源" style="width:120px" clearable>
+                <el-input v-model="rsQ.kw" placeholder="搜索标题/描述/分类" style="width:180px" clearable @keyup.enter="rsSearch"></el-input>
+                <el-select v-model="rsQ.source" placeholder="来源" style="width:100px" clearable @change="rsSearch">
                   <el-option label="手动" value="manual"></el-option><el-option label="用户提交" value="submitted"></el-option>
                   <el-option label="批量导入" value="imported"></el-option><el-option label="自动采集" value="collected"></el-option>
                   <el-option label="转存" value="transferred"></el-option>
                 </el-select>
-                <el-select v-model="rsQ.disk_type" placeholder="网盘" style="width:110px" clearable>
+                <el-select v-model="rsQ.disk_type" placeholder="网盘" style="width:96px" clearable @change="rsSearch">
                   <el-option label="夸克" value="quark"></el-option><el-option label="百度" value="baidu"></el-option><el-option label="阿里" value="aliyun"></el-option>
                   <el-option label="天翼" value="tianyi"></el-option><el-option label="UC" value="uc"></el-option><el-option label="迅雷" value="xunlei"></el-option>
                 </el-select>
-                <el-select v-model="rsQ.category" placeholder="分类" style="width:130px" clearable>
+                <el-select v-model="rsQ.category" placeholder="分类" style="width:118px" clearable @change="rsSearch">
                   <el-option v-for="c in rsCats" :key="c.name" :label="c.name+(c.res_count?' ('+c.res_count+')':'')" :value="c.name"></el-option>
                 </el-select>
-                <el-select v-model="rsQ.status" placeholder="状态" style="width:100px" clearable>
+                <el-select v-model="rsQ.status" placeholder="状态" style="width:90px" clearable @change="rsSearch">
                   <el-option label="启用" value="1"></el-option><el-option label="停用" value="0"></el-option>
                 </el-select>
-                <el-select v-model="rsQ.size" style="width:110px" @change="rsSearch">
+                <el-date-picker v-model="rsQ.created_from" type="date" placeholder="入库起" value-format="YYYY-MM-DD" style="width:118px" @change="rsSearch"></el-date-picker>
+                <el-date-picker v-model="rsQ.created_to" type="date" placeholder="入库止" value-format="YYYY-MM-DD" style="width:118px" @change="rsSearch"></el-date-picker>
+                <el-select v-model="rsQ.size" style="width:100px" @change="rsSearch">
                   <el-option label="20 条/页" :value="20"></el-option><el-option label="50 条/页" :value="50"></el-option><el-option label="100 条/页" :value="100"></el-option>
                 </el-select>
-                <el-button @click="rsSearch">搜索</el-button>
                 <el-button @click="rsReset">重置</el-button>
                 <div class="spacer"></div>
+                <el-checkbox v-model="rsForceOpt" style="margin-right:2px">强制优化</el-checkbox>
+                <el-button type="warning" plain :disabled="!rsSel.length" :loading="rsOptRunning" @click="rsOptBatch">优化选中 {{rsSel.length}} 项</el-button>
                 <el-button type="danger" plain :disabled="!rsSel.length" @click="rsDelBatch">删除选中 {{rsSel.length}} 项</el-button>
                 <el-button type="primary" @click="rsOpenDlg()">新增资源</el-button>
               </div>
@@ -285,9 +288,14 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
                 <el-table-column label="来源" width="84"><template #default="s"><el-tag size="small" type="info" effect="plain">{{srcName(s.row.source)}}</el-tag></template></el-table-column>
                 <el-table-column label="状态" width="76"><template #default="s"><el-tag size="small" :type="s.row.status==1?'success':'danger'">{{s.row.status==1?'启用':'停用'}}</el-tag></template></el-table-column>
                 <el-table-column label="入库时间" width="130"><template #default="s"><span style="color:#909399;font-size:12px">{{fmtT(s.row.created_at)}}</span></template></el-table-column>
-                <el-table-column label="操作" width="130" fixed="right"><template #default="s">
+                <el-table-column label="优化" width="88"><template #default="s">
+                  <el-tag v-if="s.row.optimized==1" size="small" type="success" effect="plain" :title="s.row.optimized_at?('优化于 '+fmtT(s.row.optimized_at)):''">已优化</el-tag>
+                  <el-tag v-else size="small" type="info" effect="plain">未优化</el-tag>
+                </template></el-table-column>
+                <el-table-column label="操作" width="190" fixed="right"><template #default="s">
                   <el-button-group>
                     <el-button size="small" type="primary" plain @click="rsOpenDlg(s.row)">编辑</el-button>
+                    <el-button size="small" type="warning" plain :loading="s.row.optRunning" @click="rsOptOne(s.row)">{{s.row.optRunning?'优化中':'优化'}}</el-button>
                     <el-button size="small" type="danger" plain @click="rsdel(s.row)">删除</el-button>
                   </el-button-group>
                 </template></el-table-column>
@@ -636,79 +644,77 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
 
       <!-- ============ 采集管理 ============ -->
       <div v-if="pg==='cg'">
-        <div class="cols-2" style="grid-template-columns:1.3fr 1fr">
+        <div class="cols-2" style="grid-template-columns:1fr 1.5fr">
           <div class="panel">
-            <div class="panel-head">采集源</div>
-            <el-table :data="crSrcs" size="small">
-              <el-table-column prop="id" label="ID" width="56"></el-table-column>
-              <el-table-column prop="name" label="名称" min-width="130" show-overflow-tooltip></el-table-column>
-              <el-table-column label="类型" width="80"><template #default="s"><el-tag size="small" type="info" effect="plain">{{s.row.source_type}}</el-tag></template></el-table-column>
-              <el-table-column label="URL 模板" min-width="150"><template #default="s"><span class="link-cell" :title="s.row.url_template">{{s.row.url_template}}</span></template></el-table-column>
-              <el-table-column prop="category" label="分类" width="80"><template #default="s">{{s.row.category||'-'}}</template></el-table-column>
-              <el-table-column label="状态" width="70"><template #default="s"><el-tag size="small" :type="String(s.row.status)==='1'?'success':'info'">{{String(s.row.status)==='1'?'启用':'停用'}}</el-tag></template></el-table-column>
+            <div class="panel-head">采集源
+              <el-button size="small" type="primary" style="margin-left:auto" @click="crNewShow">+ 新增采集源</el-button>
+            </div>
+            <el-table :data="crSrcs" size="small" highlight-current-row @row-click="crPick">
+              <el-table-column prop="id" label="ID" width="52"></el-table-column>
+              <el-table-column prop="name" label="名称" min-width="120" show-overflow-tooltip></el-table-column>
+              <el-table-column label="类型" width="72"><template #default="s"><el-tag size="small" type="info" effect="plain">{{s.row.source_type}}</el-tag></template></el-table-column>
+              <el-table-column label="分类" width="70"><template #default="s">{{s.row.category||'-'}}</template></el-table-column>
+              <el-table-column label="状态" width="66"><template #default="s"><el-tag size="small" :type="String(s.row.status)==='1'?'success':'info'">{{String(s.row.status)==='1'?'启用':'停用'}}</el-tag></template></el-table-column>
               <el-table-column label="操作" width="130" fixed="right"><template #default="s">
-                <el-button size="small" type="primary" plain :loading="s.row.running" @click="crrun(s.row)">{{s.row.running?'采集中':'运行'}}</el-button>
-                <el-button size="small" type="danger" plain @click="crdel(s.row)">删除</el-button>
+                <el-button size="small" type="primary" plain :loading="s.row.running" @click.stop="crrun(s.row)">{{s.row.running?'采集中':'运行'}}</el-button>
+                <el-button size="small" type="danger" plain @click.stop="crdel(s.row)">删除</el-button>
               </template></el-table-column>
             </el-table>
+            <div class="hint" style="margin-top:8px">点击左侧采集源行，右侧显示该源解析规则。</div>
           </div>
           <div class="panel">
-            <div class="panel-head">新增采集源</div>
-            <el-input v-model="crNew.name" placeholder="名称 *" style="margin-bottom:10px"></el-input>
-            <el-select v-model="crNew.source_type" style="width:100%;margin-bottom:10px">
+            <div class="panel-head">解析规则 <span v-if="crSelName" class="hint" style="margin-left:6px">· {{crSelName}}</span>
+              <span v-if="crRuleStats" class="hint" style="margin-left:auto">{{crRuleStats.msg}}</span>
+            </div>
+            <el-table v-if="crRules.length" :data="crRules" size="small">
+              <el-table-column label="字段" width="120"><template #default="s"><el-tag size="small" type="primary">{{s.row.field_name}}</el-tag></template></el-table-column>
+              <el-table-column prop="rule_type" label="类型" width="100"></el-table-column>
+              <el-table-column prop="rule_value" label="规则值" min-width="220" show-overflow-tooltip class-name="mono"></el-table-column>
+              <el-table-column label="必填" width="60"><template #default="s">{{s.row.required==1?'是':'否'}}</template></el-table-column>
+              <el-table-column label="操作" width="70"><template #default="s"><el-button size="small" type="danger" plain @click="cruledel(s.row)">删</el-button></template></el-table-column>
+            </el-table>
+            <div v-else class="hint" style="padding:8px 0">{{crSel?'该源暂无规则（RSS 常用：title=&lt;title&gt;([^&lt;]+)&lt;/title&gt;、url=&lt;link&gt;([^&lt;]+)&lt;/link&gt;，regex 类型）':'点击左侧采集源查看其解析规则'}}</div>
+            <el-divider></el-divider>
+            <div style="display:flex;gap:10px;align-items:flex-end">
+              <div style="width:110px"><div class="hint" style="margin-bottom:4px">字段</div>
+                <el-select v-model="crRuleNew.field_name" style="width:100%">
+                  <el-option label="title" value="title"></el-option><el-option label="url" value="url"></el-option><el-option label="password" value="password"></el-option>
+                  <el-option label="disk_type" value="disk_type"></el-option><el-option label="category" value="category"></el-option><el-option label="description" value="description"></el-option><el-option label="thumbnail" value="thumbnail"></el-option>
+                </el-select>
+              </div>
+              <div style="width:110px"><div class="hint" style="margin-bottom:4px">类型</div>
+                <el-select v-model="crRuleNew.rule_type" style="width:100%">
+                  <el-option label="regex" value="regex"></el-option><el-option label="jsonpath" value="jsonpath"></el-option><el-option label="fixed" value="fixed"></el-option><el-option label="concat" value="concat"></el-option>
+                </el-select>
+              </div>
+              <div style="flex:1"><div class="hint" style="margin-bottom:4px">规则值</div><el-input v-model="crRuleNew.rule_value" placeholder="&lt;title&gt;([^&lt;]+)&lt;/title&gt;" class="mono"></el-input></div>
+              <el-checkbox v-model="crRuleNew.required" style="margin-bottom:6px">必填</el-checkbox>
+              <el-button type="primary" :disabled="!crSel" @click="crruleadd">添加规则</el-button>
+            </div>
+          </div>
+        </div>
+        <el-dialog v-model="crShow" title="新增采集源" width="520px">
+          <div class="hint" style="margin-bottom:10px">新增后需在右侧「解析规则」配置字段提取方式，然后点「运行」测试。</div>
+          <el-form label-width="86px">
+            <el-form-item label="名称 *"><el-input v-model="crNew.name" placeholder="如：某某频道 RSS"></el-input></el-form-item>
+            <el-form-item label="类型"><el-select v-model="crNew.source_type" style="width:100%">
               <el-option label="RSS" value="rss"></el-option><el-option label="网页" value="page"></el-option><el-option label="JSON API" value="api"></el-option>
-            </el-select>
-            <el-input v-model="crNew.url_template" placeholder="URL 模板 *（支持 {page}）" style="margin-bottom:10px" class="mono"></el-input>
-            <div style="display:flex;gap:10px;margin-bottom:10px">
-              <el-input-number v-model="crNew.page_start" :min="1" style="flex:1"></el-input-number>
-              <el-input-number v-model="crNew.page_end" :min="1" style="flex:1"></el-input-number>
-            </div>
-            <div style="display:flex;gap:10px;margin-bottom:10px">
-              <el-select v-model="crNew.encoding" style="flex:1">
-                <el-option label="utf-8" value="utf-8"></el-option><el-option label="gbk" value="gbk"></el-option><el-option label="big5" value="big5"></el-option>
-              </el-select>
-              <el-input v-model="crNew.category" placeholder="分类" style="flex:1"></el-input>
-            </div>
-            <el-button type="primary" style="width:100%" @click="crAdd">新增采集源</el-button>
-            <div class="hint" style="margin-top:8px">新增后需配置解析规则（字段提取方式），然后点「运行」测试。</div>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="panel-head">解析规则
-            <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
-              <el-select v-model="crSel" style="width:240px" @change="ldrule">
-                <el-option label="— 选择采集源 —" value=""></el-option>
-                <el-option v-for="s in crSrcs" :key="s.id" :label="'#'+s.id+' '+s.name" :value="String(s.id)"></el-option>
-              </el-select>
-              <span v-if="crRuleStats" class="hint">{{crRuleStats.msg}}</span>
-            </div>
-          </div>
-          <el-table v-if="crRules.length" :data="crRules" size="small">
-            <el-table-column label="字段" width="120"><template #default="s"><el-tag size="small" type="primary">{{s.row.field_name}}</el-tag></template></el-table-column>
-            <el-table-column prop="rule_type" label="类型" width="100"></el-table-column>
-            <el-table-column prop="rule_value" label="规则值" min-width="220" show-overflow-tooltip class-name="mono"></el-table-column>
-            <el-table-column label="必填" width="60"><template #default="s">{{s.row.required==1?'是':'否'}}</template></el-table-column>
-            <el-table-column label="操作" width="70"><template #default="s"><el-button size="small" type="danger" plain @click="cruledel(s.row)">删</el-button></template></el-table-column>
-          </el-table>
-          <div v-else class="hint" style="padding:8px 0">暂无规则（RSS 常用：title=&lt;title&gt;([^&lt;]+)&lt;/title&gt;、url=&lt;link&gt;([^&lt;]+)&lt;/link&gt;，regex 类型）</div>
-          <el-divider></el-divider>
-          <div style="display:flex;gap:10px;align-items:flex-end">
-            <div style="width:110px"><div class="hint" style="margin-bottom:4px">字段</div>
-              <el-select v-model="crRuleNew.field_name" style="width:100%">
-                <el-option label="title" value="title"></el-option><el-option label="url" value="url"></el-option><el-option label="password" value="password"></el-option>
-                <el-option label="disk_type" value="disk_type"></el-option><el-option label="category" value="category"></el-option><el-option label="description" value="description"></el-option><el-option label="thumbnail" value="thumbnail"></el-option>
-              </el-select>
-            </div>
-            <div style="width:110px"><div class="hint" style="margin-bottom:4px">类型</div>
-              <el-select v-model="crRuleNew.rule_type" style="width:100%">
-                <el-option label="regex" value="regex"></el-option><el-option label="jsonpath" value="jsonpath"></el-option><el-option label="fixed" value="fixed"></el-option><el-option label="concat" value="concat"></el-option>
-              </el-select>
-            </div>
-            <div style="flex:1"><div class="hint" style="margin-bottom:4px">规则值</div><el-input v-model="crRuleNew.rule_value" placeholder="&lt;title&gt;([^&lt;]+)&lt;/title&gt;" class="mono"></el-input></div>
-            <el-checkbox v-model="crRuleNew.required" style="margin-bottom:6px">必填</el-checkbox>
-            <el-button type="primary" :disabled="!crSel" @click="crruleadd">添加规则</el-button>
-          </div>
-        </div>
+            </el-select></el-form-item>
+            <el-form-item label="URL 模板 *"><el-input v-model="crNew.url_template" placeholder="支持 {page} 分页占位" class="mono"></el-input></el-form-item>
+            <el-form-item label="页范围">
+              <el-input-number v-model="crNew.page_start" :min="1" style="width:45%"></el-input-number>
+              <el-input-number v-model="crNew.page_end" :min="1" style="width:45%;margin-left:10%"></el-input-number>
+            </el-form-item>
+            <el-form-item label="编码"><el-select v-model="crNew.encoding" style="width:100%">
+              <el-option label="utf-8" value="utf-8"></el-option><el-option label="gbk" value="gbk"></el-option><el-option label="big5" value="big5"></el-option>
+            </el-select></el-form-item>
+            <el-form-item label="分类"><el-input v-model="crNew.category" placeholder="可选"></el-input></el-form-item>
+          </el-form>
+          <template #footer>
+            <el-button @click="crShow=false">取消</el-button>
+            <el-button type="primary" :loading="crSaving" @click="crAdd">{{crSaving?'保存中…':'创建采集源'}}</el-button>
+          </template>
+        </el-dialog>
       </div>
 
       <!-- ============ 数据源配置 ============ -->
@@ -816,30 +822,32 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
               </div>
             </div>
           </el-tab-pane>
-          <el-tab-pane label="提示词" name="prompt">
-            <div class="panel">
-              <div class="panel-head">提示词管理（按场景配置，编辑框回显当前生效全文）</div>
-              <div class="hint" style="margin-bottom:12px">每个场景独立配置：编辑框显示<b>当前生效全文</b>（内置默认展开后 / 自定义内容），可直接基于内置修改后保存。支持占位符 <b>{FIELD_WHITELIST}</b>、<b>{RULE_TYPE_WHITELIST}</b>、<b>{PAN_URL_RE}</b>；内容提炼额外支持 <b>{SCOPE}</b>。</div>
-              <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap" v-if="aiPromptKeys.length">
-                <el-button v-for="k in aiPromptKeys" :key="k" :type="aiPromptKey===k?'primary':''" plain @click="aiPromptPick(k)">
-                  {{aiPrompts[k].label}} <el-tag size="small" :type="aiPrompts[k].isCustom?'success':'info'" style="margin-left:4px">{{aiPrompts[k].isCustom?'自定义':'内置'}}</el-tag>
-                </el-button>
-              </div>
-              <template v-if="aiPromptKey && aiPrompts[aiPromptKey]">
-                <div style="display:flex;align-items:center;margin-bottom:6px">
-                  <span class="hint">{{aiPrompts[aiPromptKey].desc}}</span>
-                  <div style="margin-left:auto;display:flex;gap:8px">
-                    <el-button size="small" @click="aiPromptReset(aiPromptKey)">恢复默认</el-button>
-                    <el-button size="small" type="primary" :loading="aiPromptSaving" @click="aiPromptSave(aiPromptKey)">{{aiPromptSaving?'保存中…':'保存提示词'}}</el-button>
-                  </div>
-                </div>
-                <el-input v-model="aiPromptDraft" type="textarea" :rows="16" class="mono" placeholder="当前生效全文将显示在这里，可直接修改后保存"></el-input>
-                <div class="hint" style="margin-top:8px">{{aiPrompts[aiPromptKey].isCustom?'当前为自定义内容（修改后保存即更新）。':'当前使用内置默认（编辑后保存即成为自定义）。'}}</div>
-              </template>
-              <div class="hint" style="margin-top:10px">默认采集规则要点：字段只能从白名单选 · 类型只能 4 种 · url 必须网盘链接 · title/url 必填 · password 从描述文本提取「提取码」 · disk_type 从 url 域名推断 · thumbnail 从条目 XML/HTML 提取封面图。</div>
-            </div>
-          </el-tab-pane>
         </el-tabs>
+      </div>
+
+      <!-- ============ 提示词管理 ============ -->
+      <div v-if="pg==='pp'">
+        <div class="panel">
+          <div class="panel-head">提示词管理（按场景配置，编辑框回显当前生效全文）</div>
+          <div class="hint" style="margin-bottom:12px">每个场景独立配置：编辑框显示<b>当前生效全文</b>（内置默认展开后 / 自定义内容），可直接基于内置修改后保存。支持占位符 <b>{FIELD_WHITELIST}</b>、<b>{RULE_TYPE_WHITELIST}</b>、<b>{PAN_URL_RE}</b>、<b>{CATEGORY_DICT}</b>；内容提炼额外支持 <b>{SCOPE}</b>。</div>
+          <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap" v-if="aiPromptKeys.length">
+            <el-button v-for="k in aiPromptKeys" :key="k" :type="aiPromptKey===k?'primary':''" plain @click="aiPromptPick(k)">
+              {{aiPrompts[k].label}} <el-tag size="small" :type="aiPrompts[k].isCustom?'success':'info'" style="margin-left:4px">{{aiPrompts[k].isCustom?'自定义':'内置'}}</el-tag>
+            </el-button>
+          </div>
+          <template v-if="aiPromptKey && aiPrompts[aiPromptKey]">
+            <div style="display:flex;align-items:center;margin-bottom:6px">
+              <span class="hint">{{aiPrompts[aiPromptKey].desc}}</span>
+              <div style="margin-left:auto;display:flex;gap:8px">
+                <el-button size="small" @click="aiPromptReset(aiPromptKey)">恢复默认</el-button>
+                <el-button size="small" type="primary" :loading="aiPromptSaving" @click="aiPromptSave(aiPromptKey)">{{aiPromptSaving?'保存中…':'保存提示词'}}</el-button>
+              </div>
+            </div>
+            <el-input v-model="aiPromptDraft" type="textarea" :rows="16" class="mono" placeholder="当前生效全文将显示在这里，可直接修改后保存"></el-input>
+            <div class="hint" style="margin-top:8px">{{aiPrompts[aiPromptKey].isCustom?'当前为自定义内容（修改后保存即更新）。':'当前使用内置默认（编辑后保存即成为自定义）。'}}</div>
+          </template>
+          <div class="hint" style="margin-top:10px">默认采集规则要点：字段只能从白名单选 · 类型只能 4 种 · url 必须网盘链接 · title/url 必填 · password 从描述文本提取「提取码」 · disk_type 从 url 域名推断 · thumbnail 从条目 XML/HTML 提取封面图。</div>
+        </div>
       </div>
 
       <!-- ============ 系统设置 ============ -->
@@ -1024,7 +1032,7 @@ var rct=function(o){return Vue.reactive(o)};
 var MQ=ElementPlus.ElMessageBox;
 function cfm(msg,title){return MQ.confirm(msg,title||"确认",{confirmButtonText:"确定",cancelButtonText:"取消",type:"warning"})}
 function msg(s,t){ElementPlus.ElMessage({message:s,type:t==="e"?"error":(t==="w"?"warning":"success"),duration:2800})}
-var IC_MENU={st:"#534AB7",rs:"#378ADD",hi:"#1D9E75",tk:"#D4537E",tg:"#BA7517",cg:"#0F6E56",ds:"#993556",set:"#854F0B",bs:"#0891B2"};
+var IC_MENU={st:"#534AB7",rs:"#378ADD",hi:"#1D9E75",tk:"#D4537E",tg:"#BA7517",cg:"#0F6E56",ds:"#993556",set:"#854F0B",bs:"#0891B2",pp:"#7C3AED"};
 var menus=[
   {g:"运营",items:[
     {id:"st",title:"仪表盘",color:IC_MENU.st},
@@ -1035,7 +1043,8 @@ var menus=[
   ]},
   {g:"数据源",items:[
     {id:"tg",title:"TG 采集",color:IC_MENU.tg},
-    {id:"cg",title:"采集管理",color:IC_MENU.cg}
+    {id:"cg",title:"采集管理",color:IC_MENU.cg},
+    {id:"pp",title:"提示词管理",color:IC_MENU.pp}
   ]},
   {g:"系统",items:[
     {id:"ds",title:"数据源配置",color:IC_MENU.ds},
@@ -1073,7 +1082,7 @@ Vue.createApp({
 
     // ---- 资源管理 ----
     var rsTab=rf("list");
-    var rsQ=rct({kw:"",source:"",disk_type:"",category:"",status:"",size:20});
+    var rsQ=rct({kw:"",source:"",disk_type:"",category:"",status:"",created_from:"",created_to:"",size:20});
     var res=rct({items:[],total:0,page:1});
     var rsDlgShow=rf(false);
     var rsEditId=rf(0);
@@ -1119,14 +1128,36 @@ Vue.createApp({
     }
     function qs(o){var p=[];for(var k in o){if(o[k]===""||o[k]===undefined||o[k]===null)continue;p.push(encodeURIComponent(k)+"="+encodeURIComponent(o[k]))}return p.length?"?"+p.join("&"):""}
     function ldres(){
-      ap("GET","resources"+qs({kw:rsQ.kw,source:rsQ.source,disk_type:rsQ.disk_type,category:rsQ.category,status:rsQ.status,page:res.page,size:rsQ.size})).then(function(r){
+      ap("GET","resources"+qs({kw:rsQ.kw,source:rsQ.source,disk_type:rsQ.disk_type,category:rsQ.category,status:rsQ.status,created_from:rsQ.created_from,created_to:rsQ.created_to,page:res.page,size:rsQ.size})).then(function(r){
         res.items=r.items||[];res.total=r.total||0;res.page=r.page||1;
         var ids={};res.items.forEach(function(x){ids[x.id]=1});
         rsSel.value=rsSel.value.filter(function(id){return ids[id]});
       });
     }
+    var rsOptRunning=rf(false),rsForceOpt=rf(false);
+    function rsOptOne(r){
+      r.optRunning=true;
+      ap("POST","resources/optimize",{ids:[r.id],force:rsForceOpt.value}).then(function(d){
+        r.optRunning=false;
+        if(d&&d.ok)msg("优化完成："+d.optimized+" 条"+(d.skipped?"，跳过 "+d.skipped+" 条（已优化）":"")+(d.errors&&d.errors.length?"，失败 "+(d.errors.length)+" 条":""),d.errors&&d.errors.length?"w":"s");
+        else msg((d&&(d.error||d.message))||"优化失败","e");
+        ldres();
+      }).catch(function(){r.optRunning=false;msg("优化请求失败","e")});
+    }
+    function rsOptBatch(){
+      if(!rsSel.value.length){msg("请先勾选要优化的资源","e");return}
+      cfm("对选中的 <b style='color:#E6A23C'>"+rsSel.value.length+"</b> 条资源执行 AI 优化？（AI 清洗标题/归类/打标签，需要已配置 AI Key）"+(rsForceOpt.value?"<br><span style='color:#E24B4A'>已勾选「强制优化」：将覆盖已优化的资源</span>":""),"AI 资源优化").then(function(){
+        rsOptRunning.value=true;
+        ap("POST","resources/optimize",{ids:rsSel.value.slice(),force:rsForceOpt.value}).then(function(d){
+          rsOptRunning.value=false;
+          if(d&&d.ok)msg("优化完成：成功 "+d.optimized+" 条"+(d.skipped?"，跳过 "+d.skipped+" 条（已优化）":"")+(d.errors&&d.errors.length?"，失败 "+(d.errors.length)+" 条":""),d.errors&&d.errors.length?"w":"s");
+          else msg((d&&(d.error||d.message))||"优化失败","e");
+          ldres();
+        }).catch(function(){rsOptRunning.value=false;msg("优化请求失败","e")});
+      }).catch(function(){});
+    }
     function rsSearch(){res.page=1;ldres()}
-    function rsReset(){rsQ.kw="";rsQ.source="";rsQ.disk_type="";rsQ.category="";rsQ.status="";rsQ.size=20;res.page=1;ldres()}
+    function rsReset(){rsQ.kw="";rsQ.source="";rsQ.disk_type="";rsQ.category="";rsQ.status="";rsQ.created_from="";rsQ.created_to="";rsQ.size=20;res.page=1;ldres()}
     function rsPage(p){res.page=p;ldres()}
     function ldrsCats(){ap("GET","categories").then(function(r){rsCats.value=r.items||[]})}
     function rsSelChange(rows){rsSel.value=rows.map(function(r){return r.id})}
@@ -1201,13 +1232,19 @@ Vue.createApp({
       ap("GET","crawler/sources").then(function(r){crSrcs.value=r.items||[]});
       if(crSel.value)ldrule();
     }
+    var crShow=rf(false),crSaving=rf(false);
+    var crSelName=Vue.computed(function(){var s=crSrcs.value.find(function(x){return String(x.id)===crSel.value});return s?s.name:""});
+    function crNewShow(){crShow.value=true}
+    function crPick(row){crSel.value=String(row.id);ldrule()}
     function crAdd(){
       if(!crNew.name||!crNew.url_template){msg("名称和 URL 模板必填","e");return}
+      crSaving.value=true;
       var b=Object.assign({},crNew,{page_start:parseInt(crNew.page_start)||1,page_end:parseInt(crNew.page_end)||1});
       ap("POST","crawler/sources",b).then(function(r){
-        if(r.ok){msg("采集源已创建 #"+r.id);crNew={name:"",source_type:"rss",url_template:"",page_start:1,page_end:1,encoding:"utf-8",category:""};ldsrc()}
+        crSaving.value=false;
+        if(r.ok){msg("采集源已创建 #"+r.id);Object.assign(crNew,{name:"",source_type:"rss",url_template:"",page_start:1,page_end:1,encoding:"utf-8",category:""});crShow.value=false;ldsrc()}
         else msg(r.message||r.error||"创建失败","e");
-      });
+      }).catch(function(){crSaving.value=false;msg("创建请求失败","e")});
     }
     function crdel(s){
       cfm("删除采集源 #"+s.id+"（含其规则）？").then(function(){
@@ -1828,7 +1865,6 @@ Vue.createApp({
       if(n==="sc")ldsc();
       if(n==="api")ldcfg();
       if(n==="ck"){ldck()}
-      if(n==="prompt")ldai();
     }
     function setTabChange(n){
       if(n==="site")ldsite();
@@ -1846,7 +1882,8 @@ Vue.createApp({
       if(p==="tk"){ldts();ldtslogs()}
       if(p==="tg"){ldtg();ldtgDisks()}
       if(p==="cg"){ldsrc()}
-      if(p==="ds"){ldsc();ldcfg();ldck();ldai()}
+      if(p==="ds"){ldsc();ldcfg();ldck()}
+      if(p==="pp")ldai();
       if(p==="set"){ldsite();ldca()}
       if(p==="bs"){}
     });
@@ -1854,12 +1891,12 @@ Vue.createApp({
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="hi")ldhi();else if(h==="tk"){ldts();ldtslogs()}else if(h==="tg"){ldtg();ldtgDisks()}else if(h==="cg")ldsrc();else if(h==="ds"){ldsc();ldcfg();ldck();ldai()}else if(h==="set"){ldsite();ldca()}else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats()}else if(h==="bs"){}else{loadst();lddb();lddash();ldKw();ldts()}
+        if(h==="hi")ldhi();else if(h==="tk"){ldts();ldtslogs()}else if(h==="tg"){ldtg();ldtgDisks()}else if(h==="cg")ldsrc();else if(h==="pp")ldai();else if(h==="ds"){ldsc();ldcfg();ldck()}else if(h==="set"){ldsite();ldca()}else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats()}else if(h==="bs"){}else{loadst();lddb();lddash();ldKw();ldts()}
       }
     });
     return {
       tk,pg,ldg,lp,le,d,ckItems,ckLoaded,ckFm,ckT,ldck,ckStat,ckNew,ckEdit,ckTest,ckTestRow,ckSave,ckDel,ckToggle,cfg,pbAdd,pbDel,site,ldsite,svsite,cache,hi,hiSel,hiSelChange,hiDel,hiClr,dbInfo,dash,dashBars,lddash,pw,curMenu,menus,msg,gp,login,logout:lgout,lgout,loadst,lddb,ldhi,fmtTime,ldcfg,svcfg,ldca,clr,chpw,
-      rsTab,rsQ,res,rsDlgShow,rsEditId,rsSaving,rsAdd,rsCats,rsSel,rsSelChange,rowCls,rsSearch,rsReset,rsPage,ldrsCats,rsOpenDlg,rsadd,rsdel,rsDelBatch,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crRules,crRuleStats,crNew,crRuleNew,
+      rsTab,rsQ,res,rsDlgShow,rsEditId,rsSaving,rsAdd,rsCats,rsSel,rsSelChange,rowCls,rsSearch,rsReset,rsPage,ldrsCats,rsOpenDlg,rsadd,rsdel,rsDelBatch,rsOptRunning,rsForceOpt,rsOptOne,rsOptBatch,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crSelName,crShow,crSaving,crNewShow,crPick,crRules,crRuleStats,crNew,crRuleNew,
       srcName,fmtT,ldres,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,rsDiskName,
       kwItems,kwNew,ldKw,kwadd,kwhot,
       ctItems,ctNew,ctEditId,ctSel,ctSelChange,ldct,ctadd,ctedit,ctCancel,ctst,ctdel,ctDelBatch,

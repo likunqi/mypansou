@@ -81,6 +81,8 @@ async function adminList(req, res) {
     diskType: u.searchParams.get("disk_type") || "",
     source: u.searchParams.get("source") || "",
     status: u.searchParams.get("status") || "",
+    created_from: u.searchParams.get("created_from") || "",
+    created_to: u.searchParams.get("created_to") || "",
     page: u.searchParams.get("page") || "1",
     size: u.searchParams.get("size") || "20",
   };
@@ -135,6 +137,44 @@ async function adminDeleteBatch(req, res) {
     if (!ids.length) return json(res, 400, { error: "ids_required" });
     var deleted = await store.resourceDeleteBatch(ids);
     json(res, 200, { ok: true, deleted: deleted });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+
+// ---------- 管理：AI 资源优化（清洗标题/分类/标签，optimized 防重复优化，force 强制重新优化） ----------
+async function adminOptimize(req, res) {
+  var ai = require("./ai");
+  var mysql = require("../../lib/mysql");
+  try {
+    var b = JSON.parse(await readBody(req));
+    var ids = Array.isArray(b.ids) ? b.ids.map(Number).filter(function (n) { return n > 0; }) : [];
+    var force = !!b.force;
+    if (!ids.length) return json(res, 400, { error: "ids_required" });
+    if (ids.length > 50) return json(res, 400, { error: "too_many", message: "单次最多优化 50 条" });
+
+    var ac = await ai.getAiConfig();
+    if (!ac.key) return json(res, 400, { error: "ai_key_missing", message: "未配置 AI Key（数据源配置 → AI 配置）" });
+    var promptText = await ai.getEffectivePrompt("optimize");
+    var done = 0, skipped = 0, errs = [];
+    for (var i = 0; i < ids.length; i++) {
+      var r = await store.resourceGet(ids[i]);
+      if (!r) { skipped++; continue; }
+      if (r.optimized === 1 && !force) { skipped++; continue; }
+      try {
+        var userPrompt = "资源信息：\n标题：" + (r.title || "") + "\n描述：" + String(r.description || "").slice(0, 200) + "\n现有分类：" + (r.category || "") + "\n链接：" + (r.url || "") + "\n\n请按系统要求输出优化后的 JSON。";
+        var out = await ai.chat(ac, userPrompt, promptText);
+        var j = ai.extractJsonArray(out);
+        var obj = (Array.isArray(j) ? j[0] : j) || {};
+        var fields = {};
+        if (obj.title && String(obj.title).trim()) fields.title = String(obj.title).trim().slice(0, 256);
+        if (obj.category && String(obj.category).trim()) fields.category = String(obj.category).trim().slice(0, 64);
+        if (obj.tags) fields.tags = Array.isArray(obj.tags) ? obj.tags.join(",").slice(0, 256) : String(obj.tags).slice(0, 256);
+        fields.optimized = 1;
+        fields.optimized_at = new Date();
+        await store.resourceUpdate(ids[i], fields);
+        done++;
+      } catch (e) { errs.push(ids[i] + ": " + e.message); }
+    }
+    json(res, 200, { ok: true, optimized: done, skipped: skipped, errors: errs });
   } catch (e) { json(res, 500, { error: e.message }); }
 }
 
@@ -195,6 +235,6 @@ async function getSubmission(id) {
 
 module.exports = {
   submitResource, localSearch, reportBroken,
-  adminList, adminAdd, adminUpdate, adminDelete, adminDeleteBatch,
+  adminList, adminAdd, adminUpdate, adminDelete, adminDeleteBatch, adminOptimize,
   adminSubmissions, adminApprove, adminReject,
 };
