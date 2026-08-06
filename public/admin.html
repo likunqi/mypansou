@@ -349,6 +349,10 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
                 <el-select v-model="rsQ.status" placeholder="状态" style="width:90px" clearable @change="rsSearch">
                   <el-option label="启用" value="1"></el-option><el-option label="停用" value="0"></el-option>
                 </el-select>
+                <el-select v-model="rsQ.link_status" placeholder="链接状态" style="width:106px" clearable @change="rsSearch">
+                  <el-option label="有效" value="valid"></el-option><el-option label="失效" value="invalid"></el-option>
+                  <el-option label="未检测" value="notchecked"></el-option><el-option label="超期未测" value="expired"></el-option>
+                </el-select>
                 <el-date-picker v-model="rsQ.created_from" type="date" placeholder="入库起" value-format="YYYY-MM-DD" style="width:118px" @change="rsSearch"></el-date-picker>
                 <el-date-picker v-model="rsQ.created_to" type="date" placeholder="入库止" value-format="YYYY-MM-DD" style="width:118px" @change="rsSearch"></el-date-picker>
                 <el-select v-model="rsQ.size" style="width:100px" @change="rsSearch">
@@ -360,6 +364,7 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
                 <el-button type="warning" plain :disabled="!rsSel.length" :loading="rsOptRunning" @click="rsOptBatch">优化选中 {{rsSel.length}} 项</el-button>
                 <el-button type="warning" plain :loading="rsOptAllRunning" @click="rsOptAll" title="AI 优化全部未优化资源（名称/分类/标签，跳过已优化，每批最多 50 条）">优化全部未优化</el-button>
                 <el-button type="danger" plain :disabled="!rsSel.length" @click="rsDelBatch">删除选中 {{rsSel.length}} 项</el-button>
+                <el-button type="info" plain :disabled="!rsSel.length" :loading="rsCheckBatchRunning" @click="rsCheckBatch">重测选中 {{rsSel.length}} 项</el-button>
                 <el-button type="success" plain @click="rsExport" title="按当前筛选条件导出 CSV">导出 CSV</el-button>
                 <el-button type="primary" @click="rsOpenDlg()">新增资源</el-button>
               </div>
@@ -374,6 +379,9 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
                 <el-table-column label="提取码" width="80"><template #default="s">{{s.row.password||'-'}}</template></el-table-column>
                 <el-table-column label="网盘" width="84"><template #default="s"><el-tag size="small" :type="s.row.disk_type==='baidu'?'warning':'primary'">{{rsDiskName(s.row.disk_type)}}</el-tag></template></el-table-column>
                 <el-table-column prop="category" label="分类" width="84"><template #default="s">{{s.row.category||'-'}}</template></el-table-column>
+                <el-table-column label="链接状态" width="92"><template #default="s">
+                  <el-tag size="small" :type="rsLinkInfo(s.row).type">{{rsLinkInfo(s.row).text}}</el-tag>
+                </template></el-table-column>
                 <el-table-column label="标签" min-width="150"><template #default="s">
                   <template v-if="s.row.tags">
                     <el-tag v-for="t in String(s.row.tags).split(/[,，]/).map(function(x){return x.trim()}).filter(Boolean).slice(0,4)" :key="t" size="small" type="info" effect="plain" style="margin:2px 4px 2px 0">{{t}}</el-tag>
@@ -388,10 +396,11 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
                   <el-tag v-if="s.row.optimized==1" size="small" type="success" effect="plain" :title="s.row.optimized_at?('优化于 '+fmtT(s.row.optimized_at)):''">已优化</el-tag>
                   <el-tag v-else size="small" type="info" effect="plain">未优化</el-tag>
                 </template></el-table-column>
-                <el-table-column label="操作" width="270" fixed="right"><template #default="s">
+                <el-table-column label="操作" width="330" fixed="right"><template #default="s">
                   <el-button-group>
                     <el-button v-if="!hotRankedIdsMap[s.row.id]" size="small" type="success" plain @click="rsHotAdd(s.row)">＋入热榜</el-button>
                     <el-tag v-else size="small" type="success" effect="plain" style="margin-right:2px">已入榜</el-tag>
+                    <el-button size="small" type="info" plain :loading="s.row.chkRunning" @click="rsCheckOne(s.row)">{{s.row.chkRunning?'检测中':'重测'}}</el-button>
                     <el-button size="small" type="primary" plain @click="rsOpenDlg(s.row)">编辑</el-button>
                     <el-button size="small" type="warning" plain :loading="s.row.optRunning" @click="rsOptOne(s.row)">{{s.row.optRunning?'优化中':'优化'}}</el-button>
                     <el-button size="small" type="danger" plain @click="rsdel(s.row)">删除</el-button>
@@ -1365,7 +1374,7 @@ Vue.createApp({
     }
     function qs(o){var p=[];for(var k in o){if(o[k]===""||o[k]===undefined||o[k]===null)continue;p.push(encodeURIComponent(k)+"="+encodeURIComponent(o[k]))}return p.length?"?"+p.join("&"):""}
     function ldres(){
-      ap("GET","resources"+qs({kw:rsQ.kw,source:rsQ.source,disk_type:rsQ.disk_type,category:rsQ.category,status:rsQ.status,created_from:rsQ.created_from,created_to:rsQ.created_to,page:res.page,size:rsQ.size})).then(function(r){
+      ap("GET","resources"+qs({kw:rsQ.kw,source:rsQ.source,disk_type:rsQ.disk_type,category:rsQ.category,status:rsQ.status,link_status:rsQ.link_status,created_from:rsQ.created_from,created_to:rsQ.created_to,page:res.page,size:rsQ.size})).then(function(r){
         res.items=r.items||[];res.total=r.total||0;res.page=r.page||1;
         var ids={};res.items.forEach(function(x){ids[x.id]=1});
         rsSel.value=rsSel.value.filter(function(id){return ids[id]});
@@ -1408,7 +1417,7 @@ Vue.createApp({
       }).catch(function(){});
     }
     function rsSearch(){res.page=1;ldres()}
-    function rsReset(){rsQ.kw="";rsQ.source="";rsQ.disk_type="";rsQ.category="";rsQ.status="";rsQ.created_from="";rsQ.created_to="";rsQ.size=20;res.page=1;ldres()}
+    function rsReset(){rsQ.kw="";rsQ.source="";rsQ.disk_type="";rsQ.category="";rsQ.status="";rsQ.link_status="";rsQ.created_from="";rsQ.created_to="";rsQ.size=20;res.page=1;ldres()}
     function rsPage(p){res.page=p;ldres()}
     function ldrsCats(){ap("GET","categories").then(function(r){rsCats.value=r.items||[]})}
     function rsSelChange(rows){rsSel.value=rows.map(function(r){return r.id})}
@@ -1850,6 +1859,37 @@ Vue.createApp({
       ap("POST","hot/remove",{id:r.id}).then(function(r2){
         if(r2.ok){msg("已移出热榜");ldHotm();ldHotRankedIds()}else msg(r2.error||"操作失败","e");
       });
+    }
+    // ---- 资源列表：链接状态显示 + 重新检测 ----
+    function rsLinkInfo(r){
+      if(!r)return{type:"info",text:"未检测"};
+      if(!r.last_checked_at)return{type:"info",text:"未检测"};
+      if(Number(r.link_valid)===0)return{type:"danger",text:"失效"};
+      var d=(Date.now()-new Date(r.last_checked_at).getTime())/86400000;
+      if(d>3)return{type:"warning",text:"超期"+Math.floor(d)+"天"};
+      return{type:"success",text:"有效"};
+    }
+    function rsCheckOne(row){
+      row.chkRunning=true;
+      fetch("/api/check/local",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tk.value},body:JSON.stringify({ids:[row.id],force:true})}).then(function(r){return r.json()}).then(function(r){
+        row.chkRunning=false;
+        var res=(r.results||[])[0];
+        if(res&&res.state==="valid"){row.link_valid=1;row.last_checked_at=new Date().toISOString();msg("重测有效")}
+        else if(res&&res.state==="invalid"){row.link_valid=0;row.last_checked_at=new Date().toISOString();msg("重测失效","e")}
+        else{msg("网络异常，未更新","e")}
+      }).catch(function(){row.chkRunning=false;msg("检测失败","e")});
+    }
+    var rsCheckBatchRunning=rf(false);
+    function rsCheckBatch(){
+      var ids=rsSel.value.map(function(x){return x.id});
+      if(!ids.length)return;
+      rsCheckBatchRunning.value=true;
+      var idx=0,done=0;
+      (function w(){
+        if(idx>=ids.length){rsCheckBatchRunning.value=false;msg("批量重测完成，共 "+ids.length+" 条");ldres();return}
+        var batch=ids.slice(idx,idx+20);idx+=20;
+        fetch("/api/check/local",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tk.value},body:JSON.stringify({ids:batch,force:true})}).then(function(r){return r.json()}).then(function(){done+=batch.length;w()}).catch(function(){done+=batch.length;w()});
+      })();
     }
     var dlData=rct({list:null,type:"",from:-1});
     // ---- 失效反馈（资源管理 tab fb） ----
@@ -2359,6 +2399,7 @@ Vue.createApp({
       kwmItems,kwmNew,kwmCollecting,kwmEditShow,kwmEditForm,ldKwm,kwmAdd,kwmCollect,kwmEdit,kwmSave,kwmDel,kwSrcType,kwSrcName,
       hotmItems,hotRankedIdsMap,ldHotm,ldHotRankedIds,rsHotAdd,hotmRemove,dlStart,dlDrop,
       fbQ,fbItems,ldFb,fbHandle,
+      rsLinkInfo,rsCheckOne,rsCheckBatch,rsCheckBatchRunning,
       ctItems,ctNew,ctEditId,ctSel,ctSelChange,ldct,ctadd,ctedit,ctCancel,ctst,ctdel,ctDelBatch,
       scItems,ldsc,scToggle,scDiskOpts,scDisk,scEditId,scNameDraft,scEditName,scSaveName,
       tgTab,setTab,dsTab,tkTab,tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,tgTesting,ldtg,ldtgSet,tgSv,tgAddIns,tgDelIns,tgSetDefault,tgTestOne,tgTestIns,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,

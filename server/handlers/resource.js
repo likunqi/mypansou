@@ -54,6 +54,7 @@ async function localSearch(req, res) {
       page: u.searchParams.get("page") || "1",
       size: u.searchParams.get("size") || "20",
       status: 1, // 本地搜索只展示启用资源
+      exclude_invalid: 1, // 排除已确认失效的链接（前台不展示失效资源）
     };
     var r = await store.resourceSearch(opt);
     json(res, 200, r);
@@ -81,6 +82,7 @@ async function adminList(req, res) {
     diskType: u.searchParams.get("disk_type") || "",
     source: u.searchParams.get("source") || "",
     status: u.searchParams.get("status") || "",
+    link_status: u.searchParams.get("link_status") || "",
     created_from: u.searchParams.get("created_from") || "",
     created_to: u.searchParams.get("created_to") || "",
     page: u.searchParams.get("page") || "1",

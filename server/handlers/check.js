@@ -121,13 +121,14 @@ async function handler(req, res) {
   }
 }
 
-// 本地资源检测：只检测「未检测过」的资源（last_checked_at 为空），结果写回 resources 表持久化
-// 已检测过的直接返回库中状态，不重测（避免每次打开都全量检测）
+// 本地资源检测：默认只检测「未检测过」的资源（last_checked_at 为空），结果写回 resources 表持久化；
+// force=true 强制重测（后台「重新检测」按钮用，不管是否检测过）
 async function localCheck(req, res) {
   try {
     var body = await readBody(req);
     var parsed = JSON.parse(body);
-    var ids = (parsed.ids || []).slice(0, 100);
+    var ids = (parsed.ids || []).slice(0, 200);
+    var force = !!parsed.force;
     if (!ids.length) return json(res, 200, { results: [] });
 
     var results = [];
@@ -138,8 +139,8 @@ async function localCheck(req, res) {
         try {
           var rec = await store.resourceGet(id);
           if (!rec) return { id: id, state: "missing" };
-          // 已检测过：返回缓存状态，不重测
-          if (rec.last_checked_at) {
+          // 非强制且已检测过：返回缓存状态，不重测
+          if (!force && rec.last_checked_at) {
             return { id: id, state: rec.link_valid ? "valid" : "invalid", cached: true, title: rec.title };
           }
           var cr = await checkLinkAvail(rec.url, 5, rec.password);
