@@ -50,6 +50,28 @@ async function getHotResources(req, res) {
   }
 }
 
+// 资源库最新资源（首页「最新资源」垂直滚动）
+async function getLatest(req, res) {
+  try {
+    var r = await store.resourceSearch({ status: 1, page: 1, size: 8 });
+    var items = (r.items || []).map(function (x) {
+      return {
+        title: x.title || "",
+        url: x.url || "",
+        password: x.password || "",
+        disk_type: x.disk_type || "",
+        category: x.category || "",
+        description: x.description || "",
+        thumbnail: x.thumbnail || "",
+        created_at: x.created_at || ""
+      };
+    });
+    json(res, 200, { items: items, total: items.length, source: "resources" });
+  } catch (e) {
+    json(res, 502, { error: "latest_error", message: e.message });
+  }
+}
+
 // 搜索词上报（前台 fire-and-forget）
 async function recordSearch(req, res) {
   try {
@@ -251,4 +273,4 @@ async function refreshTrending() {
   return out;
 }
 
-module.exports = { getTrending, getKeywords, getHotResources, getStats, recordSearch, adminKeywordList, adminKeywordAdd, adminKeywordUpdate, adminKeywordDelete, refreshTrending, HOT_TERMS };
+module.exports = { getTrending, getKeywords, getHotResources, getLatest, getStats, recordSearch, adminKeywordList, adminKeywordAdd, adminKeywordUpdate, adminKeywordDelete, refreshTrending, HOT_TERMS };

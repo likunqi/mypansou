@@ -126,7 +126,6 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
       <div class="top-right">
         <span class="db-status" :class="dbInfo.ready?'ok':''">MySQL {{dbInfo.ready?'已连接':'未连接'}}</span>
         <a href="/" target="_blank">前台</a>
-        <a href="/bigscreen.html" target="_blank">数据大屏</a>
         <a @click="lgout">退出登录</a>
       </div>
     </header>
@@ -995,6 +994,11 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
           <el-button type="primary" :loading="tsSaving" @click="tssave">{{tsSaving?'保存中...':'保存'}}</el-button>
         </template>
       </el-dialog>
+
+      <!-- ============ 数据大屏 ============ -->
+      <div v-if="pg==='bs'">
+        <iframe src="/bigscreen.html" style="width:100%;height:calc(100vh - 140px);border:0;border-radius:12px;background:#070b1d" title="数据大屏"></iframe>
+      </div>
     </main>
   </div>
 </div>
@@ -1007,13 +1011,14 @@ var rct=function(o){return Vue.reactive(o)};
 var MQ=ElementPlus.ElMessageBox;
 function cfm(msg,title){return MQ.confirm(msg,title||"确认",{confirmButtonText:"确定",cancelButtonText:"取消",type:"warning"})}
 function msg(s,t){ElementPlus.ElMessage({message:s,type:t==="e"?"error":(t==="w"?"warning":"success"),duration:2800})}
-var IC_MENU={st:"#534AB7",rs:"#378ADD",hi:"#1D9E75",tk:"#D4537E",tg:"#BA7517",cg:"#0F6E56",ds:"#993556",set:"#854F0B"};
+var IC_MENU={st:"#534AB7",rs:"#378ADD",hi:"#1D9E75",tk:"#D4537E",tg:"#BA7517",cg:"#0F6E56",ds:"#993556",set:"#854F0B",bs:"#0891B2"};
 var menus=[
   {g:"运营",items:[
     {id:"st",title:"仪表盘",color:IC_MENU.st},
     {id:"rs",title:"资源管理",color:IC_MENU.rs},
     {id:"hi",title:"转存历史",color:IC_MENU.hi},
-    {id:"tk",title:"任务中心",color:IC_MENU.tk}
+    {id:"tk",title:"任务中心",color:IC_MENU.tk},
+    {id:"bs",title:"数据大屏",color:IC_MENU.bs}
   ]},
   {g:"数据源",items:[
     {id:"tg",title:"TG 采集",color:IC_MENU.tg},
@@ -1810,12 +1815,13 @@ Vue.createApp({
       if(p==="cg"){ldsrc()}
       if(p==="ds"){ldsc();ldcfg();ldck()}
       if(p==="set"){ldsite();ldca()}
+      if(p==="bs"){}
     });
     Vue.onMounted(function(){
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="hi")ldhi();else if(h==="tk"){ldts();ldtslogs()}else if(h==="tg"){ldtg();ldtgDisks()}else if(h==="cg")ldsrc();else if(h==="ds"){ldsc();ldcfg();ldck()}else if(h==="set"){ldsite();ldca()}else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats()}else{loadst();lddb();lddash();ldKw();ldts()}
+        if(h==="hi")ldhi();else if(h==="tk"){ldts();ldtslogs()}else if(h==="tg"){ldtg();ldtgDisks()}else if(h==="cg")ldsrc();else if(h==="ds"){ldsc();ldcfg();ldck()}else if(h==="set"){ldsite();ldca()}else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats()}else if(h==="bs"){}else{loadst();lddb();lddash();ldKw();ldts()}
       }
     });
     return {
