@@ -16,6 +16,7 @@ const sources = require("./handlers/sources");
 const tasks = require("./handlers/tasks");
 const tg = require("./handlers/tg");
 const categories = require("./handlers/categories");
+const feedback = require("./handlers/feedback");
 
 async function handleRequest(req, res) {
   logger(req, res);
@@ -32,6 +33,8 @@ async function handleRequest(req, res) {
     if (urlPath === "/api/hot/stats" && method === "GET") return await hot.getStats(req, res);
     if (urlPath === "/api/hot/latest" && method === "GET") return await hot.getLatest(req, res);
     if (urlPath === "/api/hot/site" && method === "GET") return await hot.getSiteInfo(req, res);
+    // 失效反馈（公开提交，无需登录）
+    if (urlPath === "/api/feedback" && method === "POST") return await feedback.submit(req, res);
 
     // Search keyword record (front-end fire-and-forget)
     if (urlPath === "/api/search/record" && method === "POST") return await hot.recordSearch(req, res);
@@ -115,6 +118,10 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/hot/add" && method === "POST") return await hot.adminHotAdd(req, res);
       if (urlPath === "/api/admin/hot/sort" && method === "POST") return await hot.adminHotSaveSort(req, res);
       if (urlPath === "/api/admin/hot/remove" && method === "POST") return await hot.adminHotRemove(req, res);
+
+      // 失效反馈管理
+      if (urlPath === "/api/admin/feedback" && method === "GET") return await feedback.adminList(req, res);
+      if (/^\/api\/admin\/feedback\/\d+$/.test(urlPath) && method === "POST") return await feedback.adminHandle(req, res);
 
       // Resource management
       if (urlPath === "/api/admin/dashboard" && method === "GET") return await admin.dashboard(req, res);

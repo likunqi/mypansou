@@ -538,6 +538,39 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
               </div>
             </div>
           </el-tab-pane>
+
+          <!-- 失效反馈 -->
+          <el-tab-pane label="失效反馈" name="fb">
+            <div class="panel">
+              <div class="toolbar" style="margin-bottom:12px">
+                <el-select v-model="fbQ.status" style="width:120px" @change="ldFb">
+                  <el-option label="全部" value=""></el-option><el-option label="待处理" value="0"></el-option><el-option label="已处理" value="1"></el-option><el-option label="已驳回" value="2"></el-option>
+                </el-select>
+                <el-button @click="ldFb">刷新</el-button>
+                <div class="hint" style="margin-left:auto">用户反馈失效的本地资源：「确认失效」标记链接失效；「删除资源」移除资源；「驳回」忽略</div>
+              </div>
+              <el-table :data="fbItems" size="small">
+                <el-table-column prop="id" label="ID" width="60"></el-table-column>
+                <el-table-column prop="title" label="标题" min-width="150" show-overflow-tooltip></el-table-column>
+                <el-table-column label="链接" min-width="150"><template #default="s"><a class="link-cell" :href="s.row.url" target="_blank" style="color:#185FA5;text-decoration:none">{{s.row.url}}</a></template></el-table-column>
+                <el-table-column label="网盘" width="70"><template #default="s">{{rsDiskName(s.row.disk_type)}}</template></el-table-column>
+                <el-table-column label="状态" width="90"><template #default="s">
+                  <el-tag size="small" :type="s.row.status==0?'warning':(s.row.status==1?'danger':'info')">{{s.row.status==0?'待处理':(s.row.status==1?'已处理':'已驳回')}}</el-tag>
+                </template></el-table-column>
+                <el-table-column label="时间" width="130"><template #default="s"><span style="color:#909399;font-size:12px">{{fmtT(s.row.created_at)}}</span></template></el-table-column>
+                <el-table-column label="备注" min-width="100"><template #default="s">{{s.row.admin_remark||'-'}}</template></el-table-column>
+                <el-table-column label="操作" width="210" fixed="right"><template #default="s">
+                  <template v-if="s.row.status==0">
+                    <el-button size="small" type="danger" plain @click="fbHandle(s.row,'invalid')">确认失效</el-button>
+                    <el-button size="small" type="danger" @click="fbHandle(s.row,'remove')">删除资源</el-button>
+                    <el-button size="small" @click="fbHandle(s.row,'dismiss')">驳回</el-button>
+                  </template>
+                  <span v-else class="hint">已处理</span>
+                </template></el-table-column>
+              </el-table>
+              <div v-if="!fbItems.length" class="hint" style="text-align:center;padding:30px 0">暂无失效反馈</div>
+            </div>
+          </el-tab-pane>
         </el-tabs>
       </div>
 
@@ -1819,6 +1852,18 @@ Vue.createApp({
       });
     }
     var dlData=rct({list:null,type:"",from:-1});
+    // ---- 失效反馈（资源管理 tab fb） ----
+    var fbQ=rct({status:""});
+    var fbItems=rf([]);
+    function ldFb(){ap("GET","feedback?status="+fbQ.status).then(function(r){fbItems.value=r.items||[]})}
+    function fbHandle(row,action){
+      var txt={invalid:"确认该资源链接已失效？会标记为失效。",remove:"确认删除该资源？此操作不可恢复！",dismiss:"驳回该反馈？"}[action];
+      if(!confirm(txt))return;
+      ap("POST","feedback/"+row.id,{action:action}).then(function(r){
+        if(r.ok){msg({invalid:"已标记失效",remove:"已删除资源",dismiss:"已驳回"}[action]);ldFb()}
+        else msg(r.error||"操作失败","e");
+      });
+    }
     function dlStart(e,list,i,type){dlData.list=list;dlData.type=type;dlData.from=i;try{e.dataTransfer.effectAllowed="move"}catch(x){}}
     function dlDrop(e,type){
       if(dlData.type!==type||dlData.from<0)return;
@@ -2262,6 +2307,7 @@ Vue.createApp({
       if(n==="imp")ldimp();
       if(n==="kwm")ldKwm();
       if(n==="hotm"){ldHotm();ldHotRankedIds()}
+      if(n==="fb")ldFb();
     }
     function tgTabChange(n){
       if(n==="ch")ldtg();
@@ -2312,6 +2358,7 @@ Vue.createApp({
       kwItems,kwNew,ldKw,kwadd,kwhot,kwIcon,
       kwmItems,kwmNew,kwmCollecting,kwmEditShow,kwmEditForm,ldKwm,kwmAdd,kwmCollect,kwmEdit,kwmSave,kwmDel,kwSrcType,kwSrcName,
       hotmItems,hotRankedIdsMap,ldHotm,ldHotRankedIds,rsHotAdd,hotmRemove,dlStart,dlDrop,
+      fbQ,fbItems,ldFb,fbHandle,
       ctItems,ctNew,ctEditId,ctSel,ctSelChange,ldct,ctadd,ctedit,ctCancel,ctst,ctdel,ctDelBatch,
       scItems,ldsc,scToggle,scDiskOpts,scDisk,scEditId,scNameDraft,scEditName,scSaveName,
       tgTab,setTab,dsTab,tkTab,tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,tgTesting,ldtg,ldtgSet,tgSv,tgAddIns,tgDelIns,tgSetDefault,tgTestOne,tgTestIns,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
