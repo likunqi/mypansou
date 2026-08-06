@@ -91,6 +91,63 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
 .dlg-row .el-form-item{flex:1}
 .foot-note{text-align:center;color:#909399;font-size:12px;padding:10px 0 2px}
 </style>
+<style id="ai-theme">
+/* ===== AI 风主题：紫青渐变 · 玻璃拟态 · 胶囊按钮（只覆盖视觉，不动业务） ===== */
+:root{
+  --el-color-primary:#7C67EF;
+  --el-color-primary-light-3:#A49AF4;
+  --el-color-primary-light-5:#C2B9F9;
+  --el-color-primary-light-7:#E0DBFC;
+  --el-color-primary-light-8:#ECE8FD;
+  --el-color-primary-light-9:#F6F4FE;
+  --el-color-primary-dark-2:#6350CE;
+  --el-border-radius-base:12px;
+  --el-box-shadow-light:0 6px 24px rgba(124,103,239,.08);
+  --el-box-shadow:0 12px 40px rgba(60,52,137,.14)
+}
+body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
+/* 侧边栏深紫渐变 */
+.sidebar{background:linear-gradient(180deg,#2b2056 0%,#1d1440 55%,#150e33 100%)}
+.sidebar .logo{background:rgba(255,255,255,.04)}
+.logo-dot{background:linear-gradient(135deg,#7C67EF,#4DC8FF)}
+.menu-group{color:#8b83c9}
+.menu-item{color:#c7c0e8}
+.menu-item:hover{background:rgba(124,103,239,.16);color:#fff}
+.menu-item.on{background:linear-gradient(90deg,rgba(124,103,239,.5),rgba(77,200,255,.25));color:#fff;border-left-color:#7C67EF}
+.side-foot{color:#8b83c9}
+/* 玻璃拟态卡 */
+.panel,.stat{background:rgba(255,255,255,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.9);border-radius:16px;box-shadow:0 4px 20px rgba(124,103,239,.07)}
+.panel-head{color:#3b3660}
+.panel-head::before{background:linear-gradient(180deg,#7C67EF,#4DC8FF);border-radius:3px}
+/* 顶栏 */
+.topbar{background:rgba(255,255,255,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(124,103,239,.14)}
+.top-right a:hover{color:#7C67EF}
+/* 胶囊按钮 */
+.el-button{border-radius:999px}
+.el-button--primary{background:linear-gradient(90deg,#7C67EF,#4DC8FF);border-color:transparent}
+.el-button--primary:hover,.el-button--primary:focus{background:linear-gradient(90deg,#6f58e8,#3dbdf5)}
+.el-button--primary.is-plain,.el-button--primary.is-link,.el-button--primary.is-text{background:transparent}
+/* 按钮组保留合并形态 */
+.el-button-group>.el-button{border-radius:0}
+.el-button-group>.el-button:first-child{border-top-left-radius:999px;border-bottom-left-radius:999px}
+.el-button-group>.el-button:last-child{border-top-right-radius:999px;border-bottom-right-radius:999px}
+/* 表格 / 弹框 / 标签 */
+.el-table{--el-table-header-bg-color:rgba(124,103,239,.06);--el-table-row-hover-bg-color:rgba(124,103,239,.05);--el-table-border-color:rgba(124,103,239,.12)}
+.el-dialog{border-radius:16px}
+.el-message-box{border-radius:16px}
+.el-pagination.is-background .el-pager li.is-active{background:linear-gradient(90deg,#7C67EF,#4DC8FF)}
+.el-tag{border-radius:8px}
+/* 日志面板微调（保持深色） */
+.log-panel{background:linear-gradient(180deg,#1c1638,#120d2b);border-color:#120d2b}
+.log-panel .panel-head::before{background:linear-gradient(180deg,#7C67EF,#4DC8FF)}
+.log-line{color:#c9c3e8}
+/* 登录页紫青 */
+.login-bg{background:radial-gradient(900px 480px at 22% -10%,#7C67EF 0%,#3a2a7a 48%,#150e33 100%)}
+.login-card{background:rgba(255,255,255,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:20px;border:1px solid rgba(255,255,255,.65)}
+.login-logo{background:linear-gradient(135deg,#7C67EF,#4DC8FF)}
+/* 统计卡图标微调 */
+.stat-ico{border-radius:14px}
+</style>
 </head>
 <body>
 <div id="aapp" v-cloak>
