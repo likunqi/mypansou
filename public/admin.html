@@ -78,6 +78,31 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
 .hot-badge.hot{background:#FAEEDA;color:#854F0B;border:1px solid #FAC775}
 .hot-badge.normal{background:#F1EFE8;color:#5F5E5A;border:1px solid transparent}
 .hot-badge:hover{border-color:#854F0B}
+/* 热搜图标卡片（仪表盘） */
+.kw-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.kw-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px 8px;border-radius:12px;border:1px solid #eee;background:#fafafa;cursor:pointer;transition:all .2s;min-width:0}
+.kw-card:hover{transform:translateY(-2px);border-color:#7C67EF;box-shadow:0 4px 12px rgba(124,103,239,.15)}
+.kw-top-1{border-color:#FAC775;background:linear-gradient(160deg,#FCE7B8,transparent 60%)}
+.kw-top-2{border-color:#F5C4B3;background:linear-gradient(160deg,#FAD8C8,transparent 60%)}
+.kw-top-3{border-color:#ED93B1;background:linear-gradient(160deg,#F9D7E3,transparent 60%)}
+.kw-ic{font-size:20px;line-height:1}
+.kw-name{font-size:12px;font-weight:600;color:#333;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.kw-cnt{font-size:11px;color:#909399}
+.kw-pin{position:absolute;top:4px;right:5px;font-size:10px;color:#854F0B;background:#FAEEDA;padding:0 5px;border-radius:999px}
+/* 拖拽排序列表（热搜词管理 / 热榜管理） */
+.dl-list{display:flex;flex-direction:column;gap:4px}
+.dl-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;border:1px solid #eee;background:#fbfbfd;transition:all .15s}
+.dl-row:hover{border-color:#7C67EF}
+.dl-row.dragging{opacity:.5;border-style:dashed}
+.dl-handle{cursor:grab;color:#c0c4cc;font-size:14px;user-select:none;flex:none}
+.dl-rank{width:22px;height:22px;border-radius:6px;background:#f1efee;color:#999;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.dl-rank.rank-1{background:#E24B4A;color:#fff}
+.dl-rank.rank-2{background:#F0997B;color:#fff}
+.dl-rank.rank-3{background:#FAC775;color:#7a4a00}
+.dl-main{flex:1;font-size:13px;color:#333;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.dl-src{flex:none;font-size:12px;color:#909399}
+.dl-cnt{flex:none;font-size:12px;color:#909399}
+.dl-ops{flex:none;display:flex;gap:4px}
 /* 转存条 */
 .trans-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed #f0f2f5;font-size:13px}
 .trans-row .t-title{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
@@ -233,15 +258,20 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
 
         <div class="cols-2">
           <div class="panel">
-            <div class="panel-head">热搜运营
+            <div class="panel-head">热搜词展示
               <div style="margin-left:auto;display:flex;gap:8px">
                 <el-input v-model="kwNew.keyword" placeholder="新增热搜词" size="small" style="width:150px" @keyup.enter="kwadd"></el-input>
                 <el-button size="small" @click="ldKw">刷新</el-button>
               </div>
             </div>
-            <div>
-              <span v-for="k in kwItems.slice(0,12)" :key="k.id" class="hot-badge" :class="k.is_hot?'hot':'normal'" @click="kwhot(k,k.is_hot?0:1)" :title="k.is_hot?'取消置顶':'置顶'">{{k.keyword}}<span v-if="k.is_hot" style="margin-left:3px">🔥</span></span>
-              <div v-if="!kwItems.length" class="hint" style="padding:8px 0">暂无热搜词，在右上角输入回车添加</div>
+            <div class="kw-grid">
+              <div v-for="(k,i) in kwItems.slice(0,8)" :key="k.id" class="kw-card" :class="'kw-top-'+(i+1)" @click="kwhot(k,k.is_hot?0:1)" :title="k.is_hot?'取消置顶':'置顶'">
+                <span v-if="k.is_hot" class="kw-pin">置顶</span>
+                <span class="kw-ic">{{kwIcon(k,i)}}</span>
+                <span class="kw-name">{{k.keyword}}</span>
+                <span class="kw-cnt">热度 {{k.search_count||0}}</span>
+              </div>
+              <div v-if="!kwItems.length" class="hint" style="padding:8px 0;grid-column:1/-1">暂无热搜词，在右上角输入回车添加</div>
             </div>
           </div>
           <div class="panel">
@@ -357,8 +387,10 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
                   <el-tag v-if="s.row.optimized==1" size="small" type="success" effect="plain" :title="s.row.optimized_at?('优化于 '+fmtT(s.row.optimized_at)):''">已优化</el-tag>
                   <el-tag v-else size="small" type="info" effect="plain">未优化</el-tag>
                 </template></el-table-column>
-                <el-table-column label="操作" width="190" fixed="right"><template #default="s">
+                <el-table-column label="操作" width="270" fixed="right"><template #default="s">
                   <el-button-group>
+                    <el-button v-if="!hotRankedIdsMap[s.row.id]" size="small" type="success" plain @click="rsHotAdd(s.row)">＋入热榜</el-button>
+                    <el-tag v-else size="small" type="success" effect="plain" style="margin-right:2px">已入榜</el-tag>
                     <el-button size="small" type="primary" plain @click="rsOpenDlg(s.row)">编辑</el-button>
                     <el-button size="small" type="warning" plain :loading="s.row.optRunning" @click="rsOptOne(s.row)">{{s.row.optRunning?'优化中':'优化'}}</el-button>
                     <el-button size="small" type="danger" plain @click="rsdel(s.row)">删除</el-button>
@@ -442,6 +474,69 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
                 <el-table-column prop="skipped_rows" label="跳过" width="70"></el-table-column>
                 <el-table-column label="状态" width="90"><template #default="s"><el-tag size="small" :type="s.row.status==='completed'?'success':'danger'">{{s.row.status}}</el-tag></template></el-table-column>
               </el-table>
+            </div>
+          </el-tab-pane>
+
+          <!-- 热搜词管理 -->
+          <el-tab-pane label="热搜词管理" name="kwm">
+            <div class="panel">
+              <div class="toolbar" style="margin-bottom:12px">
+                <el-input v-model="kwmNew.keyword" placeholder="词名称" style="width:160px" @keyup.enter="kwmAdd"></el-input>
+                <el-input-number v-model="kwmNew.search_count" :min="0" :controls="false" placeholder="热度" style="width:90px"></el-input-number>
+                <el-button type="primary" @click="kwmAdd">添加</el-button>
+                <el-button type="success" plain :loading="kwmCollecting" @click="kwmCollect">豆瓣 API 采集</el-button>
+                <el-button @click="ldKwm">刷新</el-button>
+                <div class="hint" style="margin-left:auto">拖动「⠿」手柄排序（自动置顶）；「豆瓣采集」拉取豆瓣热榜前 10 名入库</div>
+              </div>
+              <div class="dl-list">
+                <div v-for="(k,i) in kwmItems" :key="k.id" class="dl-row" draggable="true"
+                  @dragstart="dlStart($event,kwmItems,i,'kw')" @dragover.prevent @drop="dlDrop($event,'kw')">
+                  <span class="dl-handle">⠿</span>
+                  <span class="dl-rank" :class="'rank-'+(i<3?i+1:0)">{{i+1}}</span>
+                  <span class="dl-main">{{k.keyword}}</span>
+                  <span class="dl-src"><el-tag size="small" :type="kwSrcType(k.source)">{{kwSrcName(k.source)}}</el-tag></span>
+                  <span class="dl-cnt">热度 {{k.search_count||0}}</span>
+                  <span class="dl-ops">
+                    <el-button size="small" type="primary" plain @click="kwmEdit(k)">编辑</el-button>
+                    <el-button size="small" type="danger" plain @click="kwmDel(k)">删除</el-button>
+                  </span>
+                </div>
+                <div v-if="!kwmItems.length" class="hint" style="text-align:center;padding:30px 0">暂无热搜词——手动添加或点「豆瓣 API 采集」</div>
+              </div>
+              <el-dialog v-model="kwmEditShow" title="编辑热搜词" width="400px">
+                <el-form label-width="70px">
+                  <el-form-item label="名称"><el-input v-model="kwmEditForm.keyword" @keyup.enter="kwmSave"></el-input></el-form-item>
+                  <el-form-item label="热度"><el-input-number v-model="kwmEditForm.search_count" :min="0" :controls="false" style="width:100%"></el-input-number></el-form-item>
+                </el-form>
+                <template #footer>
+                  <el-button @click="kwmEditShow=false">取消</el-button>
+                  <el-button type="primary" @click="kwmSave">保存</el-button>
+                </template>
+              </el-dialog>
+            </div>
+          </el-tab-pane>
+
+          <!-- 资源热榜管理 -->
+          <el-tab-pane label="资源热榜管理" name="hotm">
+            <div class="panel">
+              <div class="toolbar" style="margin-bottom:12px">
+                <el-button @click="ldHotm">刷新</el-button>
+                <div class="hint" style="margin-left:auto">拖动「⠿」手柄排序；前台展示：手动入榜优先 + 转存热度补位</div>
+              </div>
+              <div class="dl-list">
+                <div v-for="(r,i) in hotmItems" :key="r.id" class="dl-row" draggable="true"
+                  @dragstart="dlStart($event,hotmItems,i,'hot')" @dragover.prevent @drop="dlDrop($event,'hot')">
+                  <span class="dl-handle">⠿</span>
+                  <span class="dl-rank" :class="'rank-'+(i<3?i+1:0)">{{i+1}}</span>
+                  <span class="dl-main" :title="r.url">{{r.title}}</span>
+                  <span class="dl-src">{{rsDiskName(r.disk_type)}}</span>
+                  <span class="dl-cnt">{{r.category||'-'}}</span>
+                  <span class="dl-ops">
+                    <el-button size="small" type="danger" plain @click="hotmRemove(r)">移除热榜</el-button>
+                  </span>
+                </div>
+                <div v-if="!hotmItems.length" class="hint" style="text-align:center;padding:30px 0">热榜为空——去「资源列表」点「＋入热榜」添加资源</div>
+              </div>
             </div>
           </el-tab-pane>
         </el-tabs>
@@ -1613,6 +1708,99 @@ Vue.createApp({
       });
     }
 
+    // ---- 热搜词管理（资源管理 tab kwm） ----
+    var kwmItems=rf([]);
+    var kwmNew=rct({keyword:"",search_count:0});
+    var kwmCollecting=rf(false);
+    var kwmEditShow=rf(false);
+    var kwmEditForm=rct({id:0,keyword:"",search_count:0});
+    function ldKwm(){ap("GET","keywords").then(function(r){kwmItems.value=r.items||[]})}
+    function kwmAdd(){
+      if(!kwmNew.keyword.trim()){msg("词名称必填","e");return}
+      ap("POST","keywords",{keyword:kwmNew.keyword.trim(),search_count:parseInt(kwmNew.search_count)||0,is_hot:1,source:"manual"}).then(function(r){
+        if(r.error){msg(r.error,"e");return}
+        msg("已添加热搜词");kwmNew.keyword="";kwmNew.search_count=0;ldKwm();ldKw();
+      });
+    }
+    function kwmCollect(){
+      kwmCollecting.value=true;
+      ap("POST","keywords/collect",{top:10}).then(function(r){
+        kwmCollecting.value=false;
+        if(r.ok){msg("豆瓣采集完成，入库 "+r.collected+"/"+r.total+" 词");ldKwm();ldKw()}
+        else msg(r.error||"采集失败","e");
+      });
+    }
+    function kwmEdit(k){kwmEditForm.id=k.id;kwmEditForm.keyword=k.keyword;kwmEditForm.search_count=k.search_count||0;kwmEditShow.value=true}
+    function kwmSave(){
+      var f=kwmEditForm;
+      if(!f.keyword.trim()){msg("词名称必填","e");return}
+      ap("POST","keywords/"+f.id,{keyword:f.keyword.trim(),search_count:parseInt(f.search_count)||0}).then(function(r){
+        if(r.ok){msg("已保存");kwmEditShow.value=false;ldKwm();ldKw()}else msg(r.error||"保存失败","e");
+      });
+    }
+    function kwmDel(k){
+      if(!confirm("删除热搜词「"+k.keyword+"」？"))return;
+      ap("POST","keywords/"+k.id+"/delete").then(function(r){
+        if(r.ok){msg("已删除");ldKwm();ldKw()}else msg(r.error||"删除失败","e");
+      });
+    }
+    function kwIcon(k,i){
+      if(i===0)return "🏆";
+      if(i===1)return "🔥";
+      if(i===2)return "⭐";
+      return "🔍";
+    }
+    function kwSrcType(src){
+      if(src==="douban")return "warning";
+      if(src==="manual")return "success";
+      return "info";
+    }
+    function kwSrcName(src){
+      if(src==="douban")return "豆瓣";
+      if(src==="manual")return "手动";
+      return "搜索词";
+    }
+
+    // ---- 资源热榜管理（资源管理 tab hotm）+ 拖拽排序 ----
+    var hotmItems=rf([]);
+    var hotRankedIdsMap=rct({});
+    function ldHotm(){ap("GET","hot/list").then(function(r){hotmItems.value=r.items||[]})}
+    function ldHotRankedIds(){ap("GET","hot/ranked-ids").then(function(r){var m={};(r.ids||[]).forEach(function(id){m[id]=1});Object.assign(hotRankedIdsMap,m)})}
+    function rsHotAdd(row){
+      ap("POST","hot/add",{resource_id:row.id}).then(function(r){
+        if(r.ok){msg("已加入热榜：「"+(row.title||"").slice(0,20)+"」");ldHotRankedIds();ldHotm()}
+        else msg(r.error||"操作失败","e");
+      });
+    }
+    function hotmRemove(r){
+      if(!confirm("将「"+(r.title||"").slice(0,20)+"」移出热榜？"))return;
+      ap("POST","hot/remove",{id:r.id}).then(function(r2){
+        if(r2.ok){msg("已移出热榜");ldHotm();ldHotRankedIds()}else msg(r2.error||"操作失败","e");
+      });
+    }
+    var dlData=rct({list:null,type:"",from:-1});
+    function dlStart(e,list,i,type){dlData.list=list;dlData.type=type;dlData.from=i;try{e.dataTransfer.effectAllowed="move"}catch(x){}}
+    function dlDrop(e,type){
+      if(dlData.type!==type||dlData.from<0)return;
+      var rows=e.currentTarget;
+      var parent=rows.parentNode;
+      var idx=Array.prototype.indexOf.call(parent.children,rows);
+      var list=dlData.list;var from=dlData.from;
+      dlData.from=-1;
+      if(!list||from===idx||idx<0)return;
+      var item=list.splice(from,1)[0];
+      list.splice(idx,0,item); // 插入到 drop 目标行位置（拖到哪行就占哪行位置）
+      if(type==="kw"){
+        ap("POST","keywords/sort",{ids:list.map(function(x){return x.id})}).then(function(r){
+          if(r.ok){msg("热搜词顺序已保存");ldKwm();ldKw()}else msg(r.error||"保存失败","e");
+        });
+      }else if(type==="hot"){
+        ap("POST","hot/sort",{ids:list.map(function(x){return x.id})}).then(function(r){
+          if(r.ok){msg("热榜顺序已保存");ldHotm()}else msg(r.error||"保存失败","e");
+        });
+      }
+    }
+
     // ---- 分类管理（含批量删除） ----
     var ctItems=rf([]);
     var ctNew=rct({name:"",sort_order:0,status:"1"});
@@ -1873,7 +2061,7 @@ Vue.createApp({
       fetch("/api/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:lp.value})})
         .then(function(r){return r.json()})
         .then(function(d2){
-          if(d2.token){tk.value=d2.token;localStorage.setItem("at",d2.token);lp.value="";gp("st");loadst();lddb();lddash()}
+          if(d2.token){tk.value=d2.token;localStorage.setItem("at",d2.token);lp.value="";gp("st");loadst();lddb();lddash();ldKw();ldts()}
           else{le.value=d2.error||"fail"}
         })
         .catch(function(){le.value="网络错误"})
@@ -1986,6 +2174,8 @@ Vue.createApp({
       if(n==="list"){ldres()}
       if(n==="sub")ldsub();
       if(n==="imp")ldimp();
+      if(n==="kwm")ldKwm();
+      if(n==="hotm"){ldHotm();ldHotRankedIds()}
     }
     function tgTabChange(n){
       if(n==="ch")ldtg();
@@ -2009,7 +2199,7 @@ Vue.createApp({
     }
     Vue.watch(pg,function(p){
       if(p==="st"){loadst();lddb();lddash();ldKw();ldts()}
-      if(p==="rs"){rsTab.value="list";ldres();ldsub();ldimp();ldrsCats()}
+      if(p==="rs"){rsTab.value="list";ldres();ldsub();ldimp();ldrsCats();ldHotRankedIds()}
       if(p==="hi")ldhi();
       if(p==="tk"){ldts();ldtslogs()}
       if(p==="tg"){ldtg();ldtgDisks()}
@@ -2023,14 +2213,16 @@ Vue.createApp({
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="hi")ldhi();else if(h==="tk"){ldts();ldtslogs()}else if(h==="tg"){ldtg();ldtgDisks()}else if(h==="cg")ldsrc();else if(h==="pp")ldai();else if(h==="ds"){ldsc();ldcfg();ldck()}else if(h==="set"){ldsite();ldca()}else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats()}else if(h==="bs"){}else{loadst();lddb();lddash();ldKw();ldts()}
+        if(h==="hi")ldhi();else if(h==="tk"){ldts();ldtslogs()}else if(h==="tg"){ldtg();ldtgDisks()}else if(h==="cg")ldsrc();else if(h==="pp")ldai();else if(h==="ds"){ldsc();ldcfg();ldck()}else if(h==="set"){ldsite();ldca()}else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats();ldHotRankedIds()}else if(h==="bs"){}else{loadst();lddb();lddash();ldKw();ldts()}
       }
     });
     return {
       tk,pg,ldg,lp,le,d,ckItems,ckLoaded,ckFm,ckT,ldck,ckStat,ckNew,ckEdit,ckTest,ckTestRow,ckSave,ckDel,ckToggle,cfg,pbAdd,pbDel,site,ldsite,svsite,cache,hi,hiSel,hiSelChange,hiDel,hiClr,dbInfo,dash,dashBars,lddash,pw,curMenu,menus,msg,gp,login,logout:lgout,lgout,loadst,lddb,ldhi,fmtTime,ldcfg,svcfg,ldca,clr,chpw,
       rsTab,rsQ,res,rsDlgShow,rsEditId,rsSaving,rsAdd,rsCats,rsSel,rsSelChange,rowCls,rsSearch,rsReset,rsPage,ldrsCats,rsOpenDlg,rsadd,rsdel,rsDelBatch,rsOptRunning,rsForceOpt,rsOptAllRunning,rsOptOne,rsOptBatch,rsOptAll,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crSelName,crShow,crSaving,crNewShow,crPick,crAiRule,crSelRows,crSelRowsChange,crBatchDel,crBatchAi,crBatchAiRun,crRules,crRuleStats,crNew,crRuleNew,
       srcName,fmtT,ldres,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,rsDiskName,
-      kwItems,kwNew,ldKw,kwadd,kwhot,
+      kwItems,kwNew,ldKw,kwadd,kwhot,kwIcon,
+      kwmItems,kwmNew,kwmCollecting,kwmEditShow,kwmEditForm,ldKwm,kwmAdd,kwmCollect,kwmEdit,kwmSave,kwmDel,kwSrcType,kwSrcName,
+      hotmItems,hotRankedIdsMap,ldHotm,ldHotRankedIds,rsHotAdd,hotmRemove,dlStart,dlDrop,
       ctItems,ctNew,ctEditId,ctSel,ctSelChange,ldct,ctadd,ctedit,ctCancel,ctst,ctdel,ctDelBatch,
       scItems,ldsc,scToggle,scDiskOpts,scDisk,scEditId,scNameDraft,scEditName,scSaveName,
       tgTab,setTab,dsTab,tkTab,tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,tgTesting,ldtg,ldtgSet,tgSv,tgAddIns,tgDelIns,tgSetDefault,tgTestOne,tgTestIns,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,

@@ -28,24 +28,93 @@ async function getStats(req, res) {
   }
 }
 
-// 资源热度榜：资源库驱动（转存过的排前，其余按最新入库补位），标题与本地搜索同源
+// 资源热度榜（前台）：手动入榜（hot_rankings）按 sort_order 排前，不足 8 条按转存热度补位
 async function getHotResources(req, res) {
   try {
-    var rows = await store.hotResources(8);
-    var items = (rows || []).map(function (r, i) {
-      return {
-        rank: i + 1,
-        title: r.title || "",
-        url: r.url || "",
-        disk_type: r.disk_type || "",
-        category: r.category || "",
-        count: r.cnt || 0
-      };
-    });
-    json(res, 200, { items: items, total: items.length, source: "resources" });
+    var items = [];
+    var seen = {};
+    // 1. 手动入榜资源（后台拖拽排序）
+    try {
+      var manual = await store.hotRankList();
+      (manual || []).forEach(function (r) {
+        if (r.url && seen[r.url]) return;
+        if (r.url) seen[r.url] = true;
+        items.push({ rank: items.length + 1, title: r.title || "", url: r.url || "", disk_type: r.disk_type || "", category: r.category || "", count: -1, manual: true });
+      });
+    } catch (e) {}
+    // 2. 不足 8 条：按转存热度补位（过滤已在手动榜的 url）
+    if (items.length < 8) {
+      var hot = await store.hotResources(8);
+      (hot || []).forEach(function (r) {
+        if (items.length >= 8) return;
+        if (r.url && seen[r.url]) return;
+        if (r.url) seen[r.url] = true;
+        items.push({ rank: items.length + 1, title: r.title || "", url: r.url || "", disk_type: r.disk_type || "", category: r.category || "", count: r.cnt || 0, manual: false });
+      });
+    }
+    json(res, 200, { items: items, total: items.length, source: "manual+transfer" });
   } catch (e) {
     json(res, 502, { error: "hot_resources_error", message: e.message });
   }
+}
+
+// ---------- 后台资源热榜管理 ----------
+async function adminHotList(req, res) {
+  try {
+    var rows = await store.hotRankList();
+    json(res, 200, { items: rows || [], total: (rows || []).length });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+// 入榜：{resource_id} → 从 resources 取快照写入 hot_rankings
+async function adminHotAdd(req, res) {
+  try {
+    var b = JSON.parse(await readBody(req));
+    var rid = parseInt(b.resource_id, 10);
+    if (!rid) { json(res, 400, { error: "resource_id_required" }); return; }
+    var r = await store.resourceGet(rid);
+    if (!r) { json(res, 404, { error: "resource_not_found" }); return; }
+    await store.hotRankAdd({ id: rid, title: r.title, url: r.url, disk_type: r.disk_type, category: r.category });
+    json(res, 200, { ok: true });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+// 拖拽排序：{ids:[id,...]}
+async function adminHotSaveSort(req, res) {
+  try {
+    var b = JSON.parse(await readBody(req));
+    var n = await store.hotRankSaveSort(b.ids || []);
+    json(res, 200, { ok: true, saved: n });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+// 移除热榜：{id}（hot_rankings.id）
+async function adminHotRemove(req, res) {
+  try {
+    var b = JSON.parse(await readBody(req));
+    await store.hotRankRemove(parseInt(b.id, 10) || 0);
+    json(res, 200, { ok: true });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+// 已入榜的 resource_id 集合（资源列表按钮状态用）
+async function adminHotRankedIds(req, res) {
+  try {
+    var ids = await store.hotRankedIds();
+    json(res, 200, { ids: ids || [] });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+// 手动触发豆瓣热词采集（复用 douban_hotwords 任务逻辑）
+async function adminKeywordCollect(req, res) {
+  try {
+    var b = JSON.parse(await readBody(req) || "{}");
+    var top = parseInt(b.top || "10", 10);
+    var douban = require("./douban");
+    var data = await douban.getDoubanHot();
+    var items = (data && data.items) || [];
+    var titles = items.slice(0, top).map(function (m) { return (m.title || "").trim(); }).filter(Boolean);
+    var inserted = 0;
+    for (var i = 0; i < titles.length; i++) {
+      try { await store.keywordCollect(titles[i], "douban"); inserted++; } catch (e) {}
+    }
+    json(res, 200, { ok: true, collected: inserted, total: titles.length });
+  } catch (e) { json(res, 500, { error: e.message }); }
 }
 
 // 资源库最新资源（首页「最新资源」垂直滚动）
@@ -115,8 +184,19 @@ async function adminKeywordAdd(req, res) {
     var b = JSON.parse(await readBody(req));
     var kw = String(b.keyword || "").trim().slice(0, 50);
     if (!kw) { json(res, 400, { error: "keyword_required" }); return; }
-    await store.keywordEnsure(kw, { is_hot: b.is_hot ? 1 : 0, sort_order: b.sort_order || 0, status: 1 });
+    await store.keywordEnsure(kw, { is_hot: b.is_hot ? 1 : 0, sort_order: b.sort_order || 0, status: 1, source: b.source || "manual" });
     json(res, 200, { ok: true });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+// 拖拽排序：ids 按序写 sort_order=1..N 且置顶（is_hot=1）
+async function adminKeywordSort(req, res) {
+  try {
+    var b = JSON.parse(await readBody(req));
+    var ids = Array.isArray(b.ids) ? b.ids : [];
+    for (var i = 0; i < ids.length; i++) {
+      await store.keywordUpdate(parseInt(ids[i], 10) || 0, { sort_order: i + 1, is_hot: 1 });
+    }
+    json(res, 200, { ok: true, saved: ids.length });
   } catch (e) { json(res, 500, { error: e.message }); }
 }
 async function adminKeywordUpdate(req, res) {
@@ -196,4 +276,4 @@ async function refreshTrending() {
   return out;
 }
 
-module.exports = { getTrending, getKeywords, getHotResources, getLatest, getStats, getSiteInfo, recordSearch, adminKeywordList, adminKeywordAdd, adminKeywordUpdate, adminKeywordDelete, refreshTrending, buildTrending };
+module.exports = { getTrending, getKeywords, getHotResources, getLatest, getStats, getSiteInfo, recordSearch, adminKeywordList, adminKeywordAdd, adminKeywordSort, adminKeywordUpdate, adminKeywordDelete, refreshTrending, buildTrending, adminHotList, adminHotAdd, adminHotSaveSort, adminHotRemove, adminHotRankedIds, adminKeywordCollect };

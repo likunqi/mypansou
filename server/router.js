@@ -104,8 +104,17 @@ async function handleRequest(req, res) {
       // 热搜词管理
       if (urlPath === "/api/admin/keywords" && method === "GET") return await hot.adminKeywordList(req, res);
       if (urlPath === "/api/admin/keywords" && method === "POST") return await hot.adminKeywordAdd(req, res);
+      if (urlPath === "/api/admin/keywords/collect" && method === "POST") return await hot.adminKeywordCollect(req, res);
+      if (urlPath === "/api/admin/keywords/sort" && method === "POST") return await hot.adminKeywordSort(req, res);
       if (/^\/api\/admin\/keywords\/\d+$/.test(urlPath) && method === "POST") return await hot.adminKeywordUpdate(req, res);
       if (/^\/api\/admin\/keywords\/\d+\/delete$/.test(urlPath) && method === "POST") return await hot.adminKeywordDelete(req, res);
+
+      // 资源热榜管理（hot_rankings 手动配置）
+      if (urlPath === "/api/admin/hot/list" && method === "GET") return await hot.adminHotList(req, res);
+      if (urlPath === "/api/admin/hot/ranked-ids" && method === "GET") return await hot.adminHotRankedIds(req, res);
+      if (urlPath === "/api/admin/hot/add" && method === "POST") return await hot.adminHotAdd(req, res);
+      if (urlPath === "/api/admin/hot/sort" && method === "POST") return await hot.adminHotSaveSort(req, res);
+      if (urlPath === "/api/admin/hot/remove" && method === "POST") return await hot.adminHotRemove(req, res);
 
       // Resource management
       if (urlPath === "/api/admin/dashboard" && method === "GET") return await admin.dashboard(req, res);
