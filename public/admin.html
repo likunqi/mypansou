@@ -1276,7 +1276,8 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
 var rf=function(v){return Vue.ref(v)};
 var rct=function(o){return Vue.reactive(o)};
 var MQ=ElementPlus.ElMessageBox;
-function cfm(msg,title){return MQ.confirm(msg,title||"确认",{confirmButtonText:"确定",cancelButtonText:"取消",type:"warning"})}
+// dangerouslyUseHTMLString:true 让 <b>/<span style> 等标签在确认弹窗中渲染（msg 均为代码内写死文案，无用户输入，安全）
+function cfm(msg,title){return MQ.confirm(msg,title||"确认",{confirmButtonText:"确定",cancelButtonText:"取消",type:"warning",dangerouslyUseHTMLString:true})}
 function msg(s,t){ElementPlus.ElMessage({message:s,type:t==="e"?"error":(t==="w"?"warning":"success"),duration:2800})}
 var IC_MENU={st:"#534AB7",rs:"#378ADD",hi:"#1D9E75",tk:"#D4537E",tg:"#BA7517",cg:"#0F6E56",ds:"#993556",set:"#854F0B",bs:"#0891B2",pp:"#7C3AED"};
 var menus=[
