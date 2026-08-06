@@ -18,12 +18,11 @@ ARG NPM_REGISTRY=https://registry.npmjs.org
 RUN npm ci --omit=dev --registry=$NPM_REGISTRY || npm install --omit=dev --registry=$NPM_REGISTRY
 
 # 只复制应用需要的目录
-# data/ 仅复制兜底 JSON（db.config.json 等敏感文件已由 .dockerignore 排除，运行时靠挂载卷 + 环境变量）
+# data/ 不 COPY：运行时由 docker-compose 挂载卷提供（./data:/app/data），initData() 自举创建默认 JSON
 COPY server/    ./server/
 COPY lib/       ./lib/
 COPY public/    ./public/
 COPY docs/      ./docs/
-COPY data/      ./data/
 
 EXPOSE 3090
 
