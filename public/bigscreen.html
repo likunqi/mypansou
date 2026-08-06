@@ -124,7 +124,16 @@ function showError(msg){
 function fmtTime(t){
   if (!t) return '';
   var s = String(t);
+  function p(x){ return x<10?'0'+x:x; }
+  // ISO 带时区（Z / ±hh:mm / 含 T）→ 转本地 HH:MM（mysql2 读出为 UTC，如 01:44Z = 本地 09:44）
+  if (/Z$|[+-]\d{2}:?\d{2}$/.test(s) || /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) {
+    var d = new Date(s);
+    if (!isNaN(d.getTime())) return p(d.getHours()) + ':' + p(d.getMinutes());
+  }
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(11, 16);
+  // 毫秒时间戳（>1e12）→ 转本地 HH:MM（转存历史 createdAt 等）
+  var ms = Number(t);
+  if (!isNaN(ms) && ms > 1e12) { var d2 = new Date(ms); return p(d2.getHours()) + ':' + p(d2.getMinutes()); }
   return s;
 }
 function loadAll(){
