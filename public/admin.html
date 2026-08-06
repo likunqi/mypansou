@@ -816,6 +816,29 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
               </div>
             </div>
           </el-tab-pane>
+          <el-tab-pane label="提示词" name="prompt">
+            <div class="panel">
+              <div class="panel-head">提示词管理（按场景配置，编辑框回显当前生效全文）</div>
+              <div class="hint" style="margin-bottom:12px">每个场景独立配置：编辑框显示<b>当前生效全文</b>（内置默认展开后 / 自定义内容），可直接基于内置修改后保存。支持占位符 <b>{FIELD_WHITELIST}</b>、<b>{RULE_TYPE_WHITELIST}</b>、<b>{PAN_URL_RE}</b>；内容提炼额外支持 <b>{SCOPE}</b>。</div>
+              <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap" v-if="aiPromptKeys.length">
+                <el-button v-for="k in aiPromptKeys" :key="k" :type="aiPromptKey===k?'primary':''" plain @click="aiPromptPick(k)">
+                  {{aiPrompts[k].label}} <el-tag size="small" :type="aiPrompts[k].isCustom?'success':'info'" style="margin-left:4px">{{aiPrompts[k].isCustom?'自定义':'内置'}}</el-tag>
+                </el-button>
+              </div>
+              <template v-if="aiPromptKey && aiPrompts[aiPromptKey]">
+                <div style="display:flex;align-items:center;margin-bottom:6px">
+                  <span class="hint">{{aiPrompts[aiPromptKey].desc}}</span>
+                  <div style="margin-left:auto;display:flex;gap:8px">
+                    <el-button size="small" @click="aiPromptReset(aiPromptKey)">恢复默认</el-button>
+                    <el-button size="small" type="primary" :loading="aiPromptSaving" @click="aiPromptSave(aiPromptKey)">{{aiPromptSaving?'保存中…':'保存提示词'}}</el-button>
+                  </div>
+                </div>
+                <el-input v-model="aiPromptDraft" type="textarea" :rows="16" class="mono" placeholder="当前生效全文将显示在这里，可直接修改后保存"></el-input>
+                <div class="hint" style="margin-top:8px">{{aiPrompts[aiPromptKey].isCustom?'当前为自定义内容（修改后保存即更新）。':'当前使用内置默认（编辑后保存即成为自定义）。'}}</div>
+              </template>
+              <div class="hint" style="margin-top:10px">默认采集规则要点：字段只能从白名单选 · 类型只能 4 种 · url 必须网盘链接 · title/url 必填 · password 从描述文本提取「提取码」 · disk_type 从 url 域名推断 · thumbnail 从条目 XML/HTML 提取封面图。</div>
+            </div>
+          </el-tab-pane>
         </el-tabs>
       </div>
 
@@ -875,30 +898,9 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
                   · <b>采集规则生成</b>：TG 采集 → AI 自动生成，自动注入领域提示词生成解析规则（受控白名单）<br>
                   · <b>内容提炼</b>：待审核/失效反馈/转存记录 智能摘要<br>
                   · Key 只存服务端（site_config），前端不回显明文<br>
-                  · <b>领域提示词</b>：下方编辑区可查看/修改，修改后立即对 TG 采集生效
+                  · <b>提示词管理</b>：在「数据源配置 → 提示词」页按场景查看/修改，修改后立即对 TG 采集生效
                 </div>
               </div>
-            </div>
-            <div class="panel">
-              <div class="panel-head">提示词管理（按场景配置，编辑框回显当前生效全文）</div>
-              <div class="hint" style="margin-bottom:12px">每个场景独立配置：留空 = 用该场景内置默认。支持占位符 <b>{FIELD_WHITELIST}</b>、<b>{RULE_TYPE_WHITELIST}</b>、<b>{PAN_URL_RE}</b>；内容提炼额外支持 <b>{SCOPE}</b>。</div>
-              <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap" v-if="aiPromptKeys.length">
-                <el-button v-for="k in aiPromptKeys" :key="k" :type="aiPromptKey===k?'primary':''" plain @click="aiPromptKey=k">
-                  {{aiPrompts[k].label}} <el-tag size="small" :type="aiPrompts[k].isCustom?'success':'info'" style="margin-left:4px">{{aiPrompts[k].isCustom?'自定义':'内置'}}</el-tag>
-                </el-button>
-              </div>
-              <template v-if="aiPromptKey && aiPrompts[aiPromptKey]">
-                <div style="display:flex;align-items:center;margin-bottom:6px">
-                  <span class="hint">{{aiPrompts[aiPromptKey].desc}}</span>
-                  <div style="margin-left:auto;display:flex;gap:8px">
-                    <el-button size="small" @click="aiPromptReset(aiPromptKey)">恢复默认</el-button>
-                    <el-button size="small" type="primary" :loading="aiPromptSaving" @click="aiPromptSave(aiPromptKey)">{{aiPromptSaving?'保存中…':'保存提示词'}}</el-button>
-                  </div>
-                </div>
-                <el-input v-model="aiPrompts[aiPromptKey].custom" type="textarea" :rows="12" class="mono" :placeholder="'留空使用内置默认：\n'+aiPrompts[aiPromptKey].default"></el-input>
-                <div class="hint" style="margin-top:8px" v-if="!aiPrompts[aiPromptKey].isCustom">当前使用内置默认（编辑后保存即成为自定义）。</div>
-              </template>
-              <div class="hint" style="margin-top:10px">默认采集规则要点：字段只能从白名单选 · 类型只能 4 种 · url 必须网盘链接 · title/url 必填 · password 从描述文本提取「提取码」 · disk_type 从 url 域名推断。</div>
             </div>
           </el-tab-pane>
 
@@ -1614,6 +1616,7 @@ Vue.createApp({
     var aiPrompts=rf({});
     var aiPromptKeys=rf([]);
     var aiPromptKey=rf("");
+    var aiPromptDraft=rf("");
     var aiPromptSaving=rf(false);
     var aiTst=rf(false),aiTestMsg=rf(""),aiTestOk=rf(false);
     var aiItems=rf([]);
@@ -1625,6 +1628,7 @@ Vue.createApp({
         aiPrompts.value=r.prompts||{};
         aiPromptKeys.value=Object.keys(aiPrompts.value);
         if(aiPromptKeys.value.length&&!aiPromptKey.value)aiPromptKey.value=aiPromptKeys.value[0];
+        if(aiPromptKey.value&&aiPrompts.value[aiPromptKey.value])aiPromptDraft.value=aiPrompts.value[aiPromptKey.value].effective||"";
       });
       ap("GET","ai/summaries").then(function(r){aiItems.value=r.items||[]});
       ap("GET","crawler/sources").then(function(r){crSrcs.value=r.items||[]});
@@ -1634,12 +1638,16 @@ Vue.createApp({
         if(r.ok){msg("AI 配置已保存");aiCfg.key="";ldai()}else msg(r.error||"保存失败","e");
       });
     }
+    function aiPromptPick(k){
+      aiPromptKey.value=k;
+      aiPromptDraft.value=(aiPrompts.value[k]&&aiPrompts.value[k].effective)||"";
+    }
     function aiPromptSave(k){
       var key=k||aiPromptKey.value;
       if(!key)return;
       aiPromptSaving.value=true;
       var payload={};
-      payload[key]=aiPrompts.value[key]?aiPrompts.value[key].custom:"";
+      payload[key]=aiPromptDraft.value||"";
       ap("POST","ai/config",{prompts:payload}).then(function(r){
         aiPromptSaving.value=false;
         if(r.ok){msg("提示词已保存，下次 AI 生成时生效");ldai()}else msg(r.error||"保存失败","e");
@@ -1649,8 +1657,13 @@ Vue.createApp({
       var key=k||aiPromptKey.value;
       if(!key)return;
       cfm("恢复该场景内置默认提示词？当前自定义内容将被清空。").then(function(){
-        aiPrompts.value[key].custom="";
-        aiPromptSave(key);
+        aiPromptSaving.value=true;
+        var payload={};
+        payload[key]="";
+        ap("POST","ai/config",{prompts:payload}).then(function(r){
+          aiPromptSaving.value=false;
+          if(r.ok){msg("已恢复内置默认");ldai()}else{msg(r.error||"保存失败","e");aiPromptSaving.value=false}
+        }).catch(function(){aiPromptSaving.value=false;msg("保存失败：网络错误","e")});
       }).catch(function(){});
     }
     function tstai(){
@@ -1815,6 +1828,7 @@ Vue.createApp({
       if(n==="sc")ldsc();
       if(n==="api")ldcfg();
       if(n==="ck"){ldck()}
+      if(n==="prompt")ldai();
     }
     function setTabChange(n){
       if(n==="site")ldsite();
@@ -1832,7 +1846,7 @@ Vue.createApp({
       if(p==="tk"){ldts();ldtslogs()}
       if(p==="tg"){ldtg();ldtgDisks()}
       if(p==="cg"){ldsrc()}
-      if(p==="ds"){ldsc();ldcfg();ldck()}
+      if(p==="ds"){ldsc();ldcfg();ldck();ldai()}
       if(p==="set"){ldsite();ldca()}
       if(p==="bs"){}
     });
@@ -1840,7 +1854,7 @@ Vue.createApp({
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="hi")ldhi();else if(h==="tk"){ldts();ldtslogs()}else if(h==="tg"){ldtg();ldtgDisks()}else if(h==="cg")ldsrc();else if(h==="ds"){ldsc();ldcfg();ldck()}else if(h==="set"){ldsite();ldca()}else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats()}else if(h==="bs"){}else{loadst();lddb();lddash();ldKw();ldts()}
+        if(h==="hi")ldhi();else if(h==="tk"){ldts();ldtslogs()}else if(h==="tg"){ldtg();ldtgDisks()}else if(h==="cg")ldsrc();else if(h==="ds"){ldsc();ldcfg();ldck();ldai()}else if(h==="set"){ldsite();ldca()}else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats()}else if(h==="bs"){}else{loadst();lddb();lddash();ldKw();ldts()}
       }
     });
     return {
@@ -1853,7 +1867,7 @@ Vue.createApp({
       tgTab,setTab,dsTab,tkTab,tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,tgTesting,ldtg,ldtgSet,tgSv,tgAddIns,tgDelIns,tgSetDefault,tgTestOne,tgTestIns,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
       tgDiskOpts,tgDiskSel,ldtgDisks,tgSvDisks,tgGen,tgGenRun,tgGenRes,tgGenPick,tgGenRunFn,tgRunGen,
       tsItems,tsLogs,tsShow,tsAdvShow,tsEditId,tsSaving,tsTypes,tsNew,tsSel,tsBatchRun,fmtInt,ldts,ldtslogs,tsSelChange,tstoggle,tsrun,tsRunBatch,tsNewShow,tsedit,tssave,tsdel,tsLogShow,tsLogTask,tsTaskLogs,tsLog,
-      aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,aiPrompts,aiPromptKeys,aiPromptKey,aiPromptSaving,aiPromptSave,aiPromptReset,ldai,svai,tstai,runai,aiOpen,aiCopy,
+      aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,aiPrompts,aiPromptKeys,aiPromptKey,aiPromptDraft,aiPromptSaving,aiPromptPick,aiPromptSave,aiPromptReset,ldai,svai,tstai,runai,aiOpen,aiCopy,
       rsTabChange,tgTabChange,dsTabChange,setTabChange,tkTabChange,escapeHtml
     };
   }
