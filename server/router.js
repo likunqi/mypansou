@@ -120,6 +120,11 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/dashboard" && method === "GET") return await admin.dashboard(req, res);
       if (urlPath === "/api/admin/siteconfig" && method === "GET") return await admin.getSiteConfig(req, res);
       if (urlPath === "/api/admin/siteconfig" && method === "POST") return await admin.saveSiteConfig(req, res);
+      if (urlPath === "/api/admin/dbconfig" && method === "GET") return await admin.getDbConfig(req, res);
+      if (urlPath === "/api/admin/dbconfig" && method === "POST") return await admin.saveDbConfig(req, res);
+      if (urlPath === "/api/admin/config/export" && method === "GET") return await admin.configExport(req, res);
+      if (urlPath === "/api/admin/config/import" && method === "POST") return await admin.configImport(req, res);
+      if (urlPath === "/api/admin/resources/export" && method === "GET") return await admin.resourceExport(req, res);
       if (urlPath === "/api/admin/resources" && method === "GET") return await resource.adminList(req, res);
       if (urlPath === "/api/admin/resources" && method === "POST") return await resource.adminAdd(req, res);
       if (/^\/api\/admin\/resources\/\d+$/.test(urlPath) && method === "POST") return await resource.adminUpdate(req, res);

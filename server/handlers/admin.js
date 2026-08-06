@@ -326,4 +326,115 @@ async function dbStatus(req, res) {
   json(res, 200, st);
 }
 
-module.exports = { login, logout, status, saveCookies, testCookies, cookieTest, cookieList, cookieAdd, cookieUpdate, cookieDelete, cookieTestById, getCookieSummary, getConfig, saveConfig, cacheInfo, clearCache, changePassword, dbStatus, dashboard, getSiteConfig, saveSiteConfig };
+// ---------- MySQL 连接配置（data/db.config.json，密码不回显） ----------
+async function getDbConfig(req, res) {
+  try {
+    var st = await mysql.status();
+    json(res, 200, { host: st.host, port: st.port, user: st.user, database: st.database, tables: st.tables, ready: st.ready, error: st.error || "", hasPassword: true });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+async function saveDbConfig(req, res) {
+  try {
+    var b = JSON.parse(await readBody(req));
+    var fp = require("path").join(__dirname, "..", "..", "data", "db.config.json");
+    var cur = {};
+    try { cur = JSON.parse(require("fs").readFileSync(fp, "utf8")); } catch (e) {}
+    var next = {
+      host: String(b.host || cur.host || "").trim(),
+      port: parseInt(b.port || cur.port || "3306", 10),
+      user: String(b.user || cur.user || "").trim(),
+      password: (b.password !== undefined && String(b.password) !== "") ? String(b.password) : (cur.password || ""),
+      database: String(b.database || cur.database || "").trim(),
+    };
+    if (!next.host || !next.user || !next.database) { json(res, 400, { error: "host/user/database 必填" }); return; }
+    require("fs").writeFileSync(fp, JSON.stringify(next, null, 2));
+    var st = await mysql.reconnect();
+    if (!st.ready) { json(res, 500, { error: "连接失败：" + (st.error || "") }); return; }
+    json(res, 200, { ok: true, status: st });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+
+// ---------- 项目配置导出 / 导入（site_config + 分类 + 热搜词；cookies 敏感不导出） ----------
+async function configExport(req, res) {
+  try {
+    var [cfg, cats, kws] = await Promise.all([
+      mysql.cfgGetAll().catch(function () { return {}; }),
+      store.categoryList(500),
+      store.keywordList(500, false),
+    ]);
+    var data = { app: "pansou", exported_at: new Date().toISOString(), site_config: cfg || {}, categories: cats || [], search_keywords: kws || [] };
+    var body = JSON.stringify(data, null, 2);
+    res.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Disposition": 'attachment; filename="pansou-config-' + new Date().toISOString().slice(0, 10) + '.json"',
+    });
+    res.end(body);
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+async function configImport(req, res) {
+  try {
+    var b = JSON.parse(await readBody(req));
+    var log = [];
+    // 1. site_config（跳过加密密钥与迁移标记）
+    if (b.site_config && typeof b.site_config === "object") {
+      var clean = {};
+      Object.keys(b.site_config).forEach(function (k) {
+        if (k === "encKey" || k === "migration_v1") return;
+        var v = b.site_config[k];
+        clean[k] = (v !== null && typeof v === "object") ? JSON.stringify(v) : String(v);
+      });
+      await mysql.cfgSetAll(clean);
+      log.push("site_config " + Object.keys(clean).length + " 项");
+    }
+    // 2. 分类（存在则跳过）
+    if (Array.isArray(b.categories)) {
+      var cadd = 0;
+      for (var i = 0; i < b.categories.length; i++) {
+        var c = b.categories[i];
+        try { await store.categoryAdd({ name: c.name, sort_order: c.sort_order, status: c.status }); cadd++; } catch (e) {}
+      }
+      log.push("categories +" + cadd);
+    }
+    // 3. 热搜词（upsert，热度以导入值为准）
+    if (Array.isArray(b.search_keywords)) {
+      var kadd = 0;
+      for (var j = 0; j < b.search_keywords.length; j++) {
+        var k = b.search_keywords[j];
+        try { await store.keywordEnsure(k.keyword, { is_hot: k.is_hot, sort_order: k.sort_order, status: k.status === undefined ? 1 : k.status, source: k.source, search_count: k.search_count }); kadd++; } catch (e) {}
+      }
+      log.push("search_keywords " + kadd + " 词");
+    }
+    json(res, 200, { ok: true, log: log.join("；") });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+
+// ---------- 资源列表导出 CSV（按当前筛选条件，BOM 防 Excel 乱码） ----------
+async function resourceExport(req, res) {
+  try {
+    var u = new URL(req.url, "http://" + req.headers.host);
+    var opt = {
+      kw: u.searchParams.get("kw") || "",
+      category: u.searchParams.get("category") || "",
+      diskType: u.searchParams.get("disk_type") || "",
+      source: u.searchParams.get("source") || "",
+      status: u.searchParams.get("status") || "",
+      created_from: u.searchParams.get("created_from") || "",
+      created_to: u.searchParams.get("created_to") || "",
+    };
+    var rows = await store.resourceExportAll(opt);
+    var esc = function (s) { s = String(s == null ? "" : s); return '"' + s.replace(/"/g, '""') + '"'; };
+    var fmtDate = function (d) { if (!d) return ""; try { var t = new Date(d); return isNaN(t.getTime()) ? "" : t.toISOString().slice(0, 10); } catch (e) { return ""; } };
+    var head = "标题,链接,提取码,网盘,分类,标签,来源,入库时间";
+    var lines = (rows || []).map(function (x) {
+      return [x.title, x.url, x.password, x.disk_type, x.category, x.tags, x.source, fmtDate(x.created_at)].map(esc).join(",");
+    });
+    var csv = "\uFEFF" + head + "\n" + lines.join("\n");
+    res.writeHead(200, {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": 'attachment; filename="resources-' + new Date().toISOString().slice(0, 10) + '.csv"',
+    });
+    res.end(csv);
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+
+module.exports = { login, logout, status, saveCookies, testCookies, cookieTest, cookieList, cookieAdd, cookieUpdate, cookieDelete, cookieTestById, getCookieSummary, getConfig, saveConfig, cacheInfo, clearCache, changePassword, dbStatus, dashboard, getSiteConfig, saveSiteConfig, getDbConfig, saveDbConfig, configExport, configImport, resourceExport };

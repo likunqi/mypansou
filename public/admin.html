@@ -360,6 +360,7 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
                 <el-button type="warning" plain :disabled="!rsSel.length" :loading="rsOptRunning" @click="rsOptBatch">优化选中 {{rsSel.length}} 项</el-button>
                 <el-button type="warning" plain :loading="rsOptAllRunning" @click="rsOptAll" title="AI 优化全部未优化资源（名称/分类/标签，跳过已优化，每批最多 50 条）">优化全部未优化</el-button>
                 <el-button type="danger" plain :disabled="!rsSel.length" @click="rsDelBatch">删除选中 {{rsSel.length}} 项</el-button>
+                <el-button type="success" plain @click="rsExport" title="按当前筛选条件导出 CSV">导出 CSV</el-button>
                 <el-button type="primary" @click="rsOpenDlg()">新增资源</el-button>
               </div>
               <el-table :data="res.items" size="small" @selection-change="rsSelChange" :row-class-name="rowCls">
@@ -1118,6 +1119,47 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
                   · scrypt 哈希存储，不存明文
                 </div>
               </div>
+            </div>
+          </el-tab-pane>
+
+          <el-tab-pane label="数据库" name="dbcfg">
+            <div class="panel">
+              <div class="panel-head">MySQL 连接配置
+                <el-tag v-if="dbCfg.ready" size="small" type="success" style="margin-left:auto">已连接 · {{dbCfg.tables}} 表</el-tag>
+                <el-tag v-else size="small" type="danger" style="margin-left:auto">连接异常</el-tag>
+              </div>
+              <div class="hint" style="margin-bottom:12px">配置保存在 data/db.config.json（含密码，勿提交 git）；保存后自动重连。密码留空表示不修改。</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:660px">
+                <el-input v-model="dbCfg.host" placeholder="主机，如 192.168.1.65"></el-input>
+                <el-input v-model="dbCfg.port" placeholder="端口，默认 3306"></el-input>
+                <el-input v-model="dbCfg.user" placeholder="用户名"></el-input>
+                <el-input v-model="dbCfg.password" type="password" show-password placeholder="密码（留空不修改）"></el-input>
+                <el-input v-model="dbCfg.database" placeholder="数据库名"></el-input>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <el-button type="primary" :loading="dbSaving" @click="svDbCfg">保存并重连</el-button>
+                  <el-button @click="ldDbCfg">刷新</el-button>
+                </div>
+              </div>
+              <div v-if="dbCfg.error" class="hint" style="margin-top:10px;color:#E24B4A">上次状态：{{dbCfg.error}}</div>
+            </div>
+          </el-tab-pane>
+
+          <el-tab-pane label="备份迁移" name="bkup">
+            <div class="panel">
+              <div class="panel-head">项目配置导出 / 导入</div>
+              <div class="hint" style="line-height:2;margin-bottom:12px">
+                · 导出：站点配置（site_config）+ 分类 + 热搜词 → JSON 文件下载<br>
+                · 导入：选择导出的 JSON 恢复（site_config 覆盖；分类/热搜词增量 upsert）<br>
+                · Cookie 敏感信息不导出；导出文件请妥善保管
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <el-button type="primary" @click="cfgExport">导出配置 JSON</el-button>
+                <el-button type="success" plain :disabled="!cfgImportData" @click="cfgImport">导入配置</el-button>
+                <el-button @click="cfgImportPick2">选择文件…</el-button>
+                <input id="cfgImportInput" type="file" accept=".json,application/json" style="display:none" @change="cfgImportPick">
+                <span v-if="cfgImportName" class="hint">{{cfgImportName}}</span>
+              </div>
+              <div v-if="cfgImportLog" class="hint" style="margin-top:10px;color:#1D9E75">{{cfgImportLog}}</div>
             </div>
           </el-tab-pane>
         </el-tabs>
@@ -2144,6 +2186,58 @@ Vue.createApp({
     function pbDel(i){cfg.pansouBases.splice(i,1)}
     function ldsite(){ap("GET","siteconfig").then(function(r){if(r.site_name)Object.assign(site,r)})}
     function svsite(){ap("POST","siteconfig",site).then(function(r){msg(r.ok?"站点配置已保存（首页立即生效）":"保存失败",r.ok?"s":"e")})}
+    // ---- MySQL 连接配置（set 页 dbcfg tab） ----
+    var dbCfg=rct({host:"",port:3306,user:"",password:"",database:"",tables:0,ready:false,error:""});
+    var dbSaving=rf(false);
+    function ldDbCfg(){ap("GET","dbconfig").then(function(r){if(r.host!==undefined){dbCfg.host=r.host;dbCfg.port=r.port||3306;dbCfg.user=r.user||"";dbCfg.database=r.database||"";dbCfg.tables=r.tables||0;dbCfg.ready=!!r.ready;dbCfg.error=r.error||""}})}
+    function svDbCfg(){
+      dbSaving.value=true;
+      ap("POST","dbconfig",{host:dbCfg.host,port:dbCfg.port,user:dbCfg.user,password:dbCfg.password,database:dbCfg.database}).then(function(r){
+        dbSaving.value=false;
+        if(r.ok){msg("数据库配置已保存并重连成功");dbCfg.password="";ldDbCfg()}
+        else msg(r.error||"保存失败","e");
+      });
+    }
+    // ---- 项目配置导出 / 导入（set 页 bkup tab） ----
+    var cfgImportData=null;
+    var cfgImportName=rf("");
+    var cfgImportLog=rf("");
+    function dlFile(url,name){
+      fetch(url,{headers:{authorization:"Bearer "+tk.value}}).then(function(r){return r.blob()}).then(function(b){
+        var a=document.createElement("a");
+        a.href=URL.createObjectURL(b);a.download=name;a.click();
+        setTimeout(function(){URL.revokeObjectURL(a.href)},5000);
+      }).catch(function(){msg("下载失败","e")});
+    }
+    function cfgExport(){
+      dlFile("/api/admin/config/export","pansou-config-"+new Date().toISOString().slice(0,10)+".json");
+      msg("配置导出中…");
+    }
+    function cfgImportPick(e){
+      var f=e.target.files&&e.target.files[0];
+      if(!f)return;
+      var rd=new FileReader();
+      rd.onload=function(){
+        try{cfgImportData=JSON.parse(rd.result);cfgImportName.value=f.name;cfgImportLog.value="";msg("已读取 "+f.name+"，可点「导入配置」")}
+        catch(err){cfgImportData=null;msg("文件不是有效 JSON","e")}
+      };
+      rd.readAsText(f);
+      e.target.value="";
+    }
+    function cfgImportPick2(){var el=document.getElementById("cfgImportInput");if(el)el.click()}
+    function cfgImport(){
+      if(!cfgImportData){msg("请先选择配置文件","e");return}
+      ap("POST","config/import",cfgImportData).then(function(r){
+        if(r.ok){cfgImportLog.value=r.log||"导入完成";msg("配置导入完成："+(r.log||""))}
+        else msg(r.error||"导入失败","e");
+      });
+    }
+    // ---- 资源列表导出 CSV ----
+    function rsExport(){
+      var q="?kw="+encodeURIComponent(rsQ.kw||"")+"&source="+encodeURIComponent(rsQ.source||"")+"&disk_type="+encodeURIComponent(rsQ.disk_type||"")+"&category="+encodeURIComponent(rsQ.category||"")+"&status="+encodeURIComponent(rsQ.status||"")+"&created_from="+encodeURIComponent(rsQ.created_from||"")+"&created_to="+encodeURIComponent(rsQ.created_to||"");
+      dlFile("/api/admin/resources/export"+q,"resources-"+new Date().toISOString().slice(0,10)+".csv");
+      msg("导出 CSV 中…");
+    }
     function ldca(){ap("GET","cache").then(function(r){Object.assign(cache,r)})}
     function clr(){
       cfm("确定清空转存缓存？").then(function(){
@@ -2184,6 +2278,8 @@ Vue.createApp({
       if(n==="site")ldsite();
       if(n==="aicfg")ldai();
       if(n==="cache")ldca();
+      if(n==="dbcfg")ldDbCfg();
+      if(n==="bkup"){}
     }
     function tkTabChange(n){
       if(n==="ts"){ldts();ldtslogs()}
@@ -2210,7 +2306,8 @@ Vue.createApp({
     });
     return {
       tk,pg,ldg,lp,le,d,ckItems,ckLoaded,ckFm,ckT,ldck,ckStat,ckNew,ckEdit,ckTest,ckTestRow,ckSave,ckDel,ckToggle,cfg,pbAdd,pbDel,site,ldsite,svsite,cache,hi,hiSel,hiSelChange,hiDel,hiClr,dbInfo,dash,dashBars,lddash,pw,curMenu,menus,msg,gp,login,logout:lgout,lgout,loadst,lddb,ldhi,fmtTime,ldcfg,svcfg,ldca,clr,chpw,
-      rsTab,rsQ,res,rsDlgShow,rsEditId,rsSaving,rsAdd,rsCats,rsSel,rsSelChange,rowCls,rsSearch,rsReset,rsPage,ldrsCats,rsOpenDlg,rsadd,rsdel,rsDelBatch,rsOptRunning,rsForceOpt,rsOptAllRunning,rsOptOne,rsOptBatch,rsOptAll,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crSelName,crShow,crSaving,crNewShow,crPick,crAiRule,crSelRows,crSelRowsChange,crBatchDel,crBatchAi,crBatchAiRun,crRules,crRuleStats,crNew,crRuleNew,
+      dbCfg,dbSaving,ldDbCfg,svDbCfg,cfgImportData,cfgImportName,cfgImportLog,cfgExport,cfgImportPick,cfgImportPick2,cfgImport,
+      rsTab,rsQ,res,rsDlgShow,rsEditId,rsSaving,rsAdd,rsCats,rsSel,rsSelChange,rowCls,rsSearch,rsReset,rsPage,ldrsCats,rsOpenDlg,rsadd,rsdel,rsDelBatch,rsExport,rsOptRunning,rsForceOpt,rsOptAllRunning,rsOptOne,rsOptBatch,rsOptAll,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crSelName,crShow,crSaving,crNewShow,crPick,crAiRule,crSelRows,crSelRowsChange,crBatchDel,crBatchAi,crBatchAiRun,crRules,crRuleStats,crNew,crRuleNew,
       srcName,fmtT,ldres,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,rsDiskName,
       kwItems,kwNew,ldKw,kwadd,kwhot,kwIcon,
       kwmItems,kwmNew,kwmCollecting,kwmEditShow,kwmEditForm,ldKwm,kwmAdd,kwmCollect,kwmEdit,kwmSave,kwmDel,kwSrcType,kwSrcName,
