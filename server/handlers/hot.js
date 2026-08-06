@@ -28,31 +28,14 @@ async function getStats(req, res) {
   }
 }
 
-// 资源热度榜（前台）：手动入榜（hot_rankings）按 sort_order 排前，不足 8 条按转存热度补位
+// 资源热度榜（前台）：纯 hot_rankings 管理表数据（后台手动入榜 + 拖拽排序），不混转存补位
 async function getHotResources(req, res) {
   try {
-    var items = [];
-    var seen = {};
-    // 1. 手动入榜资源（后台拖拽排序）
-    try {
-      var manual = await store.hotRankList();
-      (manual || []).forEach(function (r) {
-        if (r.url && seen[r.url]) return;
-        if (r.url) seen[r.url] = true;
-        items.push({ rank: items.length + 1, title: r.title || "", url: r.url || "", disk_type: r.disk_type || "", category: r.category || "", count: -1, manual: true });
-      });
-    } catch (e) {}
-    // 2. 不足 8 条：按转存热度补位（过滤已在手动榜的 url）
-    if (items.length < 8) {
-      var hot = await store.hotResources(8);
-      (hot || []).forEach(function (r) {
-        if (items.length >= 8) return;
-        if (r.url && seen[r.url]) return;
-        if (r.url) seen[r.url] = true;
-        items.push({ rank: items.length + 1, title: r.title || "", url: r.url || "", disk_type: r.disk_type || "", category: r.category || "", count: r.cnt || 0, manual: false });
-      });
-    }
-    json(res, 200, { items: items, total: items.length, source: "manual+transfer" });
+    var rows = await store.hotRankList();
+    var items = (rows || []).map(function (r, i) {
+      return { rank: i + 1, title: r.title || "", url: r.url || "", disk_type: r.disk_type || "", category: r.category || "", count: -1, manual: true };
+    });
+    json(res, 200, { items: items, total: items.length, source: "manual" });
   } catch (e) {
     json(res, 502, { error: "hot_resources_error", message: e.message });
   }
