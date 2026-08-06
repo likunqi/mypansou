@@ -1148,7 +1148,7 @@ Vue.createApp({
     }
     var rsOptRunning=rf(false),rsForceOpt=rf(false),rsOptAllRunning=rf(false);
     function rsOptAll(){
-      cfm("优化<b style='color:#E6A23C'>全部未优化</b>资源？（AI 清洗标题/分类/标签，<b>跳过已优化</b>，每批最多 50 条，剩余可再次点击继续）","全局优化").then(function(){
+      cfm("优化<b style='color:#E6A23C'>全部未优化</b>资源？（每批最多 50 条，可反复点击继续；<b>已配置每日 02:30 定时任务「资源 AI 优化」</b>自动批量处理剩余未优化资源，每批 100 条）","全局优化").then(function(){
         rsOptAllRunning.value=true;
         ap("POST","resources/optimize",{all:true,force:false}).then(function(d){
           rsOptAllRunning.value=false;
