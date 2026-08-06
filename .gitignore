@@ -18,3 +18,8 @@ scripts/_tmp_*.js
 
 # 本地备份
 *.bak_*
+
+# 运行日志与临时文件
+server.log
+_commit_msg.txt
+*.tgz
