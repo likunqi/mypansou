@@ -163,7 +163,7 @@ async function adminKeywordAdd(req, res) {
     var b = JSON.parse(await readBody(req));
     var kw = String(b.keyword || "").trim().slice(0, 50);
     if (!kw) { json(res, 400, { error: "keyword_required" }); return; }
-    await store.keywordEnsure(kw, { is_hot: b.is_hot ? 1 : 0, sort_order: b.sort_order || 0, status: 1, source: b.source || "manual" });
+    await store.keywordEnsure(kw, { is_hot: b.is_hot ? 1 : 0, sort_order: b.sort_order || 0, status: 1, source: b.source || "manual", search_count: b.search_count });
     json(res, 200, { ok: true });
   } catch (e) { json(res, 500, { error: e.message }); }
 }
@@ -188,6 +188,7 @@ async function adminKeywordUpdate(req, res) {
     if (b.is_hot !== undefined) fields.is_hot = b.is_hot ? 1 : 0;
     if (b.sort_order !== undefined) fields.sort_order = parseInt(b.sort_order || "0", 10) || 0;
     if (b.status !== undefined) fields.status = b.status ? 1 : 0;
+    if (b.search_count !== undefined) fields.search_count = parseInt(b.search_count, 10) || 0;
     await store.keywordUpdate(m[1], fields);
     json(res, 200, { ok: true });
   } catch (e) {
