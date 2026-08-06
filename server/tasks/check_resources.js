@@ -7,8 +7,13 @@ const store = require("../../lib/store");
 const mysql = require("../../lib/mysql");
 const { checkLinkAvail } = require("../handlers/check");
 
+// 超时守卫：个别链接（如夸克重定向链）可能让请求挂起，12s 强制返回
+function withTimeout(p, ms) {
+  return Promise.race([p, new Promise(function (res) { setTimeout(function () { res({ valid: false, error: "timeout_guard", uncertain: true }); }, ms); })]);
+}
+
 async function run(taskConfig, task) {
-  var batch = Math.min(Math.max(parseInt((taskConfig && taskConfig.batch_size) || 3000, 10) || 3000, 1), 10000);
+  var batch = Math.min(Math.max(parseInt((taskConfig && taskConfig.batch_size) || 300, 10) || 300, 1), 10000);
   var days = parseInt((taskConfig && taskConfig.days) || "3", 10) || 3;
   var concurrency = Math.min(Math.max(parseInt((taskConfig && taskConfig.concurrency) || 20, 10) || 20, 1), 50);
   var rows = await mysql.query(
@@ -17,27 +22,23 @@ async function run(taskConfig, task) {
   if (!rows.length) return { status: "ok", resultMsg: "无待重测资源（近 " + days + " 天内均已检测）" };
 
   var done = 0, invalid = 0, uncertain = 0, errs = [];
-  var idx = 0;
-  async function worker() {
-    while (idx < rows.length) {
-      var i = idx++;
+  // 分批并发（每批 concurrency 条），超时守卫防挂起
+  for (var i = 0; i < rows.length; i += concurrency) {
+    var seg = rows.slice(i, i + concurrency);
+    await Promise.all(seg.map(async function (r) {
       try {
-        var cr = await checkLinkAvail(rows[i].url, 5, rows[i].password || "");
-        if (cr.uncertain) { uncertain++; continue; } // 网络异常不覆盖已有状态
-        await store.resourceUpdate(rows[i].id, {
+        var cr = await withTimeout(checkLinkAvail(r.url, 5, r.password || ""), 12000);
+        done++;
+        if (cr.uncertain) { uncertain++; return; } // 网络异常不覆盖已有状态
+        await store.resourceUpdate(r.id, {
           link_valid: cr.valid ? 1 : 0,
           check_message: cr.valid ? ("HTTP " + (cr.status || "ok")) : (cr.error || ("HTTP " + (cr.status || "?"))),
           last_checked_at: new Date(),
         });
-        done++;
         if (!cr.valid) invalid++;
-      } catch (e) { errs.push(rows[i].id + ":" + e.message); }
-    }
+      } catch (e) { done++; errs.push(r.id + ":" + e.message); }
+    }));
   }
-  var workers = [];
-  for (var w = 0; w < Math.min(concurrency, rows.length); w++) workers.push(worker());
-  await Promise.all(workers);
-
   var rem = await mysql.query(
     "SELECT COUNT(*) c FROM resources WHERE status=1 AND (last_checked_at IS NULL OR last_checked_at < DATE_SUB(NOW(), INTERVAL ? DAY))",
     [days]);
