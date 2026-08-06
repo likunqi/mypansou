@@ -84,21 +84,23 @@ async function recordSearch(req, res) {
   }
 }
 
-// 首页站点信息聚合（分类导航墙 + 站点数据卡）：分类列表+计数 / 今日新增 / 累计转存 / 热搜词数
+// 首页站点信息聚合（站点数据卡）：分类列表+计数 / 今日新增 / 累计转存 / 热搜词数 / 累计搜索次数
 async function getSiteInfo(req, res) {
   try {
     var mysql = require("../../lib/mysql");
-    var [cats, today, transfers, kws] = await Promise.all([
+    var [cats, today, transfers, kws, searches] = await Promise.all([
       mysql.query("SELECT category AS name, COUNT(*) AS count FROM resources WHERE status=1 AND category<>'' AND category IS NOT NULL GROUP BY category ORDER BY count DESC LIMIT 10"),
       mysql.query("SELECT COUNT(*) AS c FROM resources WHERE created_at >= CURDATE()"),
       mysql.query("SELECT COUNT(*) AS c FROM transfer_history"),
-      mysql.query("SELECT COUNT(DISTINCT keyword) AS c FROM search_keywords")
+      mysql.query("SELECT COUNT(DISTINCT keyword) AS c FROM search_keywords"),
+      mysql.query("SELECT COALESCE(SUM(search_count),0) AS c FROM search_keywords")
     ]);
     json(res, 200, {
       categories: (cats || []).map(function (x) { return { name: x.name, count: x.count }; }),
       today: (today && today[0]) ? today[0].c : 0,
       transfers: (transfers && transfers[0]) ? transfers[0].c : 0,
-      keywords: (kws && kws[0]) ? kws[0].c : 0
+      keywords: (kws && kws[0]) ? kws[0].c : 0,
+      searches: (searches && searches[0]) ? searches[0].c : 0
     });
   } catch (e) { json(res, 502, { error: "site_error", message: e.message }); }
 }
