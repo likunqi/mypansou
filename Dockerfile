@@ -13,8 +13,9 @@ COPY package.json package-lock.json ./
 
 # 生产依赖：mysql2（远程 MySQL 直连必需）。
 # playwright-core 仅 hunhepan 源使用（已在 registry 注销），不下载浏览器二进制。
-# 服务器网络慢可先配 npm 镜像：npm config set registry https://registry.npmmirror.com
-RUN npm ci --omit=dev || npm install --omit=dev
+# 国内构建慢可用 --build-arg NPM_REGISTRY=https://registry.npmmirror.com 加速
+ARG NPM_REGISTRY=https://registry.npmjs.org
+RUN npm ci --omit=dev --registry=$NPM_REGISTRY || npm install --omit=dev --registry=$NPM_REGISTRY
 
 # 只复制应用需要的目录
 # data/ 仅复制兜底 JSON（db.config.json 等敏感文件已由 .dockerignore 排除，运行时靠挂载卷 + 环境变量）

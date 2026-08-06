@@ -2,7 +2,11 @@
 
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        # 构建时 npm registry（国内可用 npmmirror 加速）
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
     container_name: yunpansou
     restart: unless-stopped
     ports:
