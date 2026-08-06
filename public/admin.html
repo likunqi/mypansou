@@ -286,6 +286,13 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
                 <el-table-column label="提取码" width="80"><template #default="s">{{s.row.password||'-'}}</template></el-table-column>
                 <el-table-column label="网盘" width="84"><template #default="s"><el-tag size="small" :type="s.row.disk_type==='baidu'?'warning':'primary'">{{rsDiskName(s.row.disk_type)}}</el-tag></template></el-table-column>
                 <el-table-column prop="category" label="分类" width="84"><template #default="s">{{s.row.category||'-'}}</template></el-table-column>
+                <el-table-column label="标签" min-width="150"><template #default="s">
+                  <template v-if="s.row.tags">
+                    <el-tag v-for="t in String(s.row.tags).split(/[,，]/).map(function(x){return x.trim()}).filter(Boolean).slice(0,4)" :key="t" size="small" type="info" effect="plain" style="margin:2px 4px 2px 0">{{t}}</el-tag>
+                    <span v-if="String(s.row.tags).split(/[,，]/).filter(Boolean).length>4" class="hint">+{{String(s.row.tags).split(/[,，]/).filter(Boolean).length-4}}</span>
+                  </template>
+                  <span v-else class="hint">-</span>
+                </template></el-table-column>
                 <el-table-column label="来源" width="84"><template #default="s"><el-tag size="small" type="info" effect="plain">{{srcName(s.row.source)}}</el-tag></template></el-table-column>
                 <el-table-column label="状态" width="76"><template #default="s"><el-tag size="small" :type="s.row.status==1?'success':'danger'">{{s.row.status==1?'启用':'停用'}}</el-tag></template></el-table-column>
                 <el-table-column label="入库时间" width="130"><template #default="s"><span style="color:#909399;font-size:12px">{{fmtT(s.row.created_at)}}</span></template></el-table-column>
