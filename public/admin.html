@@ -1846,7 +1846,8 @@ Vue.createApp({
     // ---- Cookie ----
     function ldck(){
       ap("GET","cookies").then(function(r){
-        ckItems.value=(r.accounts||[]).map(function(a){return {id:a.id,provider:a.provider,name:a.name||"",enabled:!!a.enabled,is_valid:!!a.is_valid,testing:false}});
+        // enabled 保持 0/1 数字（el-switch :active-value=1 需数字匹配，转 boolean 会显示错位）
+        ckItems.value=(r.accounts||[]).map(function(a){return {id:a.id,provider:a.provider,name:a.name||"",enabled:Number(a.enabled)||0,is_valid:!!a.is_valid,testing:false}});
         ckLoaded.value=true;
       });
     }
