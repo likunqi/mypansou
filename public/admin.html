@@ -655,8 +655,9 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
               <el-table-column label="类型" width="72"><template #default="s"><el-tag size="small" type="info" effect="plain">{{s.row.source_type}}</el-tag></template></el-table-column>
               <el-table-column label="分类" width="70"><template #default="s">{{s.row.category||'-'}}</template></el-table-column>
               <el-table-column label="状态" width="66"><template #default="s"><el-tag size="small" :type="String(s.row.status)==='1'?'success':'info'">{{String(s.row.status)==='1'?'启用':'停用'}}</el-tag></template></el-table-column>
-              <el-table-column label="操作" width="130" fixed="right"><template #default="s">
+              <el-table-column label="操作" width="216" fixed="right"><template #default="s">
                 <el-button size="small" type="primary" plain :loading="s.row.running" @click.stop="crrun(s.row)">{{s.row.running?'采集中':'运行'}}</el-button>
+                <el-button size="small" type="success" plain :loading="s.row.aiRule" @click.stop="crAiRule(s.row)" title="AI 按「TG 采集」提示词生成解析规则并保存">{{s.row.aiRule?'AI 生成中…':'AI 解析'}}</el-button>
                 <el-button size="small" type="danger" plain @click.stop="crdel(s.row)">删除</el-button>
               </template></el-table-column>
             </el-table>
@@ -1236,6 +1237,22 @@ Vue.createApp({
     var crSelName=Vue.computed(function(){var s=crSrcs.value.find(function(x){return String(x.id)===crSel.value});return s?s.name:""});
     function crNewShow(){crShow.value=true}
     function crPick(row){crSel.value=String(row.id);ldrule()}
+    function crAiRule(s){
+      if(!s||!s.id){msg("无效采集源","e");return}
+      s.aiRule=true;
+      ap("POST","ai/rules",{source_id:s.id}).then(function(d){
+        if(d.ok&&d.rules&&d.rules.length){
+          ap("POST","crawler/rules/replace",{source_id:s.id,rules:d.rules}).then(function(r2){
+            s.aiRule=false;
+            if(r2.ok){msg("AI 解析完成：生成并保存 "+d.rules.length+" 条规则（"+d.rules.map(function(x){return x.field_name}).join("/")+"）");if(crSel.value===String(s.id))ldrule();}
+            else msg(r2.error||"规则保存失败","e");
+          }).catch(function(){s.aiRule=false;msg("规则保存请求失败","e")});
+        }else{
+          s.aiRule=false;
+          msg((d&&(d.error||d.message))||"AI 未能生成规则","e");
+        }
+      }).catch(function(){s.aiRule=false;msg("AI 解析请求失败","e")});
+    }
     function crAdd(){
       if(!crNew.name||!crNew.url_template){msg("名称和 URL 模板必填","e");return}
       crSaving.value=true;
@@ -1896,7 +1913,7 @@ Vue.createApp({
     });
     return {
       tk,pg,ldg,lp,le,d,ckItems,ckLoaded,ckFm,ckT,ldck,ckStat,ckNew,ckEdit,ckTest,ckTestRow,ckSave,ckDel,ckToggle,cfg,pbAdd,pbDel,site,ldsite,svsite,cache,hi,hiSel,hiSelChange,hiDel,hiClr,dbInfo,dash,dashBars,lddash,pw,curMenu,menus,msg,gp,login,logout:lgout,lgout,loadst,lddb,ldhi,fmtTime,ldcfg,svcfg,ldca,clr,chpw,
-      rsTab,rsQ,res,rsDlgShow,rsEditId,rsSaving,rsAdd,rsCats,rsSel,rsSelChange,rowCls,rsSearch,rsReset,rsPage,ldrsCats,rsOpenDlg,rsadd,rsdel,rsDelBatch,rsOptRunning,rsForceOpt,rsOptOne,rsOptBatch,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crSelName,crShow,crSaving,crNewShow,crPick,crRules,crRuleStats,crNew,crRuleNew,
+      rsTab,rsQ,res,rsDlgShow,rsEditId,rsSaving,rsAdd,rsCats,rsSel,rsSelChange,rowCls,rsSearch,rsReset,rsPage,ldrsCats,rsOpenDlg,rsadd,rsdel,rsDelBatch,rsOptRunning,rsForceOpt,rsOptOne,rsOptBatch,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crSelName,crShow,crSaving,crNewShow,crPick,crAiRule,crRules,crRuleStats,crNew,crRuleNew,
       srcName,fmtT,ldres,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,rsDiskName,
       kwItems,kwNew,ldKw,kwadd,kwhot,
       ctItems,ctNew,ctEditId,ctSel,ctSelChange,ldct,ctadd,ctedit,ctCancel,ctst,ctdel,ctDelBatch,

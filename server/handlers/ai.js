@@ -200,13 +200,8 @@ function buildDomainPromptBase() {
 // 提示词场景注册表：key → { label（前端展示名）, desc, default（默认提示词模板） }
 const PROMPT_DEFS = {
   tg_collect: {
-    label: "TG 采集（AI 自动生成规则）",
-    desc: "TG 采集 → AI 自动生成解析规则时使用的领域提示词",
-    default: buildDomainPromptBase(),
-  },
-  gen_rules: {
-    label: "手动规则生成（解析规则 AI）",
-    desc: "采集管理 → 解析规则 AI 生成时的领域提示词",
+    label: "TG 采集",
+    desc: "TG 采集 / 采集管理「AI 解析」→ 生成解析规则时使用的领域提示词",
     default: buildDomainPromptBase(),
   },
   summarize: {
@@ -240,7 +235,7 @@ async function readCategoryDict() {
   } catch (e) { return ""; }
 }
 
-// 读取用户自定义提示词（site_config.ai_prompts = { key: "..." }；兼容旧 ai_domain_prompt）
+// 读取用户自定义提示词（site_config.ai_prompts = { key: "..." }；兼容旧 ai_domain_prompt / gen_rules）
 function readPromptCfg(cfg) {
   var out = {};
   try {
@@ -252,6 +247,8 @@ function readPromptCfg(cfg) {
   }
   // 旧字段迁移：ai_domain_prompt → tg_collect（仅当 tg_collect 未自定义时）
   if (!out.tg_collect && cfg && cfg.ai_domain_prompt) out.tg_collect = cfg.ai_domain_prompt;
+  // gen_rules（已合并进 tg_collect）：自定义内容迁到 tg_collect（仅当 tg_collect 未自定义时）
+  if (!out.tg_collect && obj && typeof obj.gen_rules === "string" && obj.gen_rules.trim()) out.tg_collect = obj.gen_rules;
   return out;
 }
 
@@ -431,7 +428,23 @@ async function genRules(req, res) {
       } catch (e) {}
     }
 
-    var sys = await getEffectivePrompt("gen_rules");
+    var sys = await getEffectivePrompt("tg_collect");
+    // 未提供示例时：自动拉取目标源真实内容前 2 条（AI 解析按钮一键用）
+    if (!sample && sourceId) {
+      try {
+        var list2 = await store.crawlerSourceList(false);
+        var src2 = null;
+        for (var j2 = 0; j2 < list2.length; j2++) if (String(list2[j2].id) === String(sourceId)) src2 = list2[j2];
+        if (src2 && src2.url_template) {
+          var engine = require("../../lib/crawler-engine");
+          var resp2 = await engine.fetchText(String(src2.url_template).replace("{page}", "1"), src2.encoding || "utf-8", 15000);
+          if (resp2.status === 200) {
+            if (src2.source_type === "rss") sample = engine.rssItems(resp2.text).slice(0, 2).join("\n---\n");
+            else sample = resp2.text.slice(0, 2000);
+          }
+        }
+      } catch (e) {}
+    }
     var prompt = ctxDesc + "\n\n示例内容（供正则参考）:\n" + (sample || "(未提供)") + "\n\n请生成解析规则 JSON 数组。";
     var out = await chat(ac, prompt.slice(0, 12000), sys);
     var rules = extractJsonArray(out);
