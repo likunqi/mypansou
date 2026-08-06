@@ -148,8 +148,16 @@ async function adminOptimize(req, res) {
     var b = JSON.parse(await readBody(req));
     var ids = Array.isArray(b.ids) ? b.ids.map(Number).filter(function (n) { return n > 0; }) : [];
     var force = !!b.force;
-    if (!ids.length) return json(res, 400, { error: "ids_required" });
+    var all = !!b.all;
+    if (!ids.length && !all) return json(res, 400, { error: "ids_required" });
     if (ids.length > 50) return json(res, 400, { error: "too_many", message: "单次最多优化 50 条" });
+
+    // all 模式（全局优化）：取全部未优化资源（每批最多 50 条，跳过已优化）
+    if (all) {
+      var unopt = await mysql.query("SELECT id FROM resources WHERE status=1 AND optimized=0 ORDER BY id DESC LIMIT 50");
+      ids = unopt.map(function (r) { return r.id; });
+      if (!ids.length) return json(res, 200, { ok: true, optimized: 0, skipped: 0, remaining: 0, errors: [] });
+    }
 
     var ac = await ai.getAiConfig();
     if (!ac.key) return json(res, 400, { error: "ai_key_missing", message: "未配置 AI Key（数据源配置 → AI 配置）" });
@@ -160,10 +168,9 @@ async function adminOptimize(req, res) {
       if (!r) { skipped++; continue; }
       if (r.optimized === 1 && !force) { skipped++; continue; }
       try {
-        var userPrompt = "资源信息：\n标题：" + (r.title || "") + "\n描述：" + String(r.description || "").slice(0, 200) + "\n现有分类：" + (r.category || "") + "\n链接：" + (r.url || "") + "\n\n请按系统要求输出优化后的 JSON。";
+        var userPrompt = "资源信息：\n标题：" + (r.title || "") + "\n描述：" + String(r.description || "").slice(0, 200) + "\n现有分类：" + (r.category || "") + "\n现有标签：" + (r.tags || "") + "\n链接：" + (r.url || "") + "\n\n请按系统要求输出优化后的 JSON。";
         var out = await ai.chat(ac, userPrompt, promptText);
-        var j = ai.extractJsonArray(out);
-        var obj = (Array.isArray(j) ? j[0] : j) || {};
+        var obj = ai.extractJsonObject(out) || {};
         var fields = {};
         if (obj.title && String(obj.title).trim()) fields.title = String(obj.title).trim().slice(0, 256);
         if (obj.category && String(obj.category).trim()) fields.category = String(obj.category).trim().slice(0, 64);
@@ -174,7 +181,13 @@ async function adminOptimize(req, res) {
         done++;
       } catch (e) { errs.push(ids[i] + ": " + e.message); }
     }
-    json(res, 200, { ok: true, optimized: done, skipped: skipped, errors: errs });
+    // all 模式返回剩余未优化数
+    var remaining = 0;
+    if (all) {
+      var rem = await mysql.query("SELECT COUNT(*) c FROM resources WHERE status=1 AND optimized=0");
+      remaining = rem[0].c;
+    }
+    json(res, 200, { ok: true, optimized: done, skipped: skipped, remaining: remaining, errors: errs });
   } catch (e) { json(res, 500, { error: e.message }); }
 }
 

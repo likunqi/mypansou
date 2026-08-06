@@ -387,6 +387,17 @@ function extractJsonArray(text) {
     try { return JSON.parse(m[0].replace(/,\s*([\]}])/g, "$1")); } catch (e2) { return null; }
   }
 }
+// 从 AI 输出提取 JSON 对象（容错裸键 {title: "x"} / markdown 围栏 / 尾逗号）——资源优化等单对象场景用
+function extractJsonObject(text) {
+  var m = String(text || "").match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  var raw = m[0];
+  // 裸键加引号：{title: "x"} → {"title": "x"}（只在 { 或 , 后且键名后紧跟冒号时替换，避开字符串值内容）
+  raw = raw.replace(/([{,]\s*)([A-Za-z_$][\w$]*)\s*:/g, '$1"$2":');
+  try { return JSON.parse(raw); } catch (e) {
+    try { return JSON.parse(raw.replace(/,\s*([\]}])/g, "$1")); } catch (e2) { return null; }
+  }
+}
 // 从 AI 输出提取 JS 代码（容错 ```js 围栏 / 前置解释文字）
 function extractCode(text) {
   var m = String(text || "").match(/```(?:js|javascript)?\s*([\s\S]*?)```/);
@@ -478,4 +489,4 @@ async function genScript(req, res) {
   } catch (e) { json(res, 502, { ok: false, error: e.message }); }
 }
 
-module.exports = { saveConfig, getConfig, test, summarize, list, genRules, genScript, validateRules, buildDomainPrompt, getAiConfig, chat, extractJsonArray, getEffectivePrompt, getAllEffectivePrompts, getEffectiveDomainPrompt };
+module.exports = { saveConfig, getConfig, test, summarize, list, genRules, genScript, validateRules, buildDomainPrompt, getAiConfig, chat, extractJsonArray, extractJsonObject, getEffectivePrompt, getAllEffectivePrompts, getEffectiveDomainPrompt };

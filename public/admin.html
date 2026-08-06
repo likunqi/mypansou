@@ -271,6 +271,7 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
                 <div class="spacer"></div>
                 <el-checkbox v-model="rsForceOpt" style="margin-right:2px">强制优化</el-checkbox>
                 <el-button type="warning" plain :disabled="!rsSel.length" :loading="rsOptRunning" @click="rsOptBatch">优化选中 {{rsSel.length}} 项</el-button>
+                <el-button type="warning" plain :loading="rsOptAllRunning" @click="rsOptAll" title="AI 优化全部未优化资源（名称/分类/标签，跳过已优化，每批最多 50 条）">优化全部未优化</el-button>
                 <el-button type="danger" plain :disabled="!rsSel.length" @click="rsDelBatch">删除选中 {{rsSel.length}} 项</el-button>
                 <el-button type="primary" @click="rsOpenDlg()">新增资源</el-button>
               </div>
@@ -647,10 +648,13 @@ body{font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-ser
         <div class="cols-2" style="grid-template-columns:1fr 1.5fr">
           <div class="panel">
             <div class="panel-head">采集源
-              <el-button size="small" type="primary" style="margin-left:auto" @click="crNewShow">+ 新增采集源</el-button>
+              <el-button size="small" type="danger" plain :disabled="!crSelRows.length" @click="crBatchDel" style="margin-left:auto">批量删除 {{crSelRows.length}}</el-button>
+              <el-button size="small" type="success" plain :disabled="!crSelRows.length" :loading="crBatchAiRun" @click="crBatchAi" style="margin-left:8px">批量 AI 解析 {{crSelRows.length}}</el-button>
+              <el-button size="small" type="primary" style="margin-left:8px" @click="crNewShow">+ 新增采集源</el-button>
             </div>
-            <el-table :data="crSrcs" size="small" highlight-current-row @row-click="crPick">
-              <el-table-column prop="id" label="ID" width="52"></el-table-column>
+            <el-table :data="crSrcs" size="small" highlight-current-row @row-click="crPick" @selection-change="crSelRowsChange">
+              <el-table-column type="selection" width="34"></el-table-column>
+              <el-table-column prop="id" label="ID" width="46"></el-table-column>
               <el-table-column prop="name" label="名称" min-width="120" show-overflow-tooltip></el-table-column>
               <el-table-column label="类型" width="72"><template #default="s"><el-tag size="small" type="info" effect="plain">{{s.row.source_type}}</el-tag></template></el-table-column>
               <el-table-column label="分类" width="70"><template #default="s">{{s.row.category||'-'}}</template></el-table-column>
@@ -1135,7 +1139,21 @@ Vue.createApp({
         rsSel.value=rsSel.value.filter(function(id){return ids[id]});
       });
     }
-    var rsOptRunning=rf(false),rsForceOpt=rf(false);
+    var rsOptRunning=rf(false),rsForceOpt=rf(false),rsOptAllRunning=rf(false);
+    function rsOptAll(){
+      cfm("优化<b style='color:#E6A23C'>全部未优化</b>资源？（AI 清洗标题/分类/标签，<b>跳过已优化</b>，每批最多 50 条，剩余可再次点击继续）","全局优化").then(function(){
+        rsOptAllRunning.value=true;
+        ap("POST","resources/optimize",{all:true,force:false}).then(function(d){
+          rsOptAllRunning.value=false;
+          if(d&&d.ok){
+            var m="优化完成：成功 "+d.optimized+" 条"+(d.skipped?"，跳过 "+d.skipped+" 条":"");
+            if(d.remaining>0)m+="，剩余未优化 "+d.remaining+" 条（可再次点击继续）";
+            msg(m,d.optimized>0?"s":"w");
+          }else msg((d&&(d.error||d.message))||"优化失败","e");
+          ldres();
+        }).catch(function(){rsOptAllRunning.value=false;msg("优化请求失败","e")});
+      }).catch(function(){});
+    }
     function rsOptOne(r){
       r.optRunning=true;
       ap("POST","resources/optimize",{ids:[r.id],force:rsForceOpt.value}).then(function(d){
@@ -1235,6 +1253,38 @@ Vue.createApp({
     }
     var crShow=rf(false),crSaving=rf(false);
     var crSelName=Vue.computed(function(){var s=crSrcs.value.find(function(x){return String(x.id)===crSel.value});return s?s.name:""});
+    var crSelRows=rf([]),crBatchAiRun=rf(false);
+    function crSelRowsChange(rows){crSelRows.value=rows.map(function(r){return r.id})}
+    function crBatchDel(){
+      if(!crSelRows.value.length){msg("请先勾选采集源","e");return}
+      cfm("确定删除选中的 <b style='color:#E24B4A'>"+crSelRows.value.length+"</b> 个采集源（含其规则）？","批量删除").then(function(){
+        var ids=crSelRows.value.slice(),n=0,done=0;
+        ids.forEach(function(id){
+          ap("POST","crawler/sources/"+id+"/delete",{}).then(function(r){done++;if(r.ok)n++;if(done===ids.length){msg("已删除 "+n+" 个");crSelRows.value=[];if(ids.indexOf(parseInt(crSel.value,10))>=0)crSel.value="";ldsrc()}}).catch(function(){done++;if(done===ids.length){crSelRows.value=[];ldsrc()}});
+        });
+      }).catch(function(){});
+    }
+    function crBatchAi(){
+      if(!crSelRows.value.length){msg("请先勾选采集源","e");return}
+      cfm("对选中的 <b style='color:#E6A23C'>"+crSelRows.value.length+"</b> 个采集源执行 AI 解析？（逐个生成并<b>替换</b>该源全部规则，耗时较长）","批量 AI 解析").then(function(){
+        crBatchAiRun.value=true;
+        var ids=crSelRows.value.slice(),okN=0,errIds=[];
+        (function next(i){
+          if(i>=ids.length){
+            crBatchAiRun.value=false;
+            msg("批量 AI 解析完成：成功 "+okN+" 个"+(errIds.length?"，失败 "+errIds.length+" 个（"+errIds.join(",")+"）":""),errIds.length?"w":"s");
+            crSelRows.value=[];ldsrc();
+            return;
+          }
+          var id=ids[i];
+          ap("POST","ai/rules",{source_id:id}).then(function(d){
+            if(d.ok&&d.rules&&d.rules.length){
+              ap("POST","crawler/rules/replace",{source_id:id,rules:d.rules}).then(function(r2){if(r2.ok)okN++;else errIds.push(id);next(i+1)}).catch(function(){errIds.push(id);next(i+1)});
+            }else{errIds.push(id);next(i+1)}
+          }).catch(function(){errIds.push(id);next(i+1)});
+        })(0);
+      }).catch(function(){});
+    }
     function crNewShow(){crShow.value=true}
     function crPick(row){crSel.value=String(row.id);ldrule()}
     function crAiRule(s){
@@ -1913,7 +1963,7 @@ Vue.createApp({
     });
     return {
       tk,pg,ldg,lp,le,d,ckItems,ckLoaded,ckFm,ckT,ldck,ckStat,ckNew,ckEdit,ckTest,ckTestRow,ckSave,ckDel,ckToggle,cfg,pbAdd,pbDel,site,ldsite,svsite,cache,hi,hiSel,hiSelChange,hiDel,hiClr,dbInfo,dash,dashBars,lddash,pw,curMenu,menus,msg,gp,login,logout:lgout,lgout,loadst,lddb,ldhi,fmtTime,ldcfg,svcfg,ldca,clr,chpw,
-      rsTab,rsQ,res,rsDlgShow,rsEditId,rsSaving,rsAdd,rsCats,rsSel,rsSelChange,rowCls,rsSearch,rsReset,rsPage,ldrsCats,rsOpenDlg,rsadd,rsdel,rsDelBatch,rsOptRunning,rsForceOpt,rsOptOne,rsOptBatch,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crSelName,crShow,crSaving,crNewShow,crPick,crAiRule,crRules,crRuleStats,crNew,crRuleNew,
+      rsTab,rsQ,res,rsDlgShow,rsEditId,rsSaving,rsAdd,rsCats,rsSel,rsSelChange,rowCls,rsSearch,rsReset,rsPage,ldrsCats,rsOpenDlg,rsadd,rsdel,rsDelBatch,rsOptRunning,rsForceOpt,rsOptAllRunning,rsOptOne,rsOptBatch,rsOptAll,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crSelName,crShow,crSaving,crNewShow,crPick,crAiRule,crSelRows,crSelRowsChange,crBatchDel,crBatchAi,crBatchAiRun,crRules,crRuleStats,crNew,crRuleNew,
       srcName,fmtT,ldres,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,rsDiskName,
       kwItems,kwNew,ldKw,kwadd,kwhot,
       ctItems,ctNew,ctEditId,ctSel,ctSelChange,ldct,ctadd,ctedit,ctCancel,ctst,ctdel,ctDelBatch,
