@@ -922,6 +922,132 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
         </el-dialog>
       </div>
 
+      <!-- ============ 采集词库 ============ -->
+      <div v-if="pg==='ckw'">
+        <div class="panel" style="margin-bottom:12px">
+          <div style="display:flex;gap:36px;flex-wrap:wrap;align-items:center">
+            <div class="hint" style="display:flex;gap:6px;align-items:baseline">总数 <b style="font-size:20px">{{ckwStats.total}}</b></div>
+            <div class="hint" style="display:flex;gap:6px;align-items:baseline">启用 <b style="font-size:20px">{{ckwStats.active}}</b></div>
+            <div class="hint" style="display:flex;gap:6px;align-items:baseline">待采集 <b style="font-size:20px">{{ckwStats.pending}}</b></div>
+            <div class="hint">来源分布：
+              <span v-for="s in ckwStats.bySource" :key="s.source" style="margin-right:10px">{{ckwSourceName(s.source)}} <b>{{s.c}}</b></span>
+            </div>
+            <el-button size="small" type="primary" plain :loading="ckwImporting" @click="ckwImpPreset" style="margin-left:auto">导入预置词</el-button>
+            <el-button size="small" type="success" plain :loading="ckwImporting" @click="ckwImpHot">导入热搜词(清洗)</el-button>
+          </div>
+          <div class="hint" style="margin-top:8px">词库是 site 采集与盘搜站爬取的公共入口：每日任务按权重取词（每日约 200 个）轮换采集；「导入热搜词」会自动过滤测试词/纯数字/标点脏/资源修饰串等噪音。</div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">采集词库
+            <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+              <el-input v-model="ckwNew.keyword" placeholder="新增词" size="small" style="width:150px" @keyup.enter="ckwAdd"></el-input>
+              <el-input v-model="ckwNew.category" placeholder="分类(可选)" size="small" style="width:110px"></el-input>
+              <el-button size="small" type="primary" @click="ckwAdd">添加</el-button>
+            </div>
+          </div>
+          <div class="toolbar" style="margin-bottom:8px">
+            <el-input v-model="ckwQ.kw" placeholder="搜索词" size="small" style="width:160px" clearable @keyup.enter="ckwSearch"></el-input>
+            <el-select v-model="ckwQ.source" size="small" style="width:110px" clearable placeholder="来源">
+              <el-option label="手动" value="manual"></el-option><el-option label="预置" value="preset"></el-option>
+              <el-option label="豆瓣" value="douban"></el-option><el-option label="热词" value="hotword"></el-option><el-option label="SeedHub" value="seeduck"></el-option>
+            </el-select>
+            <el-select v-model="ckwQ.status" size="small" style="width:100px" clearable placeholder="状态">
+              <el-option label="启用" value="1"></el-option><el-option label="停用" value="0"></el-option>
+            </el-select>
+            <el-button size="small" type="primary" @click="ckwSearch">搜索</el-button>
+            <el-button size="small" @click="ckwReset">重置</el-button>
+            <span style="flex:1"></span>
+            <el-button size="small" type="success" plain :disabled="!ckwSel.length" @click="ckwBatchSet(1)">启用选中 {{ckwSel.length}}</el-button>
+            <el-button size="small" type="danger" plain :disabled="!ckwSel.length" @click="ckwBatchSet(0)">停用选中 {{ckwSel.length}}</el-button>
+          </div>
+          <el-table :data="ckw.items" size="small" max-height="520" @selection-change="ckwSelChange">
+            <el-table-column type="selection" width="36"></el-table-column>
+            <el-table-column prop="id" label="ID" width="56"></el-table-column>
+            <el-table-column prop="keyword" label="关键词" min-width="160" show-overflow-tooltip></el-table-column>
+            <el-table-column label="分类" width="90"><template #default="s"><el-tag size="small" type="info" effect="plain">{{ckwCatName(s.row.category)}}</el-tag></template></el-table-column>
+            <el-table-column label="来源" width="80"><template #default="s">{{ckwSourceName(s.row.source)}}</template></el-table-column>
+            <el-table-column prop="weight" label="权重" width="64"></el-table-column>
+            <el-table-column label="状态" width="70"><template #default="s"><el-switch v-model="s.row.status" size="small" :active-value="1" :inactive-value="0" @change="(v)=>ckwToggle(s.row,v)"></el-switch></template></el-table-column>
+            <el-table-column label="最近采集" width="124"><template #default="s"><span style="color:#909399;font-size:12px">{{fmtT(s.row.last_crawled_at)}}</span></template></el-table-column>
+            <el-table-column label="操作" width="130" fixed="right"><template #default="s">
+              <el-button size="small" @click="ckwEditOpen(s.row)">编辑</el-button>
+              <el-button size="small" type="danger" plain @click="ckwDel(s.row)">删除</el-button>
+            </template></el-table-column>
+          </el-table>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+            <span class="hint">共 {{ckw.total}} 个词</span>
+            <el-pagination small layout="prev, pager, next" :total="ckw.total" :page-size="Number(ckwQ.size)" :current-page="ckw.page" @current-change="(p)=>{ckw.page=p;ldckw()}"></el-pagination>
+          </div>
+        </div>
+        <el-dialog v-model="ckwEdit.show" title="编辑词" width="440px">
+          <el-form label-width="76px">
+            <el-form-item label="关键词"><el-input v-model="ckwEdit.keyword"></el-input></el-form-item>
+            <el-form-item label="分类"><el-input v-model="ckwEdit.category"></el-input></el-form-item>
+            <el-form-item label="权重"><el-input-number v-model="ckwEdit.weight" :min="1" :max="100"></el-input-number></el-form-item>
+            <el-form-item label="状态"><el-switch v-model="ckwEdit.status" :active-value="1" :inactive-value="0"></el-switch></el-form-item>
+          </el-form>
+          <template #footer>
+            <el-button @click="ckwEdit.show=false">取消</el-button>
+            <el-button type="primary" @click="ckwEditSave">保存</el-button>
+          </template>
+        </el-dialog>
+      </div>
+
+      <!-- ============ 豆瓣资料 ============ -->
+      <div v-if="pg==='dbm'">
+        <div class="panel" style="margin-bottom:12px">
+          <div style="display:flex;gap:36px;flex-wrap:wrap;align-items:center">
+            <div class="hint" style="display:flex;gap:6px;align-items:baseline">资料总数 <b style="font-size:20px">{{dbStats.total}}</b></div>
+            <div class="hint" style="display:flex;gap:6px;align-items:baseline">已关联资源 <b style="font-size:20px">{{dbStats.linkedResources}}</b></div>
+            <div class="hint">类型分布：
+              <span v-for="t in dbStats.byType" :key="t.media_type" style="margin-right:10px">{{dbTypeName(t.media_type)}} <b>{{t.c}}</b></span>
+            </div>
+            <el-button size="small" type="primary" plain :loading="dbSyncRunning" @click="dbSync" style="margin-left:auto">{{dbSyncRunning?'同步中…':'SeedHub 同步'}}</el-button>
+            <el-button size="small" type="success" plain :loading="dbMatchRunning" @click="dbMatch">{{dbMatchRunning?'匹配中…':'标题匹配资源'}}</el-button>
+          </div>
+          <div class="hint" style="margin-top:8px">豆瓣资料来自 SeedHub（robots 允许搜索索引用途）+ 豆瓣移动版补海报/简介；资源标题匹配 douban_id 后，前台资源卡片可显示海报/评分/简介。</div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">豆瓣资料库
+            <div style="margin-left:auto;display:flex;gap:8px">
+              <el-input v-model="dbQ.kw" placeholder="搜索标题" size="small" style="width:180px" clearable @keyup.enter="dbSearch"></el-input>
+              <el-select v-model="dbQ.media_type" size="small" style="width:110px" clearable placeholder="类型">
+                <el-option label="电影" value="movie"></el-option><el-option label="剧集" value="tv"></el-option>
+                <el-option label="动漫" value="anime"></el-option><el-option label="图书" value="book"></el-option>
+              </el-select>
+              <el-select v-model="dbQ.rating_min" size="small" style="width:110px" clearable placeholder="评分≥">
+                <el-option label="8 分以上" value="8"></el-option><el-option label="7 分以上" value="7"></el-option><el-option label="6 分以上" value="6"></el-option>
+              </el-select>
+              <el-button size="small" type="primary" @click="dbSearch">搜索</el-button>
+              <el-button size="small" @click="dbReset">重置</el-button>
+              <el-button size="small" @click="lddb">刷新</el-button>
+            </div>
+          </div>
+          <el-table :data="db.items" size="small" max-height="520">
+            <el-table-column prop="id" label="ID" width="56"></el-table-column>
+            <el-table-column prop="douban_id" label="豆瓣ID" width="90"></el-table-column>
+            <el-table-column label="海报" width="56"><template #default="s">
+              <img v-if="s.row.poster" :src="s.row.poster" style="width:34px;height:48px;object-fit:cover;border-radius:4px" referrerpolicy="no-referrer" alt="">
+              <span v-else style="color:#c0c4cc">无</span>
+            </template></el-table-column>
+            <el-table-column prop="title" label="标题" min-width="150" show-overflow-tooltip></el-table-column>
+            <el-table-column prop="original_title" label="原名" min-width="130" show-overflow-tooltip></el-table-column>
+            <el-table-column prop="year" label="年份" width="64"></el-table-column>
+            <el-table-column label="类型" width="70"><template #default="s">{{dbTypeName(s.row.media_type)}}</template></el-table-column>
+            <el-table-column label="地区" width="90"><template #default="s"><span style="font-size:12px">{{s.row.region||'-'}}</span></template></el-table-column>
+            <el-table-column label="评分" width="64"><template #default="s"><b v-if="s.row.rating" style="color:#BA7517">{{Number(s.row.rating).toFixed(1)}}</b><span v-else style="color:#c0c4cc">-</span></template></el-table-column>
+            <el-table-column label="来源" width="80"><template #default="s">{{s.row.source||'-'}}</template></el-table-column>
+            <el-table-column label="操作" width="90" fixed="right"><template #default="s">
+              <el-button size="small" type="danger" plain @click="dbDel(s.row)">删除</el-button>
+            </template></el-table-column>
+          </el-table>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+            <span class="hint">共 {{db.total}} 条</span>
+            <el-pagination small layout="prev, pager, next" :total="db.total" :page-size="Number(dbQ.size)" :current-page="db.page" @current-change="(p)=>{db.page=p;lddb()}"></el-pagination>
+          </div>
+        </div>
+      </div>
+
       <!-- ============ 数据源配置 ============ -->
       <div v-if="pg==='ds'">
         <el-tabs v-model="dsTab" @tab-change="dsTabChange">
@@ -1306,6 +1432,8 @@ var menus=[
   {g:"数据源",items:[
     {id:"tg",title:"TG 采集",color:IC_MENU.tg},
     {id:"cg",title:"采集管理",color:IC_MENU.cg},
+    {id:"ckw",title:"采集词库",color:IC_MENU.cg},
+    {id:"dbm",title:"豆瓣资料",color:IC_MENU.pp},
     {id:"pp",title:"提示词管理",color:IC_MENU.pp}
   ]},
   {g:"系统",items:[
@@ -1364,6 +1492,21 @@ Vue.createApp({
     var crRuleStats=rf(null);
     var crNew=rct({name:"",source_type:"rss",url_template:"",page_start:1,page_end:1,encoding:"utf-8",category:""});
     var crRuleNew=rct({field_name:"title",rule_type:"regex",rule_value:"",required:true});
+
+    // ---- 采集词库（8-07）----
+    var ckwQ=rct({kw:"",category:"",source:"",status:"",page:1,size:20});
+    var ckw=rct({items:[],total:0,page:1});
+    var ckwStats=rct({total:0,active:0,pending:0,bySource:[],byCategory:[]});
+    var ckwNew=rct({keyword:"",category:"",weight:10});
+    var ckwEdit=rct({show:false,id:0,keyword:"",category:"",weight:10,status:1});
+    var ckwSel=rf([]);
+    var ckwImporting=rf(false);
+    // ---- 豆瓣资料（8-07）----
+    var dbQ=rct({kw:"",media_type:"",rating_min:"",page:1,size:20});
+    var db=rct({items:[],total:0,page:1});
+    var dbStats=rct({total:0,byType:[],linkedResources:0});
+    var dbSyncRunning=rf(false);
+    var dbMatchRunning=rf(false);
 
     var SRC_MAP={manual:"手动",submitted:"用户提交",imported:"批量导入",collected:"自动采集",transferred:"转存"};
     function srcName(s){return SRC_MAP[s]||s||"-"}
@@ -2377,6 +2520,108 @@ Vue.createApp({
       });
     }
     // ---- tab 切换加载 ----
+    // ---- 采集词库 ----
+    function ldckw(){
+      ap("GET","collect/keywords"+qs({kw:ckwQ.kw,category:ckwQ.category,source:ckwQ.source,status:ckwQ.status,page:ckw.page,size:ckwQ.size})).then(function(r){
+        ckw.items=r.items||[];ckw.total=r.total||0;ckw.page=r.page||1;
+        var ids={};ckw.items.forEach(function(x){ids[x.id]=1});
+        ckwSel.value=ckwSel.value.filter(function(id){return ids[id]});
+      });
+    }
+    function ldckwStats(){ap("GET","collect/keywords/stats").then(function(r){Object.assign(ckwStats,r||{})})}
+    function ckwSearch(){ckw.page=1;ldckw()}
+    function ckwReset(){ckwQ.kw="";ckwQ.category="";ckwQ.source="";ckwQ.status="";ckw.page=1;ldckw()}
+    function ckwSelChange(rows){ckwSel.value=rows.map(function(r){return r.id})}
+    function ckwAdd(){
+      if(!ckwNew.keyword)return msg("请输入关键词","e");
+      ap("POST","collect/keywords",{keyword:ckwNew.keyword,category:ckwNew.category,weight:ckwNew.weight}).then(function(r){
+        if(r&&r.ok){msg(r.message||"已添加");ckwNew.keyword="";ckwNew.category="";ldckw();ldckwStats()}else msg((r&&r.error)||"添加失败","e");
+      });
+    }
+    function ckwImpPreset(){
+      cfm("导入预置分类种子词（软件/游戏/教程/资料，约 40 个）？").then(function(){
+        ckwImporting.value=true;
+        ap("POST","collect/keywords/import-preset",{}).then(function(r){
+          ckwImporting.value=false;
+          if(r&&r.ok)msg("导入完成：新增 "+r.inserted+"，跳过 "+r.skipped);else msg((r&&r.error)||"导入失败","e");
+          ldckw();ldckwStats();
+        }).catch(function(){ckwImporting.value=false;msg("导入失败","e")});
+      }).catch(function(){});
+    }
+    function ckwImpHot(){
+      cfm("把现有热搜词清洗后导入词库？会自动过滤测试词/纯数字/标点脏/资源修饰串等噪音。").then(function(){
+        ckwImporting.value=true;
+        ap("POST","collect/keywords/import-hot",{}).then(function(r){
+          ckwImporting.value=false;
+          if(r&&r.ok)msg("扫描 "+r.scanned+" 条热词：新增 "+r.inserted+"，过滤 "+r.skipped);else msg((r&&r.error)||"导入失败","e");
+          ldckw();ldckwStats();
+        }).catch(function(){ckwImporting.value=false;msg("导入失败","e")});
+      }).catch(function(){});
+    }
+    function ckwBatchSet(st){
+      if(!ckwSel.value.length)return msg("先勾选词","e");
+      ap("POST","collect/keywords/batch-status",{ids:ckwSel.value,status:st}).then(function(r){
+        if(r&&r.ok)msg((st?"已启用 ":"已停用 ")+(r.updated||0)+" 个");else msg((r&&r.error)||"操作失败","e");
+        ldckw();
+      });
+    }
+    function ckwEditOpen(row){ckwEdit.show=true;ckwEdit.id=row.id;ckwEdit.keyword=row.keyword;ckwEdit.category=row.category;ckwEdit.weight=row.weight;ckwEdit.status=row.status}
+    function ckwEditSave(){
+      ap("POST","collect/keywords/"+ckwEdit.id,{keyword:ckwEdit.keyword,category:ckwEdit.category,weight:ckwEdit.weight,status:ckwEdit.status}).then(function(r){
+        if(r&&r.ok){msg("已保存");ckwEdit.show=false;ldckw()}else msg((r&&r.error)||"保存失败","e");
+      });
+    }
+    function ckwDel(row){
+      cfm("删除词「"+row.keyword+"」？").then(function(){
+        ap("POST","collect/keywords/"+row.id+"/delete",{}).then(function(r){
+          if(r&&r.ok){msg("已删除");ldckw();ldckwStats()}else msg((r&&r.error)||"删除失败","e");
+        });
+      }).catch(function(){});
+    }
+    function ckwToggle(row,v){
+      ap("POST","collect/keywords/"+row.id,{status:v}).then(function(r){if(!r||!r.ok)msg((r&&r.error)||"操作失败","e")});
+    }
+    function ckwSourceName(s){var M={manual:"手动",preset:"预置",douban:"豆瓣",hotword:"热词",seeduck:"SeedHub",log:"日志"};return M[s]||s||"-"}
+    function ckwCatName(c){return c||"-"}
+    // ---- 豆瓣资料 ----
+    function lddb(){
+      ap("GET","douban"+qs({kw:dbQ.kw,media_type:dbQ.media_type,rating_min:dbQ.rating_min,page:db.page,size:dbQ.size})).then(function(r){
+        db.items=r.items||[];db.total=r.total||0;db.page=r.page||1;
+      });
+    }
+    function lddbStats(){ap("GET","douban/stats").then(function(r){Object.assign(dbStats,r||{})})}
+    function dbSearch(){db.page=1;lddb()}
+    function dbReset(){dbQ.kw="";dbQ.media_type="";dbQ.rating_min="";db.page=1;lddb()}
+    function dbSync(){
+      cfm("从 SeedHub 增量同步豆瓣资料？（限速爬取约每分钟 30 条，同步后自动做资源标题匹配）").then(function(){
+        dbSyncRunning.value=true;
+        ap("POST","douban/sync",{limit:30,pages:2}).then(function(r){
+          dbSyncRunning.value=false;
+          if(r&&r.ok)msg("同步完成：新增 "+r.inserted+"，更新 "+r.updated+"，关联资源 "+r.matched+(r.errors?"，错误 "+r.errors:""));
+          else msg((r&&r.error)||"同步失败","e");
+          lddb();lddbStats();
+        }).catch(function(){dbSyncRunning.value=false;msg("同步失败","e")});
+      }).catch(function(){});
+    }
+    function dbMatch(){
+      cfm("把资源标题与豆瓣资料做匹配关联？（扫描 300 条未关联资源）").then(function(){
+        dbMatchRunning.value=true;
+        ap("POST","douban/match",{limit:300}).then(function(r){
+          dbMatchRunning.value=false;
+          if(r&&r.ok)msg("扫描 "+r.scanned+" 条，匹配关联 "+r.matched+" 条");else msg((r&&r.error)||"匹配失败","e");
+          lddbStats();
+        }).catch(function(){dbMatchRunning.value=false;msg("匹配失败","e")});
+      }).catch(function(){});
+    }
+    function dbDel(row){
+      cfm("删除豆瓣条目「"+row.title+"」？").then(function(){
+        ap("POST","douban/"+row.id+"/delete",{}).then(function(r){
+          if(r&&r.ok){msg("已删除");lddb();lddbStats()}else msg((r&&r.error)||"删除失败","e");
+        });
+      }).catch(function(){});
+    }
+    function dbTypeName(t){var M={movie:"电影",tv:"剧集",anime:"动漫",book:"图书",variety:"综艺",doc:"纪录片"};return M[t]||t||"-"}
+
     function rsTabChange(n){
       if(n==="ct")ldct();
       if(n==="list"){ldres()}
@@ -2415,6 +2660,8 @@ Vue.createApp({
       if(p==="tk"){ldts();ldtslogs()}
       if(p==="tg"){ldtg();ldtgDisks()}
       if(p==="cg"){ldsrc()}
+      if(p==="ckw"){ldckw();ldckwStats()}
+      if(p==="dbm"){lddb();lddbStats()}
       if(p==="ds"){ldsc();ldcfg();ldck()}
       if(p==="pp")ldai();
       if(p==="set"){ldsite();ldca()}
@@ -2424,7 +2671,7 @@ Vue.createApp({
       if(tk.value){
         var h=location.hash.replace("#/","");
         gp(h||"st");
-        if(h==="hi")ldhi();else if(h==="tk"){ldts();ldtslogs()}else if(h==="tg"){ldtg();ldtgDisks()}else if(h==="cg")ldsrc();else if(h==="pp")ldai();else if(h==="ds"){ldsc();ldcfg();ldck()}else if(h==="set"){ldsite();ldca()}else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats();ldHotRankedIds()}else if(h==="bs"){}else{loadst();lddb();lddash();ldKw();ldts()}
+        if(h==="hi")ldhi();else if(h==="tk"){ldts();ldtslogs()}else if(h==="tg"){ldtg();ldtgDisks()}else if(h==="cg")ldsrc();else if(h==="ckw"){ldckw();ldckwStats()}else if(h==="dbm"){lddb();lddbStats()}else if(h==="pp")ldai();else if(h==="ds"){ldsc();ldcfg();ldck()}else if(h==="set"){ldsite();ldca()}else if(h==="rs"){ldres();ldsub();ldimp();ldrsCats();ldHotRankedIds()}else if(h==="bs"){}else{loadst();lddb();lddash();ldKw();ldts()}
       }
     });
     return {
@@ -2443,7 +2690,9 @@ Vue.createApp({
       tgDiskOpts,tgDiskSel,ldtgDisks,tgSvDisks,tgGen,tgGenRun,tgGenRes,tgGenPick,tgGenRunFn,tgRunGen,
       tsItems,tsLogs,tsShow,tsAdvShow,tsEditId,tsSaving,tsTypes,tsNew,tsSel,tsBatchRun,fmtInt,ldts,ldtslogs,tsSelChange,tstoggle,tsrun,tsRunBatch,tsNewShow,tsedit,tssave,tsdel,tsLogShow,tsLogTask,tsTaskLogs,tsLog,
       aiCfg,aiTst,aiTestMsg,aiTestOk,aiItems,aiScope,aiText,aiRun,aiErr,aiOut,aiPrompts,aiPromptKeys,aiPromptKey,aiPromptDraft,aiPromptSaving,aiPromptPick,aiPromptSave,aiPromptReset,ldai,svai,tstai,runai,aiOpen,aiCopy,
-      rsTabChange,tgTabChange,dsTabChange,setTabChange,tkTabChange,escapeHtml
+      rsTabChange,tgTabChange,dsTabChange,setTabChange,tkTabChange,escapeHtml,
+      ckwQ,ckw,ckwStats,ckwNew,ckwEdit,ckwSel,ckwImporting,ldckw,ldckwStats,ckwSearch,ckwReset,ckwSelChange,ckwAdd,ckwImpPreset,ckwImpHot,ckwBatchSet,ckwEditOpen,ckwEditSave,ckwDel,ckwToggle,ckwSourceName,ckwCatName,
+      dbQ,db,dbStats,dbSyncRunning,dbMatchRunning,lddb,lddbStats,dbSearch,dbReset,dbSync,dbMatch,dbDel,dbTypeName
     };
   }
 }).use(ElementPlus).mount("#aapp");

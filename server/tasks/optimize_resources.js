@@ -19,9 +19,9 @@ async function run(taskConfig, task) {
   var ac = await ai.getAiConfig();
   if (!ac.key) return { status: "failed", error: "AI Key 未配置（数据源配置 → AI 配置），跳过优化" };
 
-  // 处理对象：未优化 或 无描述 的资源（描述补全不依赖优化状态）
+  // 处理对象：未优化 或 无描述 的资源（描述补全不依赖优化状态）；跳过失效链接（link_valid=0）
   var unopt = await mysql.query(
-    "SELECT id FROM resources WHERE status=1 AND (optimized=0 OR description IS NULL OR TRIM(description)='') ORDER BY (description IS NULL OR TRIM(description)='') DESC, optimized ASC, id DESC LIMIT ?",
+    "SELECT id FROM resources WHERE status=1 AND (link_valid IS NULL OR link_valid=1) AND (optimized=0 OR description IS NULL OR TRIM(description)='') ORDER BY (description IS NULL OR TRIM(description)='') DESC, optimized ASC, id DESC LIMIT ?",
     [batch]);
   if (!unopt.length) return { status: "ok", resultMsg: "暂无未优化或缺失描述的资源（全部已处理）" };
 
@@ -76,7 +76,7 @@ async function run(taskConfig, task) {
     } catch (e) { errs.push(r.id + ": " + e.message); }
   }
   var rem = await mysql.query(
-    "SELECT COUNT(*) c FROM resources WHERE status=1 AND (optimized=0 OR description IS NULL OR TRIM(description)='')");
+    "SELECT COUNT(*) c FROM resources WHERE status=1 AND (link_valid IS NULL OR link_valid=1) AND (optimized=0 OR description IS NULL OR TRIM(description)='')");
   var dbDesc = descFill ? "，描述补" + (descFromDb + descFromAi) + " 条（豆瓣 " + descFromDb + "/AI " + descFromAi + "）" : "";
   var resultMsg = "本批处理 " + done + " 条（目标 " + batch + "）" + dbDesc + (errs.length ? "，失败 " + errs.length + " 条" : "") + "，剩余 " + rem[0].c + " 条（下轮继续）";
   return { status: done ? "ok" : "failed", resultMsg: resultMsg, error: errs.length ? errs[0] : "" };

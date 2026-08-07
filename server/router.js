@@ -19,6 +19,7 @@ const tg = require("./handlers/tg");
 const categories = require("./handlers/categories");
 const feedback = require("./handlers/feedback");
 const site = require("./handlers/site");
+const collect = require("./handlers/collect");
 
 async function handleRequest(req, res) {
   logger(req, res);
@@ -202,6 +203,24 @@ async function handleRequest(req, res) {
       if (urlPath === "/api/admin/categories" && method === "POST") return await categories.add(req, res);
       if (/^\/api\/admin\/categories\/\d+$/.test(urlPath) && method === "POST") return await categories.update(req, res);
       if (/^\/api\/admin\/categories\/\d+$/.test(urlPath) && method === "DELETE") return await categories.del(req, res);
+
+      // 采集词库（8-07 新增）
+      if (urlPath === "/api/admin/collect/keywords" && method === "GET") return await collect.kwList(req, res);
+      if (urlPath === "/api/admin/collect/keywords" && method === "POST") return await collect.kwAdd(req, res);
+      if (urlPath === "/api/admin/collect/keywords/stats" && method === "GET") return await collect.kwStats(req, res);
+      if (urlPath === "/api/admin/collect/keywords/import-preset" && method === "POST") return await collect.kwImportPreset(req, res);
+      if (urlPath === "/api/admin/collect/keywords/import-hot" && method === "POST") return await collect.kwImportHot(req, res);
+      if (urlPath === "/api/admin/collect/keywords/batch-status" && method === "POST") return await collect.kwBatchStatus(req, res);
+      if (/^\/api\/admin\/collect\/keywords\/\d+\/delete$/.test(urlPath) && method === "POST") return await collect.kwDelete(req, res);
+      if (/^\/api\/admin\/collect\/keywords\/\d+$/.test(urlPath) && method === "POST") return await collect.kwUpdate(req, res);
+
+      // 豆瓣资料库（8-07 新增）
+      if (urlPath === "/api/admin/douban" && method === "GET") return await collect.dbList(req, res);
+      if (urlPath === "/api/admin/douban/stats" && method === "GET") return await collect.dbStats(req, res);
+      if (urlPath === "/api/admin/douban/sync" && method === "POST") return await collect.dbSync(req, res);
+      if (urlPath === "/api/admin/douban/match" && method === "POST") return await collect.dbMatch(req, res);
+      if (/^\/api\/admin\/douban\/\d+\/delete$/.test(urlPath) && method === "POST") return await collect.dbDelete(req, res);
+      if (/^\/api\/admin\/douban\/\d+$/.test(urlPath) && method === "POST") return await collect.dbUpdate(req, res);
 
       json(res, 404, { error: "admin_route_not_found" });
       return;
