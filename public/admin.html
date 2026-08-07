@@ -1075,7 +1075,7 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
                 </div>
                 <div class="hint" style="margin-bottom:6px">首页自定义代码（Custom Head）</div>
                 <el-input v-model="site.site_custom_head" type="textarea" :rows="5" placeholder="&lt;script&gt;var _hmt=_hmt||[];...&lt;/script&gt;&#10;&lt;meta name=&quot;baidu-site-verification&quot; content=&quot;...&quot;&gt;" class="mono"></el-input>
-                <el-button type="primary" style="margin-top:14px" @click="svsite">保存配置</el-button>
+                <el-button type="primary" style="margin-top:14px" @click="svsite">保存配置</el-button><div class="panel-head" style="margin-top:22px">公告（首页顶部跑马灯，可关闭，最多 3 条）</div> <div v-for="(n,i) in site.site_notices" :key="'n'+i" style="display:flex;gap:8px;align-items:center;margin-bottom:8px"> <el-input v-model="n.content" placeholder="公告内容，多行会横向滚动" style="flex:1"></el-input> <el-switch v-model="n.enabled" :active-value="true" :inactive-value="false"></el-switch> <el-button size="small" @click="site.site_notices.splice(i,1)">删</el-button> </div> <el-button size="small" style="margin-bottom:18px" @click="site.site_notices.push({content:'',enabled:true})">+ 加公告</el-button> <div class="panel-head" style="margin-top:4px">广告位（4 个位置：首页 hero 下 / 首页热榜下 / 搜索页顶部 / 搜索页底部）</div> <div v-for="(ad,i) in site.site_ads" :key="'a'+i" style="border:1px solid var(--el-border-color);border-radius:8px;padding:10px;margin-bottom:10px"> <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap"> <el-select v-model="ad.position" style="width:150px"> <el-option label="首页 hero 下" value="home_hero"></el-option> <el-option label="首页热榜下" value="home_list"></el-option> <el-option label="搜索页顶部" value="search_top"></el-option> <el-option label="搜索页底部" value="search_bottom"></el-option> </el-select> <el-input v-model="ad.name" placeholder="广告名称（备注）" style="flex:1;min-width:120px"></el-input> <el-select v-model="ad.type" style="width:100px"> <el-option label="图片" value="image"></el-option> <el-option label="代码" value="code"></el-option> </el-select> <el-switch v-model="ad.enabled" :active-value="true" :inactive-value="false"></el-switch> <el-button size="small" @click="site.site_ads.splice(i,1)">删</el-button> </div> <el-input v-if="ad.type==='image'" v-model="ad.image" placeholder="图片 URL（建议宽 728）" style="margin-bottom:6px"></el-input> <el-input v-if="ad.type==='image'" v-model="ad.link" placeholder="跳转链接 https://..."></el-input> <el-input v-else v-model="ad.code" type="textarea" :rows="3" placeholder="HTML 代码（iframe/图片），尺寸自适应" class="mono"></el-input> </div> <el-button size="small" @click="site.site_ads.push({position:'home_hero',name:'',type:'image',image:'',link:'',code:'',enabled:true})">+ 加广告</el-button>
               </div>
               <div class="panel">
                 <div class="panel-head">生效说明</div>
@@ -1309,7 +1309,7 @@ Vue.createApp({
     var ckFm=rct({id:0,provider:"quark",name:"",cookie:""});
     var ckT=rct({running:false,ok:null,detail:""});
     var cfg=rct({pansouBases:[]});
-    var site=rct({site_name:"云盘搜",site_keywords:"",site_description:"",site_favicon:"",site_custom_head:""});
+    var site=rct({site_name:"云盘搜",site_keywords:"",site_description:"",site_favicon:"",site_custom_head:"",site_notices:[],site_ads:[]});
     var cache=rct({total:0,quark:0,baidu:0});
     var hi=rf([]);
     var hiSel=rf([]);

@@ -18,6 +18,7 @@ const tasks = require("./handlers/tasks");
 const tg = require("./handlers/tg");
 const categories = require("./handlers/categories");
 const feedback = require("./handlers/feedback");
+const site = require("./handlers/site");
 
 async function handleRequest(req, res) {
   logger(req, res);
@@ -58,6 +59,10 @@ async function handleRequest(req, res) {
     if (urlPath === "/api/hot/site" && method === "GET") return await hot.getSiteInfo(req, res);
     // 失效反馈（公开提交，无需登录）
     if (urlPath === "/api/feedback" && method === "POST") return await feedback.submit(req, res);
+
+    // 前台公告 + 广告位（公开读取）
+    if (urlPath === "/api/site/notice" && method === "GET") return await site.getNotices(req, res);
+    if (urlPath === "/api/site/ads" && method === "GET") return await site.getAds(req, res);
 
     // Search keyword record (front-end fire-and-forget)
     if (urlPath === "/api/search/record" && method === "POST") return await hot.recordSearch(req, res);
@@ -252,8 +257,8 @@ async function handleRequest(req, res) {
       try {
         var html2 = fs2.readFileSync(fp2, "utf8");
         var store2 = require("../lib/store");
-        var site = await store2.getSiteConfig().catch(function () { return null; });
-        var out = injectSiteMeta(html2, site || {});
+        var siteCfg = await store2.getSiteConfig().catch(function () { return null; });
+        var out = injectSiteMeta(html2, siteCfg || {});
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
         res.end(out);
       } catch (e) {
