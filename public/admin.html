@@ -934,7 +934,7 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
                 <el-table-column prop="id" label="ID" width="56"></el-table-column>
                 <el-table-column label="名称" min-width="130"><template #default="s">
                   <el-input v-if="scEditId===s.id" v-model="scNameDraft" size="small" style="width:130px" @keyup.enter="scSaveName(s.row)" @blur="scSaveName(s.row)"></el-input>
-                  <a v-else href="javascript:void(0)" @click="scEditName(s.row)" style="color:#303133;text-decoration:none;font-weight:600">{{s.row.name}} <span style="color:#909399;font-size:11px">✎</span></a>
+                  <a v-else href="javascript:void(0)" @click="scEditId=s.id;scNameDraft=s.name" style="color:#303133;text-decoration:none;font-weight:600">{{s.row.name}} <span style="color:#909399;font-size:11px">✎</span></a>
                 </template></el-table-column>
                 <el-table-column label="类型" width="80"><template #default="s"><el-tag size="small" type="info" effect="plain">{{s.row.type==='browser'?'浏览器':'API'}}</el-tag></template></el-table-column>
                 <el-table-column prop="desc" label="说明" min-width="140" show-overflow-tooltip></el-table-column>
@@ -1779,7 +1779,6 @@ Vue.createApp({
     }
     var scEditId=rf("");
     var scNameDraft=rf("");
-    function scEditName(s){scEditId.value=s.id;scNameDraft.value=s.name}
     function scSaveName(s){
       if(scEditId.value!==s.id)return;
       var n=scNameDraft.value.trim();
@@ -2402,7 +2401,7 @@ Vue.createApp({
       fbQ,fbItems,ldFb,fbHandle,
       rsLinkInfo,rsCheckOne,rsCheckBatch,rsCheckBatchRunning,
       ctItems,ctNew,ctEditId,ctSel,ctSelChange,ldct,ctadd,ctedit,ctCancel,ctst,ctdel,ctDelBatch,
-      scItems,ldsc,scToggle,scDiskOpts,scDisk,scEditId,scNameDraft,scEditName,scSaveName,
+      scItems,ldsc,scToggle,scDiskOpts,scDisk,scEditId,scNameDraft,scSaveName,
       tgTab,setTab,dsTab,tkTab,tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,tgTesting,ldtg,ldtgSet,tgSv,tgAddIns,tgDelIns,tgSetDefault,tgTestOne,tgTestIns,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
       tgDiskOpts,tgDiskSel,ldtgDisks,tgSvDisks,tgGen,tgGenRun,tgGenRes,tgGenPick,tgGenRunFn,tgRunGen,
       tsItems,tsLogs,tsShow,tsAdvShow,tsEditId,tsSaving,tsTypes,tsNew,tsSel,tsBatchRun,fmtInt,ldts,ldtslogs,tsSelChange,tstoggle,tsrun,tsRunBatch,tsNewShow,tsedit,tssave,tsdel,tsLogShow,tsLogTask,tsTaskLogs,tsLog,
