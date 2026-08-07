@@ -265,6 +265,23 @@ async function getConfig(req, res) {
   json(res, 200, { pansouBases: await store.getPansouBases() });
 }
 
+// 盘搜 API 连通性测试：逐个 Host 发请求测延迟（ms）
+async function testPansou(req, res) {
+  try {
+    var bases = await store.getPansouBases();
+    var results = await Promise.all((bases || []).map(async function (h) {
+      var t0 = Date.now();
+      try {
+        var pr = await fetchHttps(h.host, "/api/search?q=test&limit=1", { "User-Agent": "Mozilla/5.0 (compatible; PansouTest)" });
+        return { name: h.name, host: h.host, status: pr.status, ms: Date.now() - t0, ok: pr.status < 500 };
+      } catch (e) {
+        return { name: h.name, host: h.host, status: 0, ms: Date.now() - t0, ok: false, error: e.message };
+      }
+    }));
+    json(res, 200, { results: results });
+  } catch (e) { json(res, 500, { error: e.message }); }
+}
+
 // 仪表盘聚合：资源统计 + 转存统计 + 热搜词数 + 最近转存
 async function dashboard(req, res) {
   try {
@@ -450,4 +467,4 @@ async function resourceExport(req, res) {
   } catch (e) { json(res, 500, { error: e.message }); }
 }
 
-module.exports = { login, logout, status, saveCookies, testCookies, cookieTest, cookieList, cookieAdd, cookieUpdate, cookieDelete, cookieTestById, getCookieSummary, getConfig, saveConfig, cacheInfo, clearCache, changePassword, dbStatus, dashboard, getSiteConfig, saveSiteConfig, getDbConfig, saveDbConfig, configExport, configImport, resourceExport };
+module.exports = { login, logout, status, saveCookies, testCookies, testCookieValue, cookieTest, cookieList, cookieAdd, cookieUpdate, cookieDelete, cookieTestById, getCookieSummary, getConfig, testPansou, saveConfig, cacheInfo, clearCache, changePassword, dbStatus, dashboard, getSiteConfig, saveSiteConfig, getDbConfig, saveDbConfig, configExport, configImport, resourceExport };

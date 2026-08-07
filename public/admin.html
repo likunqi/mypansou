@@ -969,6 +969,15 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
                 </div>
                 <el-button size="small" style="margin-bottom:14px" @click="pbAdd">+ 添加 Host</el-button>
                 <el-button type="primary" style="margin-left:8px" @click="svcfg">保存</el-button>
+                <el-button size="small" style="margin-left:8px" @click="pbTest" :loading="pbTesting">测试连通性</el-button>
+                <div v-if="pbTestResults.length" style="margin-top:10px">
+                  <div v-for="(r,i) in pbTestResults" :key="i" style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px">
+                    <span :style="{color:r.ok?'var(--el-color-success)':'var(--el-color-danger)'}">{{r.ok?'●':'○'}}</span>
+                    <span style="color:var(--el-text-color-secondary)">{{r.name||r.host}}</span>
+                    <el-tag v-if="r.ok" size="small" type="success">HTTP {{r.status}} · {{r.ms}}ms</el-tag>
+                    <el-tag v-else size="small" type="danger">{{r.error||('HTTP '+(r.status||'超时'))}} · {{r.ms}}ms</el-tag>
+                  </div>
+                </div>
                 <div class="hint">格式：host 或 host:port 或 http(s)://host[:port]；请求时按权重随机选启用 Host，失败自动切换下一个</div>
               </div>
               <div class="panel">
@@ -2284,6 +2293,19 @@ Vue.createApp({
     function svcfg(){ap("POST","config",{pansouBases:cfg.pansouBases}).then(function(r){msg(r.ok?"配置已保存":"保存失败",r.ok?"s":"e");if(r.ok)ldcfg()})}
     function pbAdd(){cfg.pansouBases.push({name:"",host:"",enabled:true,weight:1})}
     function pbDel(i){cfg.pansouBases.splice(i,1)}
+    var pbTesting=rf(false);
+    var pbTestResults=rf([]);
+    function pbTest(){
+      var hosts=cfg.pansouBases.filter(function(h){return h&&h.host});
+      if(!hosts.length){msg("请先添加 Host","e");return}
+      pbTesting.value=true;
+      pbTestResults.value=hosts.map(function(h){return{name:h.name,host:h.host,ok:false,ms:0,error:"测试中..."}});
+      ap("POST","pansou/test",{}).then(function(r){
+        pbTesting.value=false;
+        if(r&&r.results){pbTestResults.value=r.results;msg("连通性测试完成","s")}
+        else msg(r&&r.error||"测试失败","e");
+      }).catch(function(){pbTesting.value=false;msg("测试请求失败","e")});
+    }
     function ldsite(){ap("GET","siteconfig").then(function(r){if(r.site_name)Object.assign(site,r)})}
     function svsite(){ap("POST","siteconfig",site).then(function(r){msg(r.ok?"站点配置已保存（首页立即生效）":"保存失败",r.ok?"s":"e")})}var cbDraft=rct({name:"",code:"",position:"head_end",scope:"all",enabled:true});function cbAdd(){var n=cbDraft.name.trim();var c=cbDraft.code.trim();if(!n){msg("请填写名称","e");return}if(!c){msg("请填写代码内容","e");return}site.site_custom_blocks.push({name:n,code:c,position:cbDraft.position,scope:cbDraft.scope,enabled:true});cbDraft.name="";cbDraft.code="";msg("已添加，点上方「保存配置」生效")}
     // ---- MySQL 连接配置（set 页 dbcfg tab） ----
@@ -2406,7 +2428,7 @@ Vue.createApp({
       }
     });
     return {
-      tk,pg,ldg,lp,le,d,ckItems,ckLoaded,ckFm,ckT,ldck,ckStat,ckNew,ckEdit,ckTest,ckTestRow,ckSave,ckDel,ckToggle,cfg,pbAdd,pbDel,site,ldsite,svsite,cbDraft,cbAdd,cache,hi,hiSel,hiSelChange,hiDel,hiClr,dbInfo,dash,dashBars,lddash,pw,curMenu,menus,msg,gp,login,logout:lgout,lgout,loadst,lddb,ldhi,fmtTime,ldcfg,svcfg,ldca,clr,chpw,
+      tk,pg,ldg,lp,le,d,ckItems,ckLoaded,ckFm,ckT,ldck,ckStat,ckNew,ckEdit,ckTest,ckTestRow,ckSave,ckDel,ckToggle,cfg,pbAdd,pbDel,pbTesting,pbTestResults,pbTest,site,ldsite,svsite,cbDraft,cbAdd,cache,hi,hiSel,hiSelChange,hiDel,hiClr,dbInfo,dash,dashBars,lddash,pw,curMenu,menus,msg,gp,login,logout:lgout,lgout,loadst,lddb,ldhi,fmtTime,ldcfg,svcfg,ldca,clr,chpw,
       dbCfg,dbSaving,ldDbCfg,svDbCfg,cfgImportData,cfgImportName,cfgImportLog,cfgExport,cfgImportPick,cfgImportPick2,cfgImport,
       rsTab,rsQ,res,rsDlgShow,rsEditId,rsSaving,rsAdd,rsCats,rsSel,rsSelChange,rowCls,rsSearch,rsReset,rsPage,ldrsCats,rsOpenDlg,rsadd,rsdel,rsDelBatch,rsExport,rsOptRunning,rsForceOpt,rsOptAllRunning,rsOptOne,rsOptBatch,rsOptAll,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crSelName,crShow,crSaving,crNewShow,crPick,crAiRule,crSelRows,crSelRowsChange,crBatchDel,crBatchAi,crBatchAiRun,crRules,crRuleStats,crNew,crRuleNew,
       srcName,fmtT,ldres,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,rsDiskName,

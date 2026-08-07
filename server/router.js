@@ -106,6 +106,7 @@ async function handleRequest(req, res) {
       if (/^\/api\/admin\/cookies\/\d+$/.test(urlPath) && method === "POST") return await admin.cookieUpdate(req, res);
       if (urlPath === "/api/admin/config" && method === "GET") return await admin.getConfig(req, res);
       if (urlPath === "/api/admin/config" && method === "POST") return await admin.saveConfig(req, res);
+      if (urlPath === "/api/admin/pansou/test" && method === "POST") return await admin.testPansou(req, res);
       if (urlPath === "/api/admin/cache" && method === "GET") return await admin.cacheInfo(req, res);
       if (urlPath === "/api/admin/cache/clear" && method === "POST") return await admin.clearCache(req, res);
       if (urlPath === "/api/admin/db" && method === "GET") return await admin.dbStatus(req, res);
