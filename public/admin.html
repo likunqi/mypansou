@@ -182,7 +182,7 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
   <div class="login-card">
     <div class="login-logo">云</div>
     <div class="login-title">云盘搜 · 后台管理</div>
-    <el-input v-model="lp" type="password" placeholder="admin123" show-password size="large" @keyup.enter="login" autofocus></el-input>
+    <el-input v-model="lp" type="password" placeholder="登录密码" show-password size="large" @keyup.enter="login" autofocus></el-input>
     <el-button type="primary" size="large" style="width:100%;margin-top:14px" :loading="ldg" @click="login">{{ldg?'登录中…':'登 录'}}</el-button>
     <div v-if="le" class="login-err">{{le}}</div>
   </div>

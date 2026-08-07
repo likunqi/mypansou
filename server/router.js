@@ -1,6 +1,7 @@
-const { cors, json, serveStatic, logger } = require("./middleware");
+const { cors, json, serveStatic, logger, getClientIp, injectSiteMeta } = require("./middleware");
 const { initData } = require("../lib/storage");
 const auth = require("../lib/auth");
+const rateLimit = require("../lib/rate-limit");
 
 const pansou = require("./handlers/pansou");
 const hot = require("./handlers/hot");
@@ -22,8 +23,30 @@ async function handleRequest(req, res) {
   logger(req, res);
   var method = req.method, url = req.url;
   var urlPath = new URL(url, "http://" + req.headers.host).pathname;
+  res._req = req; // 供 json()/pansou 做 CORS 同源白名单判断
 
   if (method === "OPTIONS") return cors(req, res);
+
+  // ---- 公开接口 IP 限流（上线加固，防刷）----
+  var ip = getClientIp(req);
+  var lim = null;
+  if (urlPath === "/api/submit/resource" && method === "POST") lim = ["submit", 5];
+  else if (urlPath === "/api/feedback" && method === "POST") lim = ["feedback", 10];
+  else if (urlPath === "/api/search/record" && method === "POST") lim = ["record", 30];
+  else if (urlPath === "/api/check/links" && method === "POST") lim = ["check", 20];
+  else if (urlPath === "/api/check/local" && method === "POST") lim = ["check", 20];
+  else if (urlPath === "/api/transfer/save" && method === "POST") lim = ["transfer", 5];
+  else if (urlPath === "/api/transfer/history" && method === "GET") lim = ["transfer_hist", 20];
+  else if (urlPath === "/api/transfer/history/delete" && method === "POST") lim = ["transfer_hist", 10];
+  else if (urlPath === "/api/transfer/history/clear" && method === "POST") lim = ["transfer_hist", 10];
+  else if (urlPath.startsWith("/api/pansou/") && method === "GET") lim = ["pansou", 60];
+  if (lim) {
+    var rl = rateLimit.limit(ip, lim[0], lim[1]);
+    if (!rl.ok) {
+      json(res, 429, { error: "rate_limited", retryAfter: rl.retryAfter, message: "操作太频繁，请 " + rl.retryAfter + " 秒后再试" });
+      return;
+    }
+  }
 
   try {
     // Hot trending
@@ -178,22 +201,68 @@ async function handleRequest(req, res) {
       return;
     }
 
-    // Search page
+    // robots.txt（动态生成，Sitemap 指向当前域名）
+    if (urlPath === "/robots.txt" && method === "GET") {
+      var host = req.headers.host || "localhost";
+      var proto = String(req.headers["x-forwarded-proto"] || "http").split(",")[0].trim() === "https" ? "https" : "http";
+      var base = proto + "://" + host;
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" });
+      res.end(
+        "User-agent: *\n" +
+        "Allow: /\n" +
+        "Disallow: /api/\n" +
+        "Disallow: /admin.html\n" +
+        "Disallow: /bigscreen.html\n" +
+        "Sitemap: " + base + "/sitemap.xml\n"
+      );
+      return;
+    }
+
+    // sitemap.xml：首页 + 搜索页 + 热门资源标题搜索 URL（从资源库取，500 条内）
+    if (urlPath === "/sitemap.xml" && method === "GET") {
+      var host2 = req.headers.host || "localhost";
+      var proto2 = String(req.headers["x-forwarded-proto"] || "http").split(",")[0].trim() === "https" ? "https" : "http";
+      var base2 = proto2 + "://" + host2;
+      var items = [{ loc: base2 + "/", pri: "1.0", freq: "daily" }, { loc: base2 + "/search", pri: "0.9", freq: "daily" }];
+      try {
+        var mysql2 = require("../lib/mysql");
+        var rows = await mysql2.query(
+          "SELECT title FROM resources WHERE status=1 AND title IS NOT NULL AND title<>'' ORDER BY search_count DESC, id DESC LIMIT 400"
+        );
+        (rows || []).forEach(function (r) {
+          var q = encodeURIComponent(String(r.title).trim());
+          items.push({ loc: base2 + "/search?q=" + q, pri: "0.6", freq: "weekly" });
+        });
+      } catch (e) { /* MySQL 不可用则只输出基础 URL */ }
+      var xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+      items.forEach(function (it) {
+        xml += "  <url><loc>" + it.loc + "</loc><changefreq>" + it.freq + "</changefreq><priority>" + it.pri + "</priority></url>\n";
+      });
+      xml += "</urlset>\n";
+      res.writeHead(200, { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" });
+      res.end(xml);
+      return;
+    }
+
+    // Search page（动态注入 TDK，SEO）
     if (urlPath === "/search" && method === "GET") {
       var fs2 = require("fs");
       var p2 = require("path");
       var fp2 = p2.join(__dirname, "..", "public", "search.html");
       try {
         var html2 = fs2.readFileSync(fp2, "utf8");
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(html2);
+        var store2 = require("../lib/store");
+        var site = await store2.getSiteConfig().catch(function () { return null; });
+        var out = injectSiteMeta(html2, site || {});
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(out);
       } catch (e) {
         json(res, 404, { error: "search_page_not_found" });
       }
       return;
     }
 
-        // Static files / SPA fallback
+    // Static files
     serveStatic(res, urlPath);
   } catch (e) {
     console.error("Unhandled:", e.stack || e.message);

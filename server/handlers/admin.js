@@ -4,12 +4,25 @@ const auth = require("../../lib/auth");
 const store = require("../../lib/store");
 const mysql = require("../../lib/mysql");
 
+// 取客户端真实 IP：优先 X-Forwarded-For（Cloudflare Tunnel 场景），回退 socket 地址
+function getClientIp(req) {
+  var xff = req.headers["x-forwarded-for"];
+  if (xff) {
+    var first = String(xff).split(",")[0].trim();
+    if (first) return first;
+  }
+  return (req.socket && req.socket.remoteAddress) || "?";
+}
+
 async function login(req, res) {
   try {
+    var ip = getClientIp(req);
+    var lock = auth.loginLocked(ip);
+    if (lock > 0) { json(res, 429, { error: "too_many_attempts", retryAfter: lock, message: "尝试次数过多，请 " + lock + " 秒后再试" }); return; }
     var b = JSON.parse(await readBody(req));
     var adminData = await store.getAdmin();
-    var t = auth.login(b.password, adminData.password);
-    json(res, t ? 200 : 401, t ? { token: t } : { error: "wrong_password" });
+    var t = auth.login(b.password, adminData.password, ip);
+    json(res, t ? 200 : 401, t ? { token: t } : { error: "wrong_password", message: "密码错误" });
   } catch (e) { json(res, 400, { error: e.message }); }
 }
 

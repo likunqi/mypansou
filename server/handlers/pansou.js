@@ -1,4 +1,4 @@
-﻿const { fetchHttps, json } = require("../middleware");
+﻿const { fetchHttps, json, corsOrigin } = require("../middleware");
 const store = require("../../lib/store");
 
 async function proxyPansou(req, res) {
@@ -32,7 +32,10 @@ async function proxyPansou(req, res) {
         });
         if (typeof parsed.data.total === "number") parsed.data.total = ntotal;
       }
-      res.writeHead(pr.status, { "Content-Type": "application/json; charset=utf-8", "Access-Control-Allow-Origin": "*" });
+      var h = { "Content-Type": "application/json; charset=utf-8" };
+      var o = res._req ? corsOrigin(res._req) : null;
+      if (o) h["Access-Control-Allow-Origin"] = o;
+      res.writeHead(pr.status, h);
       res.end(JSON.stringify(parsed));
       return;
     } catch (e) {

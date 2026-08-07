@@ -15,7 +15,7 @@ _diag*.txt
 git_msg.txt
 .workbuddy/
 docs/_archive/
-scripts/_tmp_*.js
+scripts/_tmp_*
 
 # 本地备份
 *.bak_*

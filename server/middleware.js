@@ -12,8 +12,34 @@ const MIME = {
   ".gif":  "image/gif", ".svg": "image/svg+xml", ".ico": "image/x-icon",
 };
 
+// 取客户端真实 IP：优先 X-Forwarded-For（Cloudflare Tunnel 场景），回退 socket 地址
+function getClientIp(req) {
+  var xff = req.headers["x-forwarded-for"];
+  if (xff) {
+    var first = String(xff).split(",")[0].trim();
+    if (first) return first;
+  }
+  return (req.socket && req.socket.remoteAddress) || "?";
+}
+
+// CORS 白名单收紧：仅同源请求回显 Origin（上线加固，原为 * 全开放）。
+// 同源 fetch 无需 CORS 头；跨域（其他网站脚本）不返回 CORS 头会被浏览器拦截。
+function corsOrigin(req) {
+  var origin = req.headers["origin"];
+  if (!origin) return null;
+  try {
+    var o = new URL(origin);
+    var h = String(req.headers["host"] || "").toLowerCase();
+    if (o.host === h) return origin;
+  } catch (e) {}
+  return null;
+}
+
 function json(res, status, data) {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Access-Control-Allow-Origin": "*" });
+  var h = { "Content-Type": "application/json; charset=utf-8" };
+  var o = res._req ? corsOrigin(res._req) : null;
+  if (o) h["Access-Control-Allow-Origin"] = o;
+  res.writeHead(status, h);
   res.end(JSON.stringify(data));
 }
 
@@ -83,28 +109,26 @@ function serveStatic(res, urlPath) {
   var cacheCtl = ext === ".html" ? "no-cache" : "public, max-age=3600";
   fs.readFile(fp, function(err, data) {
     if (err) {
-      fs.readFile(path.join(__dirname, "..", "public", "index.html"), function(err2, data2) {
-        if (err2) return json(res, 404, { error: "Not Found" });
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-        res.end(data2);
-      });
-    } else {
-      // 首页/根路径做站点配置注入（TDK/favicon/自定义代码）
-      if (ext === ".html" && (norm === "/" || norm === "index.html")) {
-        const store = require("../lib/store");
-        store.getSiteConfig().then(function(site) {
-          var out = injectSiteMeta(data.toString("utf8"), site);
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-          res.end(out);
-        }).catch(function() {
-          res.writeHead(200, { "Content-Type": ct, "Cache-Control": cacheCtl });
-          res.end(data);
-        });
-        return;
-      }
-      res.writeHead(200, { "Content-Type": ct, "Cache-Control": cacheCtl });
-      res.end(data);
+      // SEO 优化：不存在时返回真正的 404（原实现回退首页，搜索引擎会误收录）
+      res.writeHead(404, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end('<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>404 - 页面不存在</title></head><body style="font-family:sans-serif;background:#0F172A;color:#F8FAFC;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0"><div style="text-align:center"><h1 style="font-size:48px;margin:0">404</h1><p style="color:#94A3B8">页面不存在或已被移除</p><a href="/" style="color:#22C55E;text-decoration:none;margin-top:16px;display:inline-block">返回首页 →</a></div></body></html>');
+      return;
     }
+    // 首页/根路径做站点配置注入（TDK/favicon/自定义代码）
+    if (ext === ".html" && (norm === "/" || norm === "index.html")) {
+      const store = require("../lib/store");
+      store.getSiteConfig().then(function(site) {
+        var out = injectSiteMeta(data.toString("utf8"), site);
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(out);
+      }).catch(function() {
+        res.writeHead(200, { "Content-Type": ct, "Cache-Control": cacheCtl });
+        res.end(data);
+      });
+      return;
+    }
+    res.writeHead(200, { "Content-Type": ct, "Cache-Control": cacheCtl });
+    res.end(data);
   });
 }
 
@@ -128,8 +152,11 @@ function logger(req, res) {
 }
 
 function cors(req, res) {
-  res.writeHead(204, { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization", "Access-Control-Max-Age": "86400" });
+  var h = { "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization", "Access-Control-Max-Age": "86400" };
+  var o = corsOrigin(req);
+  if (o) h["Access-Control-Allow-Origin"] = o;
+  res.writeHead(204, h);
   res.end();
 }
 
-module.exports = { MIME, json, readBody, fetchHttps, serveStatic, cors, logger };
+module.exports = { MIME, json, readBody, fetchHttps, serveStatic, cors, logger, getClientIp, corsOrigin, injectSiteMeta };
