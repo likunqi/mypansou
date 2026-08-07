@@ -932,10 +932,7 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
               </div>
               <el-table :data="scItems" size="small">
                 <el-table-column prop="id" label="ID" width="56"></el-table-column>
-                <el-table-column label="名称" min-width="130"><template #default="s">
-                  <el-input v-if="scEditId===s.id" v-model="scNameDraft" size="small" style="width:130px" @keyup.enter="scSaveName(s.row)" @blur="scSaveName(s.row)"></el-input>
-                  <a v-else href="javascript:void(0)" @click="scEditId=s.id;scNameDraft=s.name" style="color:#303133;text-decoration:none;font-weight:600">{{s.row.name}} <span style="color:#909399;font-size:11px">✎</span></a>
-                </template></el-table-column>
+                <el-table-column prop="name" label="名称" min-width="130" show-overflow-tooltip></el-table-column>
                 <el-table-column label="类型" width="80"><template #default="s"><el-tag size="small" type="info" effect="plain">{{s.row.type==='browser'?'浏览器':'API'}}</el-tag></template></el-table-column>
                 <el-table-column prop="desc" label="说明" min-width="140" show-overflow-tooltip></el-table-column>
                 <el-table-column label="网盘限制" min-width="300"><template #default="s">
@@ -944,7 +941,16 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
                 </template></el-table-column>
                 <el-table-column label="状态" width="70"><template #default="s"><el-tag size="small" :type="s.row.enabled?'success':'info'">{{s.row.enabled?'启用':'停用'}}</el-tag></template></el-table-column>
                 <el-table-column label="启停" width="70"><template #default="s"><el-switch v-model="s.row.enabled" size="small" :active-value="1" :inactive-value="0" @change="(v)=>scToggle(s.row,v)"></el-switch></template></el-table-column>
+                <el-table-column label="操作" width="80"><template #default="s"><el-button size="small" type="primary" plain @click="scEditOpen(s.row)">修改</el-button></template></el-table-column>
               </el-table>
+              <el-dialog v-model="scEditShow" title="修改搜索源名称" width="420px" append-to-body>
+                <div style="margin-bottom:10px;color:#909399;font-size:12px">源 ID：<code>{{scEditForm.id}}</code></div>
+                <el-input v-model="scEditForm.name" placeholder="请输入新的源名称" maxlength="20" @keyup.enter="scEditSave"></el-input>
+                <template #footer>
+                  <el-button @click="scEditShow=false">取消</el-button>
+                  <el-button type="primary" :loading="scEditSaving" @click="scEditSave">保存</el-button>
+                </template>
+              </el-dialog>
               <div class="hint" style="margin-top:10px">「网盘限制」点击切换（选中=只保留该网盘结果，空=全部）；新增搜索源需在代码里注册（lib/sources/registry.js）。</div>
             </div>
           </el-tab-pane>
@@ -1075,7 +1081,7 @@ body{background:linear-gradient(180deg,#eeebfb 0%,#f6f4fe 42%,#f2f6fd 100%)}
                 </div>
                 <div class="hint" style="margin-bottom:6px">首页自定义代码（Custom Head）</div>
                 <el-input v-model="site.site_custom_head" type="textarea" :rows="5" placeholder="&lt;script&gt;var _hmt=_hmt||[];...&lt;/script&gt;&#10;&lt;meta name=&quot;baidu-site-verification&quot; content=&quot;...&quot;&gt;" class="mono"></el-input>
-                <el-button type="primary" style="margin-top:14px" @click="svsite">保存配置</el-button><div class="panel-head" style="margin-top:22px">公告（首页顶部跑马灯，可关闭，最多 3 条）</div> <div v-for="(n,i) in site.site_notices" :key="'n'+i" style="display:flex;gap:8px;align-items:center;margin-bottom:8px"> <el-input v-model="n.content" placeholder="公告内容，多行会横向滚动" style="flex:1"></el-input> <el-switch v-model="n.enabled" :active-value="true" :inactive-value="false"></el-switch> <el-button size="small" @click="site.site_notices.splice(i,1)">删</el-button> </div> <el-button size="small" style="margin-bottom:18px" @click="site.site_notices.push({content:'',enabled:true})">+ 加公告</el-button> <div class="panel-head" style="margin-top:4px">广告位（4 个位置：首页 hero 下 / 首页热榜下 / 搜索页顶部 / 搜索页底部）</div> <div v-for="(ad,i) in site.site_ads" :key="'a'+i" style="border:1px solid var(--el-border-color);border-radius:8px;padding:10px;margin-bottom:10px"> <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap"> <el-select v-model="ad.position" style="width:150px"> <el-option label="首页 hero 下" value="home_hero"></el-option> <el-option label="首页热榜下" value="home_list"></el-option> <el-option label="搜索页顶部" value="search_top"></el-option> <el-option label="搜索页底部" value="search_bottom"></el-option> </el-select> <el-input v-model="ad.name" placeholder="广告名称（备注）" style="flex:1;min-width:120px"></el-input> <el-select v-model="ad.type" style="width:100px"> <el-option label="图片" value="image"></el-option> <el-option label="代码" value="code"></el-option> </el-select> <el-switch v-model="ad.enabled" :active-value="true" :inactive-value="false"></el-switch> <el-button size="small" @click="site.site_ads.splice(i,1)">删</el-button> </div> <el-input v-if="ad.type==='image'" v-model="ad.image" placeholder="图片 URL（建议宽 728）" style="margin-bottom:6px"></el-input> <el-input v-if="ad.type==='image'" v-model="ad.link" placeholder="跳转链接 https://..."></el-input> <el-input v-else v-model="ad.code" type="textarea" :rows="3" placeholder="HTML 代码（iframe/图片），尺寸自适应" class="mono"></el-input> </div> <el-button size="small" @click="site.site_ads.push({position:'home_hero',name:'',type:'image',image:'',link:'',code:'',enabled:true})">+ 加广告</el-button>
+                <el-button type="primary" style="margin-top:14px" @click="svsite">保存配置</el-button><div class="panel-head" style="margin-top:22px">自定义代码块（统计/客服浮窗/广告等统一管理）</div><div class="hint" style="margin-bottom:8px">位置：头部顶部/底部=放脚本样式不显示；正文顶部=横幅；页脚=可显示元素（如访问量）。范围：仅首页 / 全站。</div><div v-for="(cb,i) in site.site_custom_blocks" :key="'cb'+i" style="border:1px solid #e4e7ed;border-radius:8px;padding:10px;margin-bottom:10px"><div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap"><el-input v-model="cb.name" placeholder="名称（如：不蒜子统计）" style="width:160px" size="small"></el-input><el-select v-model="cb.position" size="small" style="width:118px"><el-option label="头部顶部" value="head_start"></el-option><el-option label="头部底部" value="head_end"></el-option><el-option label="正文顶部" value="body_start"></el-option><el-option label="页脚" value="body_end"></el-option></el-select><el-select v-model="cb.scope" size="small" style="width:100px"><el-option label="仅首页" value="home"></el-option><el-option label="全站" value="all"></el-option></el-select><el-switch v-model="cb.enabled" :active-value="true" :inactive-value="false" title="启用"></el-switch><el-button size="small" type="danger" plain @click="site.site_custom_blocks.splice(i,1)">删</el-button></div><el-input v-model="cb.code" type="textarea" :rows="3" class="mono" placeholder="&lt;script&gt;...&lt;/script&gt; 或 &lt;span&gt;...&lt;/span&gt;"></el-input></div><div class="hint" style="margin-bottom:6px">新增代码块</div><div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap"><el-input v-model="cbDraft.name" placeholder="名称" style="width:160px" size="small"></el-input><el-select v-model="cbDraft.position" size="small" style="width:118px"><el-option label="头部顶部" value="head_start"></el-option><el-option label="头部底部" value="head_end"></el-option><el-option label="正文顶部" value="body_start"></el-option><el-option label="页脚" value="body_end"></el-option></el-select><el-select v-model="cbDraft.scope" size="small" style="width:100px"><el-option label="仅首页" value="home"></el-option><el-option label="全站" value="all"></el-option></el-select></div><el-input v-model="cbDraft.code" type="textarea" :rows="3" class="mono" placeholder="粘贴 HTML/脚本代码（原样注入）"></el-input><el-button size="small" style="margin-top:8px" @click="cbAdd">+ 添加</el-button><div class="panel-head" style="margin-top:22px">公告（首页顶部跑马灯，可关闭，最多 3 条）</div> <div v-for="(n,i) in site.site_notices" :key="'n'+i" style="display:flex;gap:8px;align-items:center;margin-bottom:8px"> <el-input v-model="n.content" placeholder="公告内容，多行会横向滚动" style="flex:1"></el-input> <el-switch v-model="n.enabled" :active-value="true" :inactive-value="false"></el-switch> <el-button size="small" @click="site.site_notices.splice(i,1)">删</el-button> </div> <el-button size="small" style="margin-bottom:18px" @click="site.site_notices.push({content:'',enabled:true})">+ 加公告</el-button> <div class="panel-head" style="margin-top:4px">广告位（4 个位置：首页 hero 下 / 首页热榜下 / 搜索页顶部 / 搜索页底部）</div> <div v-for="(ad,i) in site.site_ads" :key="'a'+i" style="border:1px solid var(--el-border-color);border-radius:8px;padding:10px;margin-bottom:10px"> <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap"> <el-select v-model="ad.position" style="width:150px"> <el-option label="首页 hero 下" value="home_hero"></el-option> <el-option label="首页热榜下" value="home_list"></el-option> <el-option label="搜索页顶部" value="search_top"></el-option> <el-option label="搜索页底部" value="search_bottom"></el-option> </el-select> <el-input v-model="ad.name" placeholder="广告名称（备注）" style="flex:1;min-width:120px"></el-input> <el-select v-model="ad.type" style="width:100px"> <el-option label="图片" value="image"></el-option> <el-option label="代码" value="code"></el-option> </el-select> <el-switch v-model="ad.enabled" :active-value="true" :inactive-value="false"></el-switch> <el-button size="small" @click="site.site_ads.splice(i,1)">删</el-button> </div> <el-input v-if="ad.type==='image'" v-model="ad.image" placeholder="图片 URL（建议宽 728）" style="margin-bottom:6px"></el-input> <el-input v-if="ad.type==='image'" v-model="ad.link" placeholder="跳转链接 https://..."></el-input> <el-input v-else v-model="ad.code" type="textarea" :rows="3" placeholder="HTML 代码（iframe/图片），尺寸自适应" class="mono"></el-input> </div> <el-button size="small" @click="site.site_ads.push({position:'home_hero',name:'',type:'image',image:'',link:'',code:'',enabled:true})">+ 加广告</el-button>
               </div>
               <div class="panel">
                 <div class="panel-head">生效说明</div>
@@ -1309,7 +1315,7 @@ Vue.createApp({
     var ckFm=rct({id:0,provider:"quark",name:"",cookie:""});
     var ckT=rct({running:false,ok:null,detail:""});
     var cfg=rct({pansouBases:[]});
-    var site=rct({site_name:"云盘搜",site_keywords:"",site_description:"",site_favicon:"",site_custom_head:"",site_notices:[],site_ads:[]});
+    var site=rct({site_name:"云盘搜",site_keywords:"",site_description:"",site_favicon:"",site_custom_head:"",site_notices:[],site_ads:[],site_custom_blocks:[]});
     var cache=rct({total:0,quark:0,baidu:0});
     var hi=rf([]);
     var hiSel=rf([]);
@@ -1777,16 +1783,25 @@ Vue.createApp({
         if(r.ok){msg("「"+s.name+"」网盘限制已更新");ldsc()}else msg(r.error||"操作失败","e");
       });
     }
-    var scEditId=rf("");
-    var scNameDraft=rf("");
-    function scSaveName(s){
-      if(scEditId.value!==s.id)return;
-      var n=scNameDraft.value.trim();
-      scEditId.value="";
+    var scEditShow=rf(false);
+    var scEditForm=rct({id:"",name:""});
+    var scEditSaving=rf(false);
+    function scEditOpen(s){
+      scEditForm.id=s.id;
+      scEditForm.name=s.name||"";
+      scEditShow.value=true;
+    }
+    function scEditSave(){
+      var n=(scEditForm.name||"").trim();
       if(!n){msg("名称不能为空","e");return}
-      if(n===s.name)return;
-      ap("POST","sources/update",{id:s.id,name:n}).then(function(r){
-        if(r.ok){s.name=n;msg("「"+n+"」名称已保存，搜索页同步生效")}else msg(r.error||"操作失败","e");
+      scEditSaving.value=true;
+      ap("POST","sources/update",{id:scEditForm.id,name:n}).then(function(r){
+        scEditSaving.value=false;
+        if(r.ok){
+          scEditShow.value=false;
+          msg("「"+n+"」名称已保存，搜索页同步生效");
+          ldsc();
+        }else msg(r.error||"操作失败","e");
       });
     }
 
@@ -2270,7 +2285,7 @@ Vue.createApp({
     function pbAdd(){cfg.pansouBases.push({name:"",host:"",enabled:true,weight:1})}
     function pbDel(i){cfg.pansouBases.splice(i,1)}
     function ldsite(){ap("GET","siteconfig").then(function(r){if(r.site_name)Object.assign(site,r)})}
-    function svsite(){ap("POST","siteconfig",site).then(function(r){msg(r.ok?"站点配置已保存（首页立即生效）":"保存失败",r.ok?"s":"e")})}
+    function svsite(){ap("POST","siteconfig",site).then(function(r){msg(r.ok?"站点配置已保存（首页立即生效）":"保存失败",r.ok?"s":"e")})}var cbDraft=rct({name:"",code:"",position:"head_end",scope:"all",enabled:true});function cbAdd(){var n=cbDraft.name.trim();var c=cbDraft.code.trim();if(!n){msg("请填写名称","e");return}if(!c){msg("请填写代码内容","e");return}site.site_custom_blocks.push({name:n,code:c,position:cbDraft.position,scope:cbDraft.scope,enabled:true});cbDraft.name="";cbDraft.code="";msg("已添加，点上方「保存配置」生效")}
     // ---- MySQL 连接配置（set 页 dbcfg tab） ----
     var dbCfg=rct({host:"",port:3306,user:"",password:"",database:"",tables:0,ready:false,error:""});
     var dbSaving=rf(false);
@@ -2391,7 +2406,7 @@ Vue.createApp({
       }
     });
     return {
-      tk,pg,ldg,lp,le,d,ckItems,ckLoaded,ckFm,ckT,ldck,ckStat,ckNew,ckEdit,ckTest,ckTestRow,ckSave,ckDel,ckToggle,cfg,pbAdd,pbDel,site,ldsite,svsite,cache,hi,hiSel,hiSelChange,hiDel,hiClr,dbInfo,dash,dashBars,lddash,pw,curMenu,menus,msg,gp,login,logout:lgout,lgout,loadst,lddb,ldhi,fmtTime,ldcfg,svcfg,ldca,clr,chpw,
+      tk,pg,ldg,lp,le,d,ckItems,ckLoaded,ckFm,ckT,ldck,ckStat,ckNew,ckEdit,ckTest,ckTestRow,ckSave,ckDel,ckToggle,cfg,pbAdd,pbDel,site,ldsite,svsite,cbDraft,cbAdd,cache,hi,hiSel,hiSelChange,hiDel,hiClr,dbInfo,dash,dashBars,lddash,pw,curMenu,menus,msg,gp,login,logout:lgout,lgout,loadst,lddb,ldhi,fmtTime,ldcfg,svcfg,ldca,clr,chpw,
       dbCfg,dbSaving,ldDbCfg,svDbCfg,cfgImportData,cfgImportName,cfgImportLog,cfgExport,cfgImportPick,cfgImportPick2,cfgImport,
       rsTab,rsQ,res,rsDlgShow,rsEditId,rsSaving,rsAdd,rsCats,rsSel,rsSelChange,rowCls,rsSearch,rsReset,rsPage,ldrsCats,rsOpenDlg,rsadd,rsdel,rsDelBatch,rsExport,rsOptRunning,rsForceOpt,rsOptAllRunning,rsOptOne,rsOptBatch,rsOptAll,subQ,subs,subPending,impText,impPrev,impLogs,crSrcs,crSel,crSelName,crShow,crSaving,crNewShow,crPick,crAiRule,crSelRows,crSelRowsChange,crBatchDel,crBatchAi,crBatchAiRun,crRules,crRuleStats,crNew,crRuleNew,
       srcName,fmtT,ldres,ldsub,subapp,subrej,impup,impcf,ldimp,ldsrc,crAdd,crdel,crrun,ldrule,crruleadd,cruledel,rsDiskName,
@@ -2401,7 +2416,7 @@ Vue.createApp({
       fbQ,fbItems,ldFb,fbHandle,
       rsLinkInfo,rsCheckOne,rsCheckBatch,rsCheckBatchRunning,
       ctItems,ctNew,ctEditId,ctSel,ctSelChange,ldct,ctadd,ctedit,ctCancel,ctst,ctdel,ctDelBatch,
-      scItems,ldsc,scToggle,scDiskOpts,scDisk,scEditId,scNameDraft,scSaveName,
+      scItems,ldsc,scToggle,scDiskOpts,scDisk,scEditShow,scEditForm,scEditSaving,scEditOpen,scEditSave,
       tgTab,setTab,dsTab,tkTab,tgSet,tgItems,tgChannels,tgInst,tgCat,tgAdding,tgRunning,tgTask,tgTesting,ldtg,ldtgSet,tgSv,tgAddIns,tgDelIns,tgSetDefault,tgTestOne,tgTestIns,tgAdd,tgrun,tgToggle,tgdel,tgRunAll,
       tgDiskOpts,tgDiskSel,ldtgDisks,tgSvDisks,tgGen,tgGenRun,tgGenRes,tgGenPick,tgGenRunFn,tgRunGen,
       tsItems,tsLogs,tsShow,tsAdvShow,tsEditId,tsSaving,tsTypes,tsNew,tsSel,tsBatchRun,fmtInt,ldts,ldtslogs,tsSelChange,tstoggle,tsrun,tsRunBatch,tsNewShow,tsedit,tssave,tsdel,tsLogShow,tsLogTask,tsTaskLogs,tsLog,

@@ -86,12 +86,15 @@ async function multiSearch(req, res) {
   json(res, 200, resp);
 }
 
-// GET /api/multi/sources — 公开：搜索源 id + 展示名（搜索页源 tab / 来源徽标用）
+// GET /api/multi/sources — 公开：搜索源 id + 展示名 + 启停（搜索页源 tab / 来源徽标用）
 async function sourceList(req, res) {
   try {
     var cfg = await store.getConfig();
     var labels = registry.getSourceLabels(cfg);
-    var items = Object.keys(registry.REGISTRY).map(function (id) { return { id: id, name: labels[id] }; });
+    var enabledSet = registry.getEnabledSet(cfg);
+    var items = Object.keys(registry.REGISTRY).map(function (id) {
+      return { id: id, name: labels[id], enabled: !!enabledSet[id] };
+    });
     json(res, 200, { items: items });
   } catch (e) { json(res, 500, { error: e.message }); }
 }

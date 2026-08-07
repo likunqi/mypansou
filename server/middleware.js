@@ -84,7 +84,8 @@ function esc(s) {
 }
 
 // 站点配置注入：首页 HTML 动态渲染 title / description / keywords / favicon / 自定义代码
-function injectSiteMeta(html, site) {
+// scope: "home"=首页(注入 home+all 块) / "all"=其他前台页(只注入 all 块)
+function injectSiteMeta(html, site, scope) {
   var s = site || {};
   var title = s.site_name ? (s.site_name + " - 网盘资源搜索引擎") : "云盘搜- 网盘资源搜索引擎";
   var desc = s.site_description || "网盘资源搜索引擎，聚合夸克/百度/阿里云盘资源搜索与转存";
@@ -92,9 +93,29 @@ function injectSiteMeta(html, site) {
   var inject = '<meta name="description" content="' + esc(desc) + '">' +
     '<meta name="keywords" content="' + esc(kws) + '">';
   if (s.site_favicon) inject += '<link rel="icon" href="' + esc(s.site_favicon) + '">';
-  if (s.site_custom_head) inject += s.site_custom_head;
+  if (s.site_custom_head) inject += s.site_custom_head; // 旧字段兼容（仅首页注入）
+
+  // 自定义代码块：按注入位置分组
+  var headTop = "", headEnd = "", bodyStart = "", bodyEnd = "";
+  var blocks = Array.isArray(s.site_custom_blocks) ? s.site_custom_blocks : [];
+  blocks.forEach(function (b) {
+    if (!b || !b.code || b.enabled === false) return;
+    if (scope !== "home" && b.scope !== "all") return; // 非首页只注入全站块
+    var pos = b.position || "head_end";
+    if (pos === "head_start") headTop += b.code;
+    else if (pos === "head_end") headEnd += b.code;
+    else if (pos === "body_start") bodyStart += b.code;
+    else if (pos === "body_end") bodyEnd += b.code;
+  });
+  // head 顶部：meta charset 后（TDK + 旧 custom_head + head_start 块）
   html = html.replace(/<title>[^<]*<\/title>/, "<title>" + esc(title) + "</title>");
-  html = html.replace('<meta charset="UTF-8">', '<meta charset="UTF-8">' + inject);
+  html = html.replace('<meta charset="UTF-8">', '<meta charset="UTF-8">' + inject + headTop);
+  // head 底部
+  if (headEnd) html = html.replace("</head>", headEnd + "</head>");
+  // body 顶部
+  if (bodyStart) html = html.replace(/<body[^>]*>/i, function (m) { return m + bodyStart; });
+  // body 底部（页脚）
+  if (bodyEnd) html = html.replace("</body>", bodyEnd + "</body>");
   return html;
 }
 
@@ -114,11 +135,12 @@ function serveStatic(res, urlPath) {
       res.end('<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>404 - 页面不存在</title></head><body style="font-family:sans-serif;background:#0F172A;color:#F8FAFC;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0"><div style="text-align:center"><h1 style="font-size:48px;margin:0">404</h1><p style="color:#94A3B8">页面不存在或已被移除</p><a href="/" style="color:#22C55E;text-decoration:none;margin-top:16px;display:inline-block">返回首页 →</a></div></body></html>');
       return;
     }
-    // 首页/根路径做站点配置注入（TDK/favicon/自定义代码）
-    if (ext === ".html" && (norm === "/" || norm === "index.html")) {
+    // 前台 HTML 页面注入站点配置（TDK/favicon/自定义代码）：首页 home 范围，其他页 all 范围；admin 后台页不注入
+    if (ext === ".html" && norm.indexOf("admin") === -1) {
       const store = require("../lib/store");
       store.getSiteConfig().then(function(site) {
-        var out = injectSiteMeta(data.toString("utf8"), site);
+        var scope = (norm === "/" || norm === "index.html") ? "home" : "all";
+        var out = injectSiteMeta(data.toString("utf8"), site, scope);
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
         res.end(out);
       }).catch(function() {

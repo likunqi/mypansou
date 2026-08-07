@@ -267,6 +267,26 @@ async function handleRequest(req, res) {
       return;
     }
 
+    // Disclaimer page（免责声明，无后缀访问）
+    if (urlPath === "/disclaimer" && method === "GET") {
+      var fs3 = require("fs");
+      var p3 = require("path");
+      var fp3 = p3.join(__dirname, "..", "public", "disclaimer.html");
+      try {
+        var html3 = fs3.readFileSync(fp3, "utf8");
+        var store3 = require("../lib/store");
+        var siteCfg3 = await store3.getSiteConfig().catch(function () { return null; });
+        var out3 = injectSiteMeta(html3, siteCfg3 || {});
+        // 免责页保留自身更精准的 title（TDK 注入会覆盖成通用标题）
+        out3 = out3.replace(/<title>[^<]*<\/title>/, "<title>免责声明与使用条款 - 云盘搜</title>");
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(out3);
+      } catch (e) {
+        json(res, 404, { error: "disclaimer_page_not_found" });
+      }
+      return;
+    }
+
     // Static files
     serveStatic(res, urlPath);
   } catch (e) {
